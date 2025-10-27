@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Zap, Send } from "lucide-react";
+import { Trophy, Zap, Check, X, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 
@@ -19,6 +19,7 @@ const Client = () => {
   const [answer, setAnswer] = useState("");
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
 
   useEffect(() => {
     if (teamId) {
@@ -40,9 +41,17 @@ const Client = () => {
       })
       .subscribe();
 
+    const answersChannel = supabase
+      .channel('client-answers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        checkAnswerResult();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(answersChannel);
     };
   }, [teamId]);
 
@@ -51,6 +60,7 @@ const Client = () => {
     setHasBuzzed(false);
     setAnswer("");
     setHasAnswered(false);
+    setAnswerResult(null);
     checkIfBuzzed();
     checkIfAnswered();
   }, [currentQuestion?.id]);
@@ -74,13 +84,38 @@ const Client = () => {
     
     const { data } = await supabase
       .from('team_answers')
-      .select('id')
+      .select('*')
       .eq('team_id', team.id)
       .eq('question_id', currentQuestion.id)
       .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
     
-    if (data) setHasAnswered(true);
+    if (data) {
+      setHasAnswered(true);
+      if (data.is_correct !== null) {
+        setAnswerResult(data.is_correct ? 'correct' : 'incorrect');
+      }
+    }
+  };
+
+  const checkAnswerResult = async () => {
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('is_correct')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
+      .maybeSingle();
+    
+    if (data && data.is_correct !== null) {
+      const result = data.is_correct ? 'correct' : 'incorrect';
+      if (result !== answerResult) {
+        setAnswerResult(result);
+        playSound(result);
+      }
+    }
   };
 
   const loadTeam = async () => {
@@ -342,7 +377,28 @@ const Client = () => {
 
         {/* Question et réponse */}
         {currentQuestion && (
-          <Card className="p-6 bg-card/90 backdrop-blur-sm border-secondary/20">
+          <Card className="p-6 bg-card/90 backdrop-blur-sm border-secondary/20 relative">
+            {answerResult && (
+              <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
+                answerResult === 'correct' 
+                  ? 'from-green-500/90 to-emerald-500/90' 
+                  : 'from-red-500/90 to-rose-500/90'
+              } rounded-lg animate-scale-in z-10`}>
+                <div className="text-center">
+                  {answerResult === 'correct' ? (
+                    <>
+                      <Check className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
+                      <p className="text-4xl font-bold text-white">BONNE RÉPONSE !</p>
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
+                      <p className="text-4xl font-bold text-white">MAUVAISE RÉPONSE</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             <h3 className="text-xl font-bold text-secondary mb-4">Question actuelle</h3>
             <p className="text-lg mb-6">{currentQuestion.question_text}</p>
 
