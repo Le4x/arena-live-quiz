@@ -66,6 +66,31 @@ const Client = () => {
     };
   }, [teamId]);
 
+  // Track presence when team is connected
+  useEffect(() => {
+    if (!team?.id) return;
+
+    const presenceChannel = supabase.channel('team-presence');
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        // Presence synced
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            team_id: team.id,
+            team_name: team.name,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [team?.id]);
+
   useEffect(() => {
     // Reset buzzer state when question changes
     setHasBuzzed(false);

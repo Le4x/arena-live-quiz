@@ -5,6 +5,7 @@ import { playSound } from "@/lib/sounds";
 
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
+  const [connectedTeams, setConnectedTeams] = useState<Set<string>>(new Set());
   const [gameState, setGameState] = useState<any>(null);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -53,11 +54,30 @@ const Screen = () => {
       })
       .subscribe();
 
+    // Track connected teams via presence
+    const presenceChannel = supabase.channel('team-presence');
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const connected = new Set<string>();
+        Object.values(state).forEach((presences: any) => {
+          presences.forEach((presence: any) => {
+            if (presence.team_id) {
+              connected.add(presence.team_id);
+            }
+          });
+        });
+        setConnectedTeams(connected);
+        console.log('🔄 Screen: Connected teams:', connected.size);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
+      supabase.removeChannel(presenceChannel);
     };
   }, []);
 
@@ -177,7 +197,7 @@ const Screen = () => {
             {currentSession?.name || 'ARENA'}
           </h1>
           <p className="text-accent text-xl mt-2 font-bold">
-            {teams.length} équipe{teams.length > 1 ? 's' : ''} connectée{teams.length > 1 ? 's' : ''}
+            {connectedTeams.size} équipe{connectedTeams.size > 1 ? 's' : ''} connectée{connectedTeams.size > 1 ? 's' : ''}
           </p>
         </header>
 
