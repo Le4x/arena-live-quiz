@@ -31,10 +31,24 @@ const Client = () => {
       })
       .subscribe();
 
+    const teamsChannel = supabase
+      .channel('client-teams')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        loadTeam();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(teamsChannel);
     };
   }, [teamId]);
+
+  useEffect(() => {
+    // Reset buzzer state when question changes
+    setHasBuzzed(false);
+    setAnswer("");
+  }, [currentQuestion?.id]);
 
   const loadTeam = async () => {
     if (!teamId) return;

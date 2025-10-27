@@ -7,6 +7,7 @@ const Screen = () => {
   const [gameState, setGameState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timer, setTimer] = useState<number | null>(null);
+  const [buzzers, setBuzzers] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -26,11 +27,23 @@ const Screen = () => {
       })
       .subscribe();
 
+    const buzzersChannel = supabase
+      .channel('screen-buzzers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        loadBuzzers();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(buzzersChannel);
     };
   }, []);
+
+  useEffect(() => {
+    loadBuzzers();
+  }, [currentQuestion?.id]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -57,6 +70,21 @@ const Screen = () => {
       setGameState(gameStateRes.data);
       setCurrentQuestion(gameStateRes.data.questions);
     }
+  };
+
+  const loadBuzzers = async () => {
+    if (!currentQuestion?.id) {
+      setBuzzers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_id', currentQuestion.id)
+      .order('buzzed_at', { ascending: true });
+    
+    if (data) setBuzzers(data);
   };
 
   return (
@@ -119,6 +147,34 @@ const Screen = () => {
             <div className="bg-primary/90 backdrop-blur-xl rounded-full px-8 py-4 flex items-center gap-3 shadow-glow-gold">
               <Zap className="w-8 h-8 text-primary-foreground" />
               <span className="text-2xl font-bold text-primary-foreground">BUZZER ACTIF</span>
+            </div>
+          </div>
+        )}
+
+        {/* Buzzers en temps réel */}
+        {buzzers.length > 0 && !gameState?.show_leaderboard && (
+          <div className="fixed right-8 top-32 w-96 space-y-3 animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-4 border-2 border-primary shadow-glow-gold">
+              <h3 className="text-xl font-bold text-primary mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Buzzers ({buzzers.length})
+              </h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {buzzers.slice(0, 10).map((buzzer, index) => (
+                  <div
+                    key={buzzer.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border-2 bg-muted/50 animate-slide-in"
+                    style={{ borderColor: buzzer.teams?.color, animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: buzzer.teams?.color }}
+                    ></div>
+                    <div className="flex-1 font-bold">{buzzer.teams?.name}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
