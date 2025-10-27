@@ -90,6 +90,22 @@ export default function AdminSessions() {
   };
 
   const startSession = async (sessionId: string) => {
+    // Récupérer les données de la session
+    const { data: session } = await supabase
+      .from("game_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+
+    if (!session || !session.selected_rounds || !Array.isArray(session.selected_rounds) || session.selected_rounds.length === 0) {
+      toast({
+        title: "Erreur",
+        description: "Cette session n'a pas de manches sélectionnées",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Désactiver toutes les autres sessions
     await supabase
       .from("game_sessions")
@@ -103,6 +119,7 @@ export default function AdminSessions() {
       .update({
         status: "active",
         started_at: new Date().toISOString(),
+        current_round_index: 0,
       })
       .eq("id", sessionId);
 
@@ -116,7 +133,18 @@ export default function AdminSessions() {
       return;
     }
 
-    // Mettre à jour game_state avec cette session
+    // Récupérer la première question de la première manche
+    const selectedRoundsArray = session.selected_rounds as string[];
+    const firstRoundId = selectedRoundsArray[0];
+    const { data: firstQuestion } = await supabase
+      .from("questions")
+      .select("*")
+      .eq("round_id", firstRoundId)
+      .order("display_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    // Mettre à jour ou créer game_state avec cette session
     const { data: gameStateData } = await supabase
       .from("game_state")
       .select("*")
@@ -126,16 +154,38 @@ export default function AdminSessions() {
     if (gameStateData) {
       await supabase
         .from("game_state")
-        .update({ game_session_id: sessionId })
+        .update({ 
+          game_session_id: sessionId,
+          current_question_id: firstQuestion?.id || null,
+          is_buzzer_active: false,
+          timer_active: false,
+          show_leaderboard: false,
+        })
         .eq("id", gameStateData.id);
+    } else {
+      // Créer un nouveau game_state si aucun n'existe
+      await supabase
+        .from("game_state")
+        .insert({
+          game_session_id: sessionId,
+          current_question_id: firstQuestion?.id || null,
+          is_buzzer_active: false,
+          timer_active: false,
+          show_leaderboard: false,
+        });
     }
 
     toast({
-      title: "Succès",
-      description: "Session démarrée",
+      title: "Session lancée !",
+      description: "Redirection vers la régie...",
     });
 
     loadSessions();
+    
+    // Rediriger vers la régie après 1 seconde
+    setTimeout(() => {
+      navigate('/regie');
+    }, 1000);
   };
 
   const resetSession = async (sessionId: string) => {
@@ -191,7 +241,8 @@ export default function AdminSessions() {
     );
   };
 
-  const getRoundNames = (roundIds: string[]) => {
+  const getRoundNames = (roundIds: any) => {
+    if (!Array.isArray(roundIds)) return "";
     return rounds
       .filter(r => roundIds.includes(r.id))
       .map(r => r.title)
@@ -318,16 +369,14 @@ export default function AdminSessions() {
                   </div>
 
                   <div className="flex gap-2">
-                    {session.status !== "active" && (
-                      <Button
-                        size="sm"
-                        onClick={() => startSession(session.id)}
-                        className="bg-green-500 hover:bg-green-600"
-                      >
-                        <Play className="h-4 w-4 mr-1" />
-                        Démarrer
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => startSession(session.id)}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      {session.status === "active" ? "Relancer" : "Démarrer"}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

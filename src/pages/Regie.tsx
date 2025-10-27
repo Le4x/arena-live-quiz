@@ -146,8 +146,29 @@ const Regie = () => {
   };
 
   const loadRounds = async () => {
-    const { data } = await supabase.from('rounds').select('*').order('created_at', { ascending: false });
-    if (data) setRounds(data);
+    // Charger uniquement les manches de la session active si elle existe
+    const { data: activeSession } = await supabase
+      .from("game_sessions")
+      .select("*")
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (activeSession && Array.isArray(activeSession.selected_rounds) && activeSession.selected_rounds.length > 0) {
+      const selectedRoundsArray = activeSession.selected_rounds as string[];
+      const { data } = await supabase
+        .from('rounds')
+        .select('*')
+        .in('id', selectedRoundsArray)
+        .order('created_at', { ascending: false });
+      if (data) setRounds(data);
+    } else {
+      // Si pas de session active, charger toutes les manches
+      const { data } = await supabase
+        .from('rounds')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setRounds(data);
+    }
   };
 
   const loadQuestions = async () => {
@@ -172,16 +193,53 @@ const Regie = () => {
   };
 
   const nextQuestion = async () => {
-    if (!currentQuestion || !selectedRound) return;
+    if (!currentQuestion || !gameState?.game_session_id) return;
     
-    const roundQuestions = questions.filter(q => q.round_id === selectedRound);
-    const currentIndex = roundQuestions.findIndex(q => q.id === currentQuestion.id);
+    // Récupérer la session active pour avoir les manches sélectionnées
+    const { data: activeSession } = await supabase
+      .from("game_sessions")
+      .select("*")
+      .eq("id", gameState.game_session_id)
+      .single();
+
+    if (!activeSession || !Array.isArray(activeSession.selected_rounds)) {
+      toast({ 
+        title: "Erreur", 
+        description: "Impossible de charger la session", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const selectedRoundsArray = activeSession.selected_rounds as string[];
     
-    if (currentIndex < roundQuestions.length - 1) {
-      const nextQ = roundQuestions[currentIndex + 1];
+    // Récupérer toutes les questions des manches de la session
+    const { data: allQuestions } = await supabase
+      .from('questions')
+      .select('*')
+      .in('round_id', selectedRoundsArray)
+      .order('display_order', { ascending: true });
+
+    if (!allQuestions || allQuestions.length === 0) {
+      toast({ 
+        title: "Aucune question", 
+        description: "Cette session n'a pas de questions", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const currentIndex = allQuestions.findIndex(q => q.id === currentQuestion.id);
+    
+    if (currentIndex < allQuestions.length - 1) {
+      const nextQ = allQuestions[currentIndex + 1];
       await setQuestion(nextQ.id);
     } else {
-      toast({ title: "Dernière question", description: "C'est la fin de cette manche", variant: "destructive" });
+      toast({ 
+        title: "Fin de la session", 
+        description: "C'était la dernière question", 
+        variant: "destructive" 
+      });
     }
   };
 
