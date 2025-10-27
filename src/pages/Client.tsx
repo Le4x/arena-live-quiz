@@ -1,0 +1,279 @@
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Zap, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const Client = () => {
+  const { teamId } = useParams();
+  const { toast } = useToast();
+  const [team, setTeam] = useState<any>(null);
+  const [teamName, setTeamName] = useState("");
+  const [teamColor, setTeamColor] = useState("#FFD700");
+  const [gameState, setGameState] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [answer, setAnswer] = useState("");
+  const [hasBuzzed, setHasBuzzed] = useState(false);
+
+  useEffect(() => {
+    if (teamId) {
+      loadTeam();
+    }
+    loadGameState();
+
+    const gameStateChannel = supabase
+      .channel('client-game-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        loadGameState();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(gameStateChannel);
+    };
+  }, [teamId]);
+
+  const loadTeam = async () => {
+    if (!teamId) return;
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
+    if (data) setTeam(data);
+  };
+
+  const loadGameState = async () => {
+    const { data } = await supabase
+      .from('game_state')
+      .select('*, questions(*)')
+      .single();
+    if (data) {
+      setGameState(data);
+      setCurrentQuestion(data.questions);
+    }
+  };
+
+  const createTeam = async () => {
+    if (!teamName.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer un nom d'équipe",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('teams')
+      .insert([
+        { name: teamName, color: teamColor, score: 0 }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer l'équipe",
+        variant: "destructive"
+      });
+    } else if (data) {
+      setTeam(data);
+      window.history.replaceState(null, '', `/client/${data.id}`);
+      toast({
+        title: "Équipe créée !",
+        description: `Bienvenue ${data.name} !`,
+      });
+    }
+  };
+
+  const handleBuzzer = async () => {
+    if (!team || !currentQuestion || !gameState?.is_buzzer_active || hasBuzzed) return;
+
+    const { error } = await supabase
+      .from('buzzer_attempts')
+      .insert([
+        { team_id: team.id, question_id: currentQuestion.id }
+      ]);
+
+    if (error) {
+      if (error.code === '23505') { // Unique constraint violation
+        toast({
+          title: "Déjà buzzé",
+          description: "Vous avez déjà buzzé pour cette question",
+          variant: "destructive"
+        });
+      }
+    } else {
+      setHasBuzzed(true);
+      toast({
+        title: "Buzzé !",
+        description: "Votre buzzer a été enregistré",
+      });
+    }
+  };
+
+  const submitAnswer = async () => {
+    if (!team || !currentQuestion || !answer.trim()) return;
+
+    const { error } = await supabase
+      .from('team_answers')
+      .insert([
+        { 
+          team_id: team.id, 
+          question_id: currentQuestion.id,
+          answer: answer
+        }
+      ]);
+
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la réponse",
+        variant: "destructive"
+      });
+    } else {
+      setAnswer("");
+      toast({
+        title: "Réponse envoyée !",
+        description: "Votre réponse a été enregistrée",
+      });
+    }
+  };
+
+  if (!team) {
+    return (
+      <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
+        <Card className="w-full max-w-md p-8 bg-card/90 backdrop-blur-sm border-primary/20">
+          <h1 className="text-4xl font-bold text-center bg-gradient-arena bg-clip-text text-transparent mb-8">
+            ARENA
+          </h1>
+          <h2 className="text-2xl font-bold text-center mb-6">Rejoindre le jeu</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nom de l'équipe</label>
+              <Input
+                placeholder="Les Champions"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                className="bg-input border-border"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Couleur de l'équipe</label>
+              <div className="flex gap-3">
+                {['#FFD700', '#3B82F6', '#A855F7', '#EF4444', '#10B981', '#F59E0B'].map((color) => (
+                  <button
+                    key={color}
+                    className={`w-12 h-12 rounded-full border-4 transition-all ${
+                      teamColor === color ? 'border-foreground scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setTeamColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              onClick={createTeam} 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold h-12 text-lg"
+            >
+              Rejoindre
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-glow p-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header équipe */}
+        <Card className="p-6 bg-card/90 backdrop-blur-sm border-2" style={{ borderColor: team.color }}>
+          <div className="flex items-center gap-4">
+            <div 
+              className="w-16 h-16 rounded-full"
+              style={{ backgroundColor: team.color }}
+            ></div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold">{team.name}</h2>
+              <p className="text-muted-foreground">Score: {team.score} points</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Buzzer */}
+        {gameState?.is_buzzer_active && currentQuestion && (
+          <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
+            <Button
+              onClick={handleBuzzer}
+              disabled={hasBuzzed}
+              className="w-full h-32 text-3xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold disabled:opacity-50"
+            >
+              <Zap className="mr-4 h-12 w-12" />
+              {hasBuzzed ? "BUZZÉ !" : "BUZZER"}
+            </Button>
+          </Card>
+        )}
+
+        {/* Question et réponse */}
+        {currentQuestion && (
+          <Card className="p-6 bg-card/90 backdrop-blur-sm border-secondary/20">
+            <h3 className="text-xl font-bold text-secondary mb-4">Question actuelle</h3>
+            <p className="text-lg mb-6">{currentQuestion.question_text}</p>
+
+            {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
+              <div className="space-y-3 mb-6">
+                {Object.entries(JSON.parse(currentQuestion.options) || {}).map(([key, value]) => (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    className="w-full justify-start text-left h-auto py-4 px-6"
+                    onClick={() => setAnswer(value as string)}
+                  >
+                    <span className="text-primary font-bold mr-3">{key}.</span>
+                    <span>{value as string}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {currentQuestion.question_type === 'free_text' && (
+              <div className="space-y-4">
+                <Input
+                  placeholder="Votre réponse..."
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  className="bg-input border-border"
+                />
+                <Button
+                  onClick={submitAnswer}
+                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue"
+                >
+                  <Send className="mr-2 h-5 w-5" />
+                  Envoyer la réponse
+                </Button>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {!currentQuestion && (
+          <Card className="p-12 bg-card/90 backdrop-blur-sm text-center">
+            <p className="text-xl text-muted-foreground">En attente de la prochaine question...</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Client;
