@@ -15,6 +15,7 @@ const Regie = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [teams, setTeams] = useState<any[]>([]);
+  const [connectedTeams, setConnectedTeams] = useState<Set<string>>(new Set());
   const [gameState, setGameState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [rounds, setRounds] = useState<any[]>([]);
@@ -56,10 +57,29 @@ const Regie = () => {
         console.log('📡 Buzzer channel status:', status);
       });
 
+    // Track connected teams via presence
+    const presenceChannel = supabase.channel('team-presence');
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const connected = new Set<string>();
+        Object.values(state).forEach((presences: any) => {
+          presences.forEach((presence: any) => {
+            if (presence.team_id) {
+              connected.add(presence.team_id);
+            }
+          });
+        });
+        setConnectedTeams(connected);
+        console.log('🔄 Regie: Connected teams:', connected.size);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
+      supabase.removeChannel(presenceChannel);
     };
   }, []);
 
@@ -640,27 +660,30 @@ const Regie = () => {
         {/* Équipes connectées */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
           <h2 className="text-2xl font-bold text-secondary mb-4">
-            Équipes connectées ({teams.length}/30)
+            Équipes connectées ({connectedTeams.size}/{teams.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {teams.map((team) => (
-              <div
-                key={team.id}
-                className="p-4 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
-                style={{ borderLeftColor: team.color, borderLeftWidth: '4px' }}
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg">{team.name}</h3>
-                  <span className="text-2xl font-bold text-primary">{team.score}</span>
+            {teams.map((team) => {
+              const isConnected = connectedTeams.has(team.id);
+              return (
+                <div
+                  key={team.id}
+                  className="p-4 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
+                  style={{ borderLeftColor: team.color, borderLeftWidth: '4px' }}
+                >
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-lg">{team.name}</h3>
+                    <span className="text-2xl font-bold text-primary">{team.score}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {isConnected ? "🟢 Connecté" : "⚪ Déconnecté"}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {team.is_active ? "🟢 Actif" : "🔴 Inactif"}
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {teams.length === 0 && (
               <div className="col-span-full text-center py-8 text-muted-foreground">
-                Aucune équipe connectée
+                Aucune équipe créée
               </div>
             )}
           </div>
