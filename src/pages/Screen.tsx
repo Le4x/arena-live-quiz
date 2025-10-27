@@ -170,17 +170,46 @@ const Screen = () => {
 
       <div className="relative z-10 p-8">
         {/* Logo et titre */}
-        <header className="text-center py-12 animate-slide-in">
-          <h1 className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+        <header className="text-center py-6 animate-slide-in">
+          <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
             ARENA
           </h1>
-          <p className="text-accent text-3xl mt-4 font-bold">MusicArena #1</p>
+          <p className="text-accent text-xl mt-2 font-bold">MusicArena #1</p>
         </header>
+
+        {/* Scores compacts - toujours visibles */}
+        {!gameState?.show_leaderboard && teams.length > 0 && (
+          <div className="max-w-7xl mx-auto mb-6 animate-fade-in">
+            <div className="bg-card/80 backdrop-blur-xl rounded-2xl p-4 border border-primary/20 shadow-lg">
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                {teams.map((team, index) => (
+                  <div
+                    key={team.id}
+                    className="flex items-center gap-2 bg-muted/50 rounded-xl px-4 py-2 border-2 transition-all hover:scale-105 flex-shrink-0"
+                    style={{ borderColor: team.color + '40' }}
+                  >
+                    <div className="text-lg font-bold text-muted-foreground w-6 text-center">
+                      {index + 1}
+                    </div>
+                    <div
+                      className="w-3 h-3 rounded-full animate-pulse"
+                      style={{ backgroundColor: team.color }}
+                    ></div>
+                    <div className="font-bold text-base">{team.name}</div>
+                    <div className="text-xl font-bold text-primary ml-2">
+                      {team.score}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Question actuelle */}
         {currentQuestion && !gameState?.show_leaderboard && (
-          <div className="max-w-5xl mx-auto mb-12 animate-slide-in">
-            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-2 border-primary shadow-glow-gold">
+          <div className="max-w-5xl mx-auto mb-8 animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold">
               <div className="text-center">
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm text-primary font-bold uppercase tracking-wider">
@@ -192,7 +221,7 @@ const Screen = () => {
                     </div>
                   )}
                 </div>
-                <h2 className="text-5xl font-bold mb-8">{currentQuestion.question_text}</h2>
+                <h2 className="text-4xl font-bold mb-6">{currentQuestion.question_text}</h2>
                 
                 {currentQuestion.options && (() => {
                   try {
@@ -200,14 +229,14 @@ const Screen = () => {
                       ? JSON.parse(currentQuestion.options as string) 
                       : currentQuestion.options;
                     return (
-                      <div className="grid grid-cols-2 gap-6 mt-8">
+                      <div className="grid grid-cols-2 gap-4 mt-6">
                         {Object.entries(options || {}).map(([key, value]) => (
                           <div
                             key={key}
-                            className="bg-muted/50 rounded-2xl p-6 border-2 border-secondary/50 hover:border-secondary transition-all"
+                            className="bg-muted/50 rounded-xl p-4 border-2 border-secondary/50 hover:border-secondary transition-all"
                           >
-                            <span className="text-secondary font-bold text-2xl">{key}.</span>
-                            <span className="ml-4 text-2xl">{value as string}</span>
+                            <span className="text-secondary font-bold text-xl">{key}.</span>
+                            <span className="ml-3 text-xl">{value as string}</span>
                           </div>
                         ))}
                       </div>
@@ -289,37 +318,92 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Classement */}
+        {/* Classement - Mode podium visuel */}
         {gameState?.show_leaderboard && (
-          <div className="max-w-5xl mx-auto animate-slide-in">
-            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-2 border-accent shadow-glow-purple">
+          <div className="max-w-6xl mx-auto animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-accent shadow-glow-purple">
               <div className="flex items-center justify-center gap-4 mb-8">
-                <Trophy className="w-16 h-16 text-primary" />
+                <Trophy className="w-12 h-12 text-primary" />
                 <h2 className="text-5xl font-bold text-primary">Classement</h2>
               </div>
               
-              <div className="space-y-4">
-                {teams.slice(0, 10).map((team, index) => (
-                  <div
-                    key={team.id}
-                    className="flex items-center gap-6 bg-muted/50 rounded-2xl p-6 border-2 border-border hover:border-primary/50 transition-all"
-                  >
-                    <div className="text-5xl font-bold text-primary w-16 text-center">
-                      {index + 1}
+              {/* Top 3 - Podium style */}
+              {teams.length > 0 && (
+                <div className="flex items-end justify-center gap-4 mb-8">
+                  {/* 2ème place */}
+                  {teams[1] && (
+                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.2s' }}>
+                      <div className="bg-muted/50 rounded-2xl p-6 border-2 border-secondary/50 w-48 text-center">
+                        <div className="text-6xl mb-2">🥈</div>
+                        <div
+                          className="w-8 h-8 rounded-full mx-auto mb-2"
+                          style={{ backgroundColor: teams[1].color }}
+                        ></div>
+                        <h3 className="text-xl font-bold mb-1 truncate">{teams[1].name}</h3>
+                        <div className="text-3xl font-bold text-secondary">{teams[1].score}</div>
+                      </div>
+                      <div className="w-full h-24 bg-secondary/20 rounded-t-xl mt-2"></div>
                     </div>
+                  )}
+                  
+                  {/* 1ère place */}
+                  {teams[0] && (
+                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.1s' }}>
+                      <div className="bg-muted/50 rounded-2xl p-6 border-4 border-primary shadow-glow-gold w-56 text-center">
+                        <div className="text-7xl mb-2">🏆</div>
+                        <div
+                          className="w-10 h-10 rounded-full mx-auto mb-2 animate-pulse"
+                          style={{ backgroundColor: teams[0].color }}
+                        ></div>
+                        <h3 className="text-2xl font-bold mb-1 truncate">{teams[0].name}</h3>
+                        <div className="text-4xl font-bold text-primary">{teams[0].score}</div>
+                      </div>
+                      <div className="w-full h-32 bg-primary/20 rounded-t-xl mt-2"></div>
+                    </div>
+                  )}
+                  
+                  {/* 3ème place */}
+                  {teams[2] && (
+                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.3s' }}>
+                      <div className="bg-muted/50 rounded-2xl p-6 border-2 border-accent/50 w-48 text-center">
+                        <div className="text-6xl mb-2">🥉</div>
+                        <div
+                          className="w-8 h-8 rounded-full mx-auto mb-2"
+                          style={{ backgroundColor: teams[2].color }}
+                        ></div>
+                        <h3 className="text-xl font-bold mb-1 truncate">{teams[2].name}</h3>
+                        <div className="text-3xl font-bold text-accent">{teams[2].score}</div>
+                      </div>
+                      <div className="w-full h-16 bg-accent/20 rounded-t-xl mt-2"></div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Reste du classement - Compact */}
+              {teams.length > 3 && (
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  {teams.slice(3, 11).map((team, index) => (
                     <div
-                      className="w-2 h-16 rounded-full"
-                      style={{ backgroundColor: team.color }}
-                    ></div>
-                    <div className="flex-1">
-                      <h3 className="text-3xl font-bold">{team.name}</h3>
+                      key={team.id}
+                      className="flex items-center gap-3 bg-muted/30 rounded-xl p-3 border border-border/50 hover:border-primary/50 transition-all animate-fade-in"
+                      style={{ animationDelay: `${(index + 3) * 0.05}s` }}
+                    >
+                      <div className="text-2xl font-bold text-muted-foreground w-8 text-center">
+                        {index + 4}
+                      </div>
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: team.color }}
+                      ></div>
+                      <div className="flex-1 font-bold text-lg truncate">{team.name}</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {team.score}
+                      </div>
                     </div>
-                    <div className="text-5xl font-bold text-secondary">
-                      {team.score}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
