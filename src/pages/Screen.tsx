@@ -182,24 +182,75 @@ const Screen = () => {
     if (data) setTextAnswers(data);
   };
 
+  // Écran d'accueil - affiché quand il n'y a pas de question et pas de classement
+  const showWelcomeScreen = !currentQuestion && !gameState?.show_leaderboard;
+
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      <div className="relative z-10 p-8">
-        {/* Logo et titre */}
-        <header className="text-center py-6 animate-slide-in">
-          <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
-            {currentSession?.name || 'ARENA'}
-          </h1>
-          <p className="text-accent text-xl mt-2 font-bold">
-            {connectedTeams.size} équipe{connectedTeams.size > 1 ? 's' : ''} connectée{connectedTeams.size > 1 ? 's' : ''}
-          </p>
-        </header>
+      {showWelcomeScreen ? (
+        /* ===== ÉCRAN D'ACCUEIL ANIMÉ ===== */
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
+          {/* Titre principal animé */}
+          <div className="text-center mb-12 animate-slide-in">
+            <h1 className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-4">
+              MUSIC ARENA
+            </h1>
+            <div className="flex items-center justify-center gap-4 text-3xl">
+              <div className="w-12 h-1 bg-gradient-arena rounded"></div>
+              <p className="text-secondary font-bold">
+                {currentSession?.name || 'En attente de session'}
+              </p>
+              <div className="w-12 h-1 bg-gradient-arena rounded"></div>
+            </div>
+          </div>
+
+          {/* Compteur d'équipes connectées */}
+          <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold animate-scale-in mb-12">
+            <div className="text-center">
+              <p className="text-2xl text-muted-foreground mb-2">Équipes connectées</p>
+              <p className="text-7xl font-bold text-primary animate-pulse-glow">
+                {connectedTeams.size}
+              </p>
+            </div>
+          </div>
+
+          {/* Message d'attente animé */}
+          <div className="text-center animate-fade-in" style={{ animationDelay: '0.5s' }}>
+            <p className="text-2xl text-accent font-semibold mb-4">
+              En attente du début de la partie...
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+              <div className="w-3 h-3 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-3 h-3 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+            </div>
+          </div>
+
+          {/* Décoration musicale */}
+          <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 flex gap-4 opacity-20">
+            <div className="text-6xl animate-bounce" style={{ animationDelay: '0s' }}>🎵</div>
+            <div className="text-7xl animate-bounce" style={{ animationDelay: '0.3s' }}>🎶</div>
+            <div className="text-6xl animate-bounce" style={{ animationDelay: '0.6s' }}>🎵</div>
+          </div>
+        </div>
+      ) : (
+        <div className="relative z-10 p-8">
+          {/* Logo et titre */}
+          <header className="text-center py-6 animate-slide-in">
+            <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+              {currentSession?.name || 'ARENA'}
+            </h1>
+            <p className="text-accent text-xl mt-2 font-bold">
+              {connectedTeams.size} équipe{connectedTeams.size > 1 ? 's' : ''} connectée{connectedTeams.size > 1 ? 's' : ''}
+            </p>
+          </header>
 
 
         {/* Question actuelle */}
@@ -471,7 +522,8 @@ const Screen = () => {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
