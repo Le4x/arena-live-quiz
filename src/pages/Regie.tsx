@@ -8,6 +8,7 @@ import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { useNavigate } from "react-router-dom";
+import { playSound } from "@/lib/sounds";
 
 const Regie = () => {
   const navigate = useNavigate();
@@ -279,6 +280,9 @@ const Regie = () => {
   const validateAnswer = async (teamId: string, isCorrect: boolean) => {
     const points = isCorrect ? (currentQuestion?.points || 10) : -(currentQuestion?.points || 10) / 2;
     
+    // Jouer le son et afficher le résultat sur l'écran
+    playSound(isCorrect ? 'correct' : 'incorrect');
+    
     // Update team score
     const team = teams.find(t => t.id === teamId);
     if (team) {
@@ -289,10 +293,13 @@ const Regie = () => {
     }
 
     if (isCorrect) {
-      // Bonne réponse : désactiver le buzzer et supprimer les tentatives
+      // Bonne réponse : désactiver le buzzer, afficher le résultat et supprimer les tentatives
       await supabase
         .from('game_state')
-        .update({ is_buzzer_active: false })
+        .update({ 
+          is_buzzer_active: false,
+          answer_result: 'correct'
+        })
         .eq('id', gameState.id);
       
       await clearBuzzers();
@@ -301,14 +308,25 @@ const Regie = () => {
         title: "✅ Bonne réponse !",
         description: `+${points} points`,
       });
+      
+      // Réinitialiser l'affichage après 3 secondes
+      setTimeout(async () => {
+        await supabase
+          .from('game_state')
+          .update({ answer_result: null })
+          .eq('id', gameState.id);
+      }, 3000);
     } else {
-      // Mauvaise réponse : exclure cette équipe mais garder le buzzer actif
+      // Mauvaise réponse : exclure cette équipe, afficher le résultat mais garder le buzzer actif
       const excludedTeams = (gameState.excluded_teams || []) as string[];
       excludedTeams.push(teamId);
       
       await supabase
         .from('game_state')
-        .update({ excluded_teams: excludedTeams })
+        .update({ 
+          excluded_teams: excludedTeams,
+          answer_result: 'incorrect'
+        })
         .eq('id', gameState.id);
       
       await clearBuzzers();
@@ -317,6 +335,14 @@ const Regie = () => {
         title: "❌ Mauvaise réponse",
         description: `${points} points - Relancez le buzzer`,
       });
+      
+      // Réinitialiser l'affichage après 2 secondes
+      setTimeout(async () => {
+        await supabase
+          .from('game_state')
+          .update({ answer_result: null })
+          .eq('id', gameState.id);
+      }, 2000);
     }
   };
 

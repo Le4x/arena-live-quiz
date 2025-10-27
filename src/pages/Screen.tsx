@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Zap } from "lucide-react";
+import { Trophy, Zap, Check, X } from "lucide-react";
 
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
@@ -290,6 +290,31 @@ const Screen = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Résultat de validation - Effet de suspense */}
+        {gameState?.answer_result && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+            <div className={`transform transition-all duration-500 animate-bounce-in ${
+              gameState.answer_result === 'correct' 
+                ? 'bg-green-500/95' 
+                : 'bg-red-500/95'
+            } backdrop-blur-xl rounded-3xl p-16 border-4 shadow-glow-gold`}>
+              <div className="text-center">
+                {gameState.answer_result === 'correct' ? (
+                  <>
+                    <Check className="w-40 h-40 text-white mx-auto mb-8 animate-pulse" />
+                    <h2 className="text-8xl font-bold text-white">CORRECT !</h2>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-40 h-40 text-white mx-auto mb-8 animate-pulse" />
+                    <h2 className="text-8xl font-bold text-white">INCORRECT !</h2>
+                  </>
+                )}
               </div>
             </div>
           </div>

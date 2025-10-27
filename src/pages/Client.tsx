@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Zap, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { playSound } from "@/lib/sounds";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -172,6 +173,7 @@ const Client = () => {
       }
     } else {
       setHasBuzzed(true);
+      playSound('buzz');
       toast({
         title: "Buzzé !",
         description: "Votre buzzer a été enregistré",
