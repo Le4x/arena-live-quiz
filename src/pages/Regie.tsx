@@ -186,7 +186,8 @@ const Regie = () => {
     await supabase.from('game_state').update({ 
       current_question_id: questionId,
       timer_active: true,
-      timer_remaining: round?.timer_duration || 30
+      timer_remaining: round?.timer_duration || 30,
+      excluded_teams: [] // Réinitialiser les équipes exclues pour la nouvelle question
     }).eq('id', gameState.id);
     
     toast({ title: "Question chargée et chrono lancé" });
@@ -287,9 +288,52 @@ const Regie = () => {
         .eq('id', teamId);
     }
 
+    if (isCorrect) {
+      // Bonne réponse : désactiver le buzzer et supprimer les tentatives
+      await supabase
+        .from('game_state')
+        .update({ is_buzzer_active: false })
+        .eq('id', gameState.id);
+      
+      await clearBuzzers();
+      
+      toast({
+        title: "✅ Bonne réponse !",
+        description: `+${points} points`,
+      });
+    } else {
+      // Mauvaise réponse : exclure cette équipe mais garder le buzzer actif
+      const excludedTeams = (gameState.excluded_teams || []) as string[];
+      excludedTeams.push(teamId);
+      
+      await supabase
+        .from('game_state')
+        .update({ excluded_teams: excludedTeams })
+        .eq('id', gameState.id);
+      
+      await clearBuzzers();
+      
+      toast({
+        title: "❌ Mauvaise réponse",
+        description: `${points} points - Relancez le buzzer`,
+      });
+    }
+  };
+
+  const resetBuzzerForQuestion = async () => {
+    if (!gameState) return;
+    
+    // Réinitialiser la liste des équipes exclues
+    await supabase
+      .from('game_state')
+      .update({ excluded_teams: [] })
+      .eq('id', gameState.id);
+    
+    await clearBuzzers();
+    
     toast({
-      title: isCorrect ? "✅ Bonne réponse !" : "❌ Mauvaise réponse",
-      description: `${points > 0 ? '+' : ''}${points} points`,
+      title: "Buzzer réinitialisé",
+      description: "Toutes les équipes peuvent à nouveau buzzer",
     });
   };
 
@@ -381,52 +425,54 @@ const Regie = () => {
         </Card>
 
         {/* Premier buzzeur - Validation */}
-        {buzzers.length > 0 && (
-          <Card className="p-6 bg-card/90 backdrop-blur-sm border-2 border-primary shadow-glow-gold animate-slide-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-10 w-10 text-primary animate-pulse" />
-                  <div>
-                    <h3 className="text-sm text-muted-foreground">Premier buzzeur</h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      <div
-                        className="w-6 h-6 rounded-full"
-                        style={{ backgroundColor: buzzers[0].teams?.color }}
-                      ></div>
-                      <p className="text-3xl font-bold">{buzzers[0].teams?.name}</p>
+        {buzzers.length > 0 && currentQuestion?.question_type === 'blind_test' && (
+          <Card className="p-6 bg-card/90 backdrop-blur-sm border-4 border-primary shadow-glow-gold animate-slide-in">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <Zap className="h-12 w-12 text-primary animate-pulse" />
+                    <div>
+                      <h3 className="text-lg text-primary font-bold">🔔 QUELQU'UN A BUZZÉ !</h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div
+                          className="w-8 h-8 rounded-full border-2 border-foreground"
+                          style={{ backgroundColor: buzzers[0].teams?.color }}
+                        ></div>
+                        <p className="text-4xl font-bold">{buzzers[0].teams?.name}</p>
+                      </div>
                     </div>
                   </div>
+                  {buzzers.length > 1 && (
+                    <div className="text-sm text-muted-foreground">
+                      +{buzzers.length - 1} autre{buzzers.length > 2 ? 's' : ''} buzzeur{buzzers.length > 2 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
-                {buzzers.length > 1 && (
-                  <div className="text-sm text-muted-foreground">
-                    +{buzzers.length - 1} autre{buzzers.length > 2 ? 's' : ''} buzzeur{buzzers.length > 2 ? 's' : ''}
-                  </div>
-                )}
               </div>
+              
               <div className="flex gap-3">
                 <Button
                   size="lg"
-                  className="h-16 px-8 bg-green-600 hover:bg-green-700 text-white"
+                  className="h-16 px-8 bg-green-600 hover:bg-green-700 text-white text-lg"
                   onClick={() => validateAnswer(buzzers[0].team_id, true)}
                 >
                   ✅ Bonne réponse
                 </Button>
                 <Button
                   size="lg"
-                  variant="destructive"
-                  className="h-16 px-8"
+                  className="h-16 px-8 bg-orange-600 hover:bg-orange-700 text-white text-lg"
                   onClick={() => validateAnswer(buzzers[0].team_id, false)}
                 >
-                  ❌ Mauvaise réponse
+                  ❌ Mauvaise - Relancer
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
                   className="h-16 px-6"
-                  onClick={clearBuzzers}
+                  onClick={resetBuzzerForQuestion}
                 >
-                  Réinitialiser
+                  Réinitialiser tout
                 </Button>
               </div>
             </div>

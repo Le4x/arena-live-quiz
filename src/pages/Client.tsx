@@ -140,13 +140,25 @@ const Client = () => {
   const handleBuzzer = async () => {
     if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id || hasBuzzed) return;
 
+    // Vérifier si l'équipe est exclue
+    const excludedTeams = (gameState.excluded_teams || []) as string[];
+    if (excludedTeams.includes(team.id)) {
+      toast({
+        title: "Buzzer désactivé",
+        description: "Vous ne pouvez plus buzzer pour cette question",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
         { 
           team_id: team.id, 
           question_id: currentQuestion.id,
-          game_session_id: gameState.game_session_id
+          game_session_id: gameState.game_session_id,
+          is_first: true
         }
       ]);
 

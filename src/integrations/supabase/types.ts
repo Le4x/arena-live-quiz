@@ -101,6 +101,7 @@ export type Database = {
           announcement_text: string | null
           current_question_id: string | null
           current_round_id: string | null
+          excluded_teams: Json | null
           game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
@@ -113,6 +114,7 @@ export type Database = {
           announcement_text?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
+          excluded_teams?: Json | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
@@ -125,6 +127,7 @@ export type Database = {
           announcement_text?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
+          excluded_teams?: Json | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
