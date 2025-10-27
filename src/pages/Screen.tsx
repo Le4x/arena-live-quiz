@@ -62,7 +62,7 @@ const Screen = () => {
   const loadData = async () => {
     const [teamsRes, gameStateRes] = await Promise.all([
       supabase.from('teams').select('*').order('score', { ascending: false }),
-      supabase.from('game_state').select('*, questions(*)').single()
+      supabase.from('game_state').select('*, questions(*)').maybeSingle()
     ]);
 
     if (teamsRes.data) setTeams(teamsRes.data);
