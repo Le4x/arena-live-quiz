@@ -277,8 +277,8 @@ const Client = () => {
           </div>
         </Card>
 
-        {/* Buzzer */}
-        {gameState?.is_buzzer_active && currentQuestion && (
+        {/* Buzzer - Uniquement pour blind test */}
+        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
           <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
             <Button
               onClick={handleBuzzer}
@@ -334,15 +334,27 @@ const Client = () => {
                   placeholder="Votre réponse..."
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !hasAnswered) {
+                      submitAnswer();
+                    }
+                  }}
+                  disabled={hasAnswered}
                   className="bg-input border-border"
                 />
                 <Button
                   onClick={() => submitAnswer()}
-                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue"
+                  disabled={hasAnswered}
+                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue disabled:opacity-50"
                 >
                   <Send className="mr-2 h-5 w-5" />
                   Envoyer la réponse
                 </Button>
+                {hasAnswered && (
+                  <div className="text-center text-green-500 font-bold">
+                    ✓ Réponse envoyée
+                  </div>
+                )}
               </div>
             )}
           </Card>

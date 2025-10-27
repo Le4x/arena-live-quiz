@@ -9,6 +9,7 @@ const Screen = () => {
   const [timer, setTimer] = useState<number | null>(null);
   const [buzzers, setBuzzers] = useState<any[]>([]);
   const [qcmAnswers, setQcmAnswers] = useState<any[]>([]);
+  const [textAnswers, setTextAnswers] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -39,6 +40,7 @@ const Screen = () => {
       .channel('screen-qcm-answers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
         loadQcmAnswers();
+        loadTextAnswers();
       })
       .subscribe();
 
@@ -53,6 +55,7 @@ const Screen = () => {
   useEffect(() => {
     loadBuzzers();
     loadQcmAnswers();
+    loadTextAnswers();
   }, [currentQuestion?.id]);
 
   useEffect(() => {
@@ -111,6 +114,20 @@ const Screen = () => {
     if (data) setQcmAnswers(data);
   };
 
+  const loadTextAnswers = async () => {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'free_text') {
+      setTextAnswers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('question_id', currentQuestion.id);
+    
+    if (data) setTextAnswers(data);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
       {/* Background effects */}
@@ -137,9 +154,9 @@ const Screen = () => {
                   <div className="text-sm text-primary font-bold uppercase tracking-wider">
                     Question
                   </div>
-                  {currentQuestion.question_type === 'qcm' && (
+                  {(currentQuestion.question_type === 'qcm' || currentQuestion.question_type === 'free_text') && (
                     <div className="text-sm font-bold text-secondary">
-                      {qcmAnswers.length} / {teams.length} réponses
+                      {currentQuestion.question_type === 'qcm' ? qcmAnswers.length : textAnswers.length} / {teams.length} réponses
                     </div>
                   )}
                 </div>
