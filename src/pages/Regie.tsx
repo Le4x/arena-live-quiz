@@ -448,12 +448,13 @@ const Regie = () => {
     }
 
     try {
-      // 1. Désactiver toutes les équipes et réinitialiser les device_id pour déconnecter les smartphones
+      // 1. Désactiver toutes les équipes, réinitialiser les scores et les device_id pour déconnecter les smartphones
       await supabase
         .from('teams')
         .update({ 
           is_active: false,
-          connected_device_id: null
+          connected_device_id: null,
+          score: 0
         })
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all teams
 
@@ -503,6 +504,10 @@ const Regie = () => {
   };
 
   const disconnectTeam = async (teamId: string) => {
+    if (!confirm("⚠️ Êtes-vous sûr de vouloir déconnecter cette équipe ?")) {
+      return;
+    }
+
     try {
       await supabase
         .from('teams')
@@ -764,11 +769,11 @@ const Regie = () => {
         {/* Équipes connectées */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
           <h2 className="text-2xl font-bold text-secondary mb-4">
-            Équipes connectées ({connectedTeams.size}/{teams.length})
+            Équipes connectées ({teams.filter(t => t.connected_device_id && t.is_active).length}/{teams.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teams.map((team) => {
-              const isConnected = connectedTeams.has(team.id);
+              const isConnected = team.connected_device_id !== null && team.is_active;
               return (
                 <div
                   key={team.id}

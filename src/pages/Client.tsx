@@ -179,15 +179,29 @@ const Client = () => {
         return;
       }
       
-      // Si aucun appareil n'est connecté ou si c'est le même appareil, enregistrer l'appareil
+      // Si aucun appareil n'est connecté ou si c'est le même appareil, enregistrer l'appareil et activer l'équipe
       if (!data.connected_device_id) {
         await supabase
           .from('teams')
-          .update({ connected_device_id: currentDeviceId })
+          .update({ 
+            connected_device_id: currentDeviceId,
+            is_active: true
+          })
           .eq('id', teamId);
+        
+        // Recharger les données de l'équipe après la mise à jour
+        const { data: updatedData } = await supabase
+          .from('teams')
+          .select('*')
+          .eq('id', teamId)
+          .single();
+        
+        if (updatedData) {
+          setTeam(updatedData);
+        }
+      } else {
+        setTeam(data);
       }
-      
-      setTeam(data);
     }
   };
 
