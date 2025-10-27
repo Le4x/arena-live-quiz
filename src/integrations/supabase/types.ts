@@ -17,6 +17,7 @@ export type Database = {
       buzzer_attempts: {
         Row: {
           buzzed_at: string | null
+          game_session_id: string | null
           id: string
           is_first: boolean | null
           question_id: string | null
@@ -24,6 +25,7 @@ export type Database = {
         }
         Insert: {
           buzzed_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_first?: boolean | null
           question_id?: string | null
@@ -31,12 +33,20 @@ export type Database = {
         }
         Update: {
           buzzed_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_first?: boolean | null
           question_id?: string | null
           team_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "buzzer_attempts_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "buzzer_attempts_question_id_fkey"
             columns: ["question_id"]
@@ -53,11 +63,45 @@ export type Database = {
           },
         ]
       }
+      game_sessions: {
+        Row: {
+          created_at: string | null
+          current_round_index: number | null
+          ended_at: string | null
+          id: string
+          name: string
+          selected_rounds: Json | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_round_index?: number | null
+          ended_at?: string | null
+          id?: string
+          name: string
+          selected_rounds?: Json | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_round_index?: number | null
+          ended_at?: string | null
+          id?: string
+          name?: string
+          selected_rounds?: Json | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       game_state: {
         Row: {
           announcement_text: string | null
           current_question_id: string | null
           current_round_id: string | null
+          game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
           show_leaderboard: boolean | null
@@ -69,6 +113,7 @@ export type Database = {
           announcement_text?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
+          game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
           show_leaderboard?: boolean | null
@@ -80,6 +125,7 @@ export type Database = {
           announcement_text?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
+          game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
           show_leaderboard?: boolean | null
@@ -100,6 +146,13 @@ export type Database = {
             columns: ["current_round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -185,6 +238,7 @@ export type Database = {
         Row: {
           answer: string
           answered_at: string | null
+          game_session_id: string | null
           id: string
           is_correct: boolean | null
           points_awarded: number | null
@@ -194,6 +248,7 @@ export type Database = {
         Insert: {
           answer: string
           answered_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_correct?: boolean | null
           points_awarded?: number | null
@@ -203,6 +258,7 @@ export type Database = {
         Update: {
           answer?: string
           answered_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_correct?: boolean | null
           points_awarded?: number | null
@@ -210,6 +266,13 @@ export type Database = {
           team_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "team_answers_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_answers_question_id_fkey"
             columns: ["question_id"]
@@ -261,7 +324,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reset_game_session: { Args: { session_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
