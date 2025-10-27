@@ -6,6 +6,7 @@ import { playSound } from "@/lib/sounds";
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
   const [gameState, setGameState] = useState<any>(null);
+  const [currentSession, setCurrentSession] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timer, setTimer] = useState<number | null>(null);
   const [buzzers, setBuzzers] = useState<any[]>([]);
@@ -104,13 +105,14 @@ const Screen = () => {
   const loadData = async () => {
     const [teamsRes, gameStateRes] = await Promise.all([
       supabase.from('teams').select('*').order('score', { ascending: false }),
-      supabase.from('game_state').select('*, questions(*)').maybeSingle()
+      supabase.from('game_state').select('*, questions(*), game_sessions(*)').maybeSingle()
     ]);
 
     if (teamsRes.data) setTeams(teamsRes.data);
     if (gameStateRes.data) {
       setGameState(gameStateRes.data);
       setCurrentQuestion(gameStateRes.data.questions);
+      setCurrentSession(gameStateRes.data.game_sessions);
     }
   };
 
@@ -172,9 +174,11 @@ const Screen = () => {
         {/* Logo et titre */}
         <header className="text-center py-6 animate-slide-in">
           <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
-            ARENA
+            {currentSession?.name || 'ARENA'}
           </h1>
-          <p className="text-accent text-xl mt-2 font-bold">MusicArena #1</p>
+          <p className="text-accent text-xl mt-2 font-bold">
+            {teams.length} équipe{teams.length > 1 ? 's' : ''} connectée{teams.length > 1 ? 's' : ''}
+          </p>
         </header>
 
 
