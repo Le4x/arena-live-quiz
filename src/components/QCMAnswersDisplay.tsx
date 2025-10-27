@@ -72,90 +72,90 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   const notAnswered = teams.filter(t => !answers.find(a => a.team_id === t.id));
 
   return (
-    <Card className="p-6 bg-card/90 backdrop-blur-sm border-primary/20">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          Réponses QCM
+    <Card className="p-3 bg-card/90 backdrop-blur-sm border-primary/20">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-bold text-primary flex items-center gap-1">
+          <Users className="h-4 w-4" />
+          QCM
         </h2>
-        <div className="flex gap-4 text-sm">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            {correctAnswers.length} correct{correctAnswers.length > 1 ? 's' : ''}
+        <div className="flex gap-2 text-xs">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-green-500" />
+            {correctAnswers.length}
           </span>
-          <span className="flex items-center gap-2">
-            <XCircle className="h-5 w-5 text-red-500" />
-            {incorrectAnswers.length} incorrect{incorrectAnswers.length > 1 ? 's' : ''}
+          <span className="flex items-center gap-1">
+            <XCircle className="h-3 w-3 text-red-500" />
+            {incorrectAnswers.length}
           </span>
-          <span className="flex items-center gap-2 text-muted-foreground">
-            {notAnswered.length} non répondu{notAnswered.length > 1 ? 's' : ''}
+          <span className="flex items-center gap-1 text-muted-foreground">
+            {notAnswered.length}
           </span>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-3 gap-2">
         {/* Bonnes réponses */}
-        <div className="space-y-2">
-          <h3 className="font-bold text-green-500 mb-3 flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5" />
+        <div className="space-y-1">
+          <h3 className="font-bold text-green-500 text-xs mb-1 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
             Correctes ({correctAnswers.length})
           </h3>
           {correctAnswers.map((answer) => (
             <div
               key={answer.id}
-              className="p-3 rounded-lg bg-green-500/10 border-2 border-green-500/30"
+              className="p-1.5 rounded bg-green-500/10 border border-green-500/30"
             >
-              <div className="font-bold flex items-center gap-2">
+              <div className="font-medium text-xs flex items-center gap-1">
                 <div 
-                  className="w-3 h-3 rounded-full"
+                  className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: answer.teams?.color }}
                 />
-                {answer.teams?.name}
+                <span className="truncate">{answer.teams?.name}</span>
               </div>
-              <div className="text-sm mt-1">{answer.answer}</div>
+              <div className="text-[10px] mt-0.5 truncate">{answer.answer}</div>
             </div>
           ))}
         </div>
 
         {/* Mauvaises réponses */}
-        <div className="space-y-2">
-          <h3 className="font-bold text-red-500 mb-3 flex items-center gap-2">
-            <XCircle className="h-5 w-5" />
+        <div className="space-y-1">
+          <h3 className="font-bold text-red-500 text-xs mb-1 flex items-center gap-1">
+            <XCircle className="h-3 w-3" />
             Incorrectes ({incorrectAnswers.length})
           </h3>
           {incorrectAnswers.map((answer) => (
             <div
               key={answer.id}
-              className="p-3 rounded-lg bg-red-500/10 border-2 border-red-500/30"
+              className="p-1.5 rounded bg-red-500/10 border border-red-500/30"
             >
-              <div className="font-bold flex items-center gap-2">
+              <div className="font-medium text-xs flex items-center gap-1">
                 <div 
-                  className="w-3 h-3 rounded-full"
+                  className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: answer.teams?.color }}
                 />
-                {answer.teams?.name}
+                <span className="truncate">{answer.teams?.name}</span>
               </div>
-              <div className="text-sm mt-1">{answer.answer}</div>
+              <div className="text-[10px] mt-0.5 truncate">{answer.answer}</div>
             </div>
           ))}
         </div>
 
         {/* Pas de réponse */}
-        <div className="space-y-2">
-          <h3 className="font-bold text-muted-foreground mb-3">
+        <div className="space-y-1">
+          <h3 className="font-bold text-muted-foreground text-xs mb-1">
             Non répondues ({notAnswered.length})
           </h3>
           {notAnswered.map((team) => (
             <div
               key={team.id}
-              className="p-3 rounded-lg bg-muted/30 border-2 border-muted"
+              className="p-1.5 rounded bg-muted/30 border border-muted"
             >
-              <div className="font-bold flex items-center gap-2">
+              <div className="font-medium text-xs flex items-center gap-1">
                 <div 
-                  className="w-3 h-3 rounded-full"
+                  className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: team.color }}
                 />
-                {team.name}
+                <span className="truncate">{team.name}</span>
               </div>
             </div>
           ))}

@@ -534,40 +534,40 @@ const Regie = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-glow p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-glow p-3">
+      <div className="max-w-7xl mx-auto space-y-3">
         {/* Header */}
-        <header className="flex items-center justify-between py-8 animate-slide-in">
+        <header className="flex items-center justify-between py-2 animate-slide-in">
           <div className="text-center flex-1">
-            <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+            <h1 className="text-3xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
               ARENA
             </h1>
-            <p className="text-muted-foreground text-xl mt-2">Régie - MusicArena #1</p>
+            <p className="text-muted-foreground text-sm">Régie - MusicArena #1</p>
           </div>
-          <div className="flex gap-3">
-            <Button onClick={() => navigate('/admin/setup')} variant="outline" size="lg">
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/admin/setup')} variant="outline" size="sm">
               Configuration
             </Button>
-            <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="lg">
+            <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="sm">
               Sons
             </Button>
             <Button 
               onClick={resetCompleteSession} 
               variant="destructive" 
-              size="lg"
+              size="sm"
               className="bg-red-600 hover:bg-red-700"
             >
-              🔄 Réinitialiser Session
+              🔄 Reset
             </Button>
           </div>
         </header>
 
         {/* Bouton écran d'ambiance */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 mb-6">
+        <Card className="p-2 bg-card/80 backdrop-blur-sm border-primary/20">
           <Button
-            size="lg"
+            size="sm"
             variant={gameState?.show_ambient_screen ? "default" : "secondary"}
-            className="w-full h-16 text-lg"
+            className="w-full h-9 text-sm"
             onClick={async () => {
               if (!gameState) {
                 toast({ title: "Erreur", description: "Aucun état de jeu trouvé", variant: "destructive" });
@@ -581,70 +581,69 @@ const Regie = () => {
                 .eq('id', gameState.id);
               
               toast({ 
-                title: newValue ? "🎵 Écran d'ambiance activé" : "👥 Écran d'accueil activé",
-                description: newValue ? "L'écran décoratif est maintenant affiché" : "L'écran avec les équipes connectées est affiché"
+                title: newValue ? "🎵 Écran d'ambiance" : "👥 Écran d'accueil",
               });
             }}
           >
-            {gameState?.show_ambient_screen ? "🎵 Écran d'ambiance actif → Cliquer pour passer à l'écran d'accueil" : "👥 Écran d'accueil actif → Cliquer pour revenir à l'écran d'ambiance"}
+            {gameState?.show_ambient_screen ? "🎵 Écran d'ambiance" : "👥 Écran d'accueil"}
           </Button>
         </Card>
 
         {/* Contrôles principaux */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
-          <h2 className="text-2xl font-bold text-primary mb-4">Contrôles du jeu</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="p-3 bg-card/80 backdrop-blur-sm border-primary/20">
+          <h2 className="text-sm font-bold text-primary mb-2">Contrôles</h2>
+          <div className="grid grid-cols-5 gap-2">
             <Button 
-              size="lg" 
-              className="h-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold"
+              size="sm" 
+              className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold text-xs"
               onClick={toggleBuzzer}
             >
-              <Zap className="mr-2 h-6 w-6" />
-              {gameState?.is_buzzer_active ? "Désactiver" : "Activer"} Buzzer
+              <Zap className="mr-1 h-4 w-4" />
+              {gameState?.is_buzzer_active ? "Off" : "On"} Buzzer
             </Button>
             <Button 
-              size="lg" 
+              size="sm" 
               variant="secondary" 
-              className="h-20 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue"
+              className="h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue text-xs"
               onClick={playAudio}
               disabled={!currentQuestion?.audio_url}
             >
-              <Play className="mr-2 h-6 w-6" />
+              <Play className="mr-1 h-4 w-4" />
               Musique
             </Button>
             <Button 
-              size="lg" 
+              size="sm" 
               variant="outline" 
-              className="h-20 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+              className="h-12 border-accent text-accent hover:bg-accent hover:text-accent-foreground text-xs"
               onClick={pauseAudio}
             >
-              <Pause className="mr-2 h-6 w-6" />
+              <Pause className="mr-1 h-4 w-4" />
               Pause
             </Button>
             <Button 
-              size="lg" 
-              className="h-20 bg-gradient-arena hover:opacity-90"
+              size="sm" 
+              className="h-12 bg-gradient-arena hover:opacity-90 text-xs"
               onClick={showLeaderboard}
             >
-              <Trophy className="mr-2 h-6 w-6" />
-              {gameState?.show_leaderboard ? "Masquer" : "Afficher"} Score
+              <Trophy className="mr-1 h-4 w-4" />
+              {gameState?.show_leaderboard ? "Hide" : "Show"} Score
             </Button>
             <Button 
-              size="lg" 
+              size="sm" 
               variant="secondary"
-              className="h-20"
+              className="h-12 text-xs"
               onClick={nextQuestion}
             >
-              <SkipForward className="mr-2 h-6 w-6" />
-              Question Suivante
+              <SkipForward className="mr-1 h-4 w-4" />
+              Suivante
             </Button>
           </div>
           
           {/* Navigation pagination du classement */}
           {gameState?.show_leaderboard && teams.length > 6 && (
-            <div className="flex items-center justify-center gap-4 mt-4">
+            <div className="flex items-center justify-center gap-2 mt-2">
               <Button
-                size="lg"
+                size="sm"
                 variant="outline"
                 onClick={async () => {
                   const currentPage = gameState?.leaderboard_page || 1;
@@ -658,13 +657,13 @@ const Regie = () => {
                 }}
                 disabled={!gameState?.leaderboard_page || gameState?.leaderboard_page === 1}
               >
-                ← Page Précédente
+                ← Préc.
               </Button>
-              <span className="text-lg font-bold">
+              <span className="text-sm font-bold">
                 Page {gameState?.leaderboard_page || 1} / {Math.ceil((teams.length - 6) / 20) + 1}
               </span>
               <Button
-                size="lg"
+                size="sm"
                 variant="outline"
                 onClick={async () => {
                   const currentPage = gameState?.leaderboard_page || 1;
@@ -679,7 +678,7 @@ const Regie = () => {
                 }}
                 disabled={gameState?.leaderboard_page >= Math.ceil((teams.length - 6) / 20) + 1}
               >
-                Page Suivante →
+                Suiv. →
               </Button>
             </div>
           )}
@@ -691,53 +690,48 @@ const Regie = () => {
 
         {/* Premier buzzeur - Validation */}
         {buzzers.length > 0 && currentQuestion?.question_type === 'blind_test' && (
-          <Card className="p-6 bg-card/90 backdrop-blur-sm border-4 border-primary shadow-glow-gold animate-slide-in">
-            <div className="space-y-4">
+          <Card className="p-3 bg-card/90 backdrop-blur-sm border-2 border-primary shadow-glow-gold animate-slide-in">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-3">
-                    <Zap className="h-12 w-12 text-primary animate-pulse" />
-                    <div>
-                      <h3 className="text-lg text-primary font-bold">🔔 QUELQU'UN A BUZZÉ !</h3>
-                      <div className="flex items-center gap-3 mt-2">
-                        <div
-                          className="w-8 h-8 rounded-full border-2 border-foreground"
-                          style={{ backgroundColor: buzzers[0].teams?.color }}
-                        ></div>
-                        <p className="text-4xl font-bold">{buzzers[0].teams?.name}</p>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Zap className="h-6 w-6 text-primary animate-pulse" />
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-5 h-5 rounded-full border border-foreground"
+                      style={{ backgroundColor: buzzers[0].teams?.color }}
+                    ></div>
+                    <p className="text-lg font-bold">{buzzers[0].teams?.name}</p>
                   </div>
                   {buzzers.length > 1 && (
-                    <div className="text-sm text-muted-foreground">
-                      +{buzzers.length - 1} autre{buzzers.length > 2 ? 's' : ''} buzzeur{buzzers.length > 2 ? 's' : ''}
-                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      +{buzzers.length - 1}
+                    </span>
                   )}
                 </div>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
-                  size="lg"
-                  className="h-16 px-8 bg-green-600 hover:bg-green-700 text-white text-lg"
+                  size="sm"
+                  className="h-10 px-4 bg-green-600 hover:bg-green-700 text-white text-xs"
                   onClick={() => validateAnswer(buzzers[0].team_id, true)}
                 >
-                  ✅ Bonne réponse
+                  ✅ Bonne
                 </Button>
                 <Button
-                  size="lg"
-                  className="h-16 px-8 bg-orange-600 hover:bg-orange-700 text-white text-lg"
+                  size="sm"
+                  className="h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white text-xs"
                   onClick={() => validateAnswer(buzzers[0].team_id, false)}
                 >
-                  ❌ Mauvaise - Relancer
+                  ❌ Mauvaise
                 </Button>
                 <Button
-                  size="lg"
+                  size="sm"
                   variant="outline"
-                  className="h-16 px-6"
+                  className="h-10 px-3 text-xs"
                   onClick={resetBuzzerForQuestion}
                 >
-                  Réinitialiser tout
+                  Reset
                 </Button>
               </div>
             </div>
@@ -750,16 +744,16 @@ const Regie = () => {
         <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
         {/* Sélection de la manche et questions */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-2xl font-bold text-secondary mb-4 flex items-center gap-2">
-            <List className="h-6 w-6" />
-            Questions disponibles
+        <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
+          <h2 className="text-sm font-bold text-secondary mb-2 flex items-center gap-1">
+            <List className="h-4 w-4" />
+            Questions
           </h2>
-          <div className="mb-4">
+          <div className="mb-2">
             <select
               value={selectedRound || ""}
               onChange={(e) => setSelectedRound(e.target.value)}
-              className="w-full h-12 rounded-md border border-border bg-input px-3"
+              className="w-full h-9 rounded-md border border-border bg-input px-2 text-sm"
             >
               <option value="">Sélectionner une manche</option>
               {rounds.map((round) => (
@@ -768,22 +762,22 @@ const Regie = () => {
             </select>
           </div>
           {selectedRound && (
-            <div className="grid gap-3">
+            <div className="grid gap-2">
               {questions.filter(q => q.round_id === selectedRound).map((question) => (
                 <div
                   key={question.id}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  className={`p-2 rounded-lg border cursor-pointer transition-all ${
                     currentQuestion?.id === question.id
                       ? 'border-secondary bg-secondary/10'
                       : 'border-border bg-muted/50 hover:border-secondary/50'
                   }`}
                   onClick={() => setQuestion(question.id)}
                 >
-                  <div className="flex items-center gap-3">
-                    {question.audio_url && <Music className="h-5 w-5 text-secondary" />}
-                    <div className="flex-1">
-                      <div className="font-bold">{question.question_text}</div>
-                      <div className="text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    {question.audio_url && <Music className="h-4 w-4 text-secondary" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{question.question_text}</div>
+                      <div className="text-xs text-muted-foreground">
                         {question.question_type} • {question.points} pts
                       </div>
                     </div>
@@ -795,44 +789,44 @@ const Regie = () => {
         </Card>
 
         {/* Équipes connectées */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-2xl font-bold text-secondary mb-4">
-            Équipes connectées ({teams.filter(t => t.connected_device_id && t.is_active).length}/{teams.length})
+        <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
+          <h2 className="text-sm font-bold text-secondary mb-2">
+            Équipes ({teams.filter(t => t.connected_device_id && t.is_active).length}/{teams.length})
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {teams.map((team) => {
               const isConnected = team.connected_device_id !== null && team.is_active;
               return (
                 <div
                   key={team.id}
-                  className="p-4 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
-                  style={{ borderLeftColor: team.color, borderLeftWidth: '4px' }}
+                  className="p-2 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
+                  style={{ borderLeftColor: team.color, borderLeftWidth: '3px' }}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg">{team.name}</h3>
-                      <span className="text-2xl font-bold text-primary">{team.score}</span>
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-xs truncate">{team.name}</h3>
+                      <span className="text-sm font-bold text-primary">{team.score}</span>
                     </div>
                     {isConnected && (
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-8 px-3 text-xs"
+                        className="h-6 px-2 text-[10px]"
                         onClick={() => disconnectTeam(team.id)}
                       >
-                        Déconnecter
+                        ✕
                       </Button>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {isConnected ? "🟢 Connecté" : "⚪ Déconnecté"}
+                  <div className="text-[10px] text-muted-foreground">
+                    {isConnected ? "🟢" : "⚪"}
                   </div>
                 </div>
               );
             })}
             {teams.length === 0 && (
-              <div className="col-span-full text-center py-8 text-muted-foreground">
-                Aucune équipe créée
+              <div className="col-span-full text-center py-4 text-xs text-muted-foreground">
+                Aucune équipe
               </div>
             )}
           </div>
@@ -840,11 +834,11 @@ const Regie = () => {
 
         {/* Question actuelle */}
         {currentQuestion && (
-          <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
-            <h2 className="text-2xl font-bold text-accent mb-4">Question actuelle</h2>
-            <p className="text-xl">{currentQuestion.question_text}</p>
-            <div className="mt-4 text-sm text-muted-foreground">
-              Type: {currentQuestion.question_type} • Points: {currentQuestion.points}
+          <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20">
+            <h2 className="text-sm font-bold text-accent mb-2">Question actuelle</h2>
+            <p className="text-sm">{currentQuestion.question_text}</p>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {currentQuestion.question_type} • {currentQuestion.points} pts
             </div>
           </Card>
         )}
