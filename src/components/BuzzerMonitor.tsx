@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Zap, Trophy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export const BuzzerMonitor = ({ currentQuestionId }: { currentQuestionId: string | null }) => {
+export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestionId: string | null; gameState: any | null }) => {
   const { toast } = useToast();
   const [buzzers, setBuzzers] = useState<any[]>([]);
 
@@ -27,12 +27,13 @@ export const BuzzerMonitor = ({ currentQuestionId }: { currentQuestionId: string
   }, [currentQuestionId]);
 
   const loadBuzzers = async () => {
-    if (!currentQuestionId) return;
+    if (!currentQuestionId || !gameState?.game_session_id) return;
     
     const { data } = await supabase
       .from('buzzer_attempts')
       .select('*, teams(*)')
       .eq('question_id', currentQuestionId)
+      .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
     if (data) setBuzzers(data);
@@ -56,11 +57,12 @@ export const BuzzerMonitor = ({ currentQuestionId }: { currentQuestionId: string
   };
 
   const clearBuzzers = async () => {
-    if (!currentQuestionId) return;
+    if (!currentQuestionId || !gameState?.game_session_id) return;
     await supabase
       .from('buzzer_attempts')
       .delete()
-      .eq('question_id', currentQuestionId);
+      .eq('question_id', currentQuestionId)
+      .eq('game_session_id', gameState.game_session_id);
     toast({ title: "Buzzers réinitialisés" });
   };
 

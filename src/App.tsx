@@ -10,6 +10,7 @@ import Screen from "./pages/Screen";
 import Client from "./pages/Client";
 import AdminSetup from "./pages/AdminSetup";
 import AdminSounds from "./pages/AdminSounds";
+import AdminSessions from "./pages/AdminSessions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/client/:teamId" element={<Client />} />
           <Route path="/admin/setup" element={<AdminSetup />} />
           <Route path="/admin/sounds" element={<AdminSounds />} />
+          <Route path="/admin/sessions" element={<AdminSessions />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

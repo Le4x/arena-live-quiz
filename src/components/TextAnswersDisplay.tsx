@@ -7,9 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface TextAnswersDisplayProps {
   currentQuestionId: string | null;
+  gameState: any | null;
 }
 
-export const TextAnswersDisplay = ({ currentQuestionId }: TextAnswersDisplayProps) => {
+export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswersDisplayProps) => {
   const { toast } = useToast();
   const [answers, setAnswers] = useState<any[]>([]);
 
@@ -38,12 +39,13 @@ export const TextAnswersDisplay = ({ currentQuestionId }: TextAnswersDisplayProp
   }, [currentQuestionId]);
 
   const loadAnswers = async () => {
-    if (!currentQuestionId) return;
+    if (!currentQuestionId || !gameState?.game_session_id) return;
 
     const { data } = await supabase
       .from('team_answers')
       .select('*, teams(name, color)')
       .eq('question_id', currentQuestionId)
+      .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
     if (data) setAnswers(data);

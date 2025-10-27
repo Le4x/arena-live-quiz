@@ -55,26 +55,28 @@ const Client = () => {
   }, [currentQuestion?.id]);
 
   const checkIfBuzzed = async () => {
-    if (!team || !currentQuestion?.id) return;
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
     
     const { data } = await supabase
       .from('buzzer_attempts')
       .select('id')
       .eq('team_id', team.id)
       .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
     
     if (data) setHasBuzzed(true);
   };
 
   const checkIfAnswered = async () => {
-    if (!team || !currentQuestion?.id) return;
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
     
     const { data } = await supabase
       .from('team_answers')
       .select('id')
       .eq('team_id', team.id)
       .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
     
     if (data) setHasAnswered(true);
@@ -136,12 +138,16 @@ const Client = () => {
   };
 
   const handleBuzzer = async () => {
-    if (!team || !currentQuestion || !gameState?.is_buzzer_active || hasBuzzed) return;
+    if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id || hasBuzzed) return;
 
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
-        { team_id: team.id, question_id: currentQuestion.id }
+        { 
+          team_id: team.id, 
+          question_id: currentQuestion.id,
+          game_session_id: gameState.game_session_id
+        }
       ]);
 
     if (error) {
@@ -163,7 +169,7 @@ const Client = () => {
 
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
-    if (!team || !currentQuestion || !finalAnswer.trim() || hasAnswered) return;
+    if (!team || !currentQuestion || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
     // Pour les QCM, valider automatiquement la réponse
     let isCorrect = null;
@@ -184,6 +190,7 @@ const Client = () => {
           answer: finalAnswer,
           is_correct: isCorrect,
           points_awarded: pointsAwarded,
+          game_session_id: gameState.game_session_id
         }
       ]);
 

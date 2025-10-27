@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Settings, Music, Users, PlaySquare, Trash2 } from "lucide-react";
+import { Settings, Music, Users, PlaySquare, Trash2, GamepadIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -114,7 +114,22 @@ const Admin = () => {
         </header>
 
         {/* Navigation rapide */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card 
+            className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 cursor-pointer hover:bg-card/90 transition-all"
+            onClick={() => navigate('/admin/sessions')}
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-full bg-primary/10">
+                <GamepadIcon className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Sessions de jeu</h3>
+                <p className="text-sm text-muted-foreground">Créer et gérer vos parties</p>
+              </div>
+            </div>
+          </Card>
+
           <Card 
             className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 cursor-pointer hover:bg-card/90 transition-all"
             onClick={() => navigate('/admin/setup')}
@@ -125,7 +140,7 @@ const Admin = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold">Manches & Questions</h3>
-                <p className="text-sm text-muted-foreground">Créer et gérer le contenu du jeu</p>
+                <p className="text-sm text-muted-foreground">Créer et gérer le contenu</p>
               </div>
             </div>
           </Card>

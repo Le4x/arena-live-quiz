@@ -87,7 +87,7 @@ const Regie = () => {
     const { data } = await supabase
       .from('game_state')
       .select('*, questions(*)')
-      .single();
+      .maybeSingle();
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
@@ -95,7 +95,7 @@ const Regie = () => {
   };
 
   const loadBuzzers = async () => {
-    if (!currentQuestion?.id) {
+    if (!currentQuestion?.id || !gameState?.game_session_id) {
       setBuzzers([]);
       return;
     }
@@ -104,6 +104,7 @@ const Regie = () => {
       .from('buzzer_attempts')
       .select('*, teams(*)')
       .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
     if (data) setBuzzers(data);
@@ -235,12 +236,13 @@ const Regie = () => {
   };
 
   const clearBuzzers = async () => {
-    if (!currentQuestion?.id) return;
+    if (!currentQuestion?.id || !gameState?.game_session_id) return;
     
     await supabase
       .from('buzzer_attempts')
       .delete()
-      .eq('question_id', currentQuestion.id);
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
 
     toast({ title: "Buzzers réinitialisés" });
   };
@@ -374,9 +376,9 @@ const Regie = () => {
         )}
 
         {/* Réponses - Prioritaire */}
-        <QCMAnswersDisplay currentQuestion={currentQuestion} />
+        <QCMAnswersDisplay currentQuestion={currentQuestion} gameState={gameState} />
         
-        <TextAnswersDisplay currentQuestionId={currentQuestion?.id} />
+        <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
         {/* Sélection de la manche et questions */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">

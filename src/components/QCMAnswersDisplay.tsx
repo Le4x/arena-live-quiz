@@ -5,9 +5,10 @@ import { CheckCircle2, XCircle, Users } from "lucide-react";
 
 interface QCMAnswersDisplayProps {
   currentQuestion: any | null;
+  gameState: any | null;
 }
 
-export const QCMAnswersDisplay = ({ currentQuestion }: QCMAnswersDisplayProps) => {
+export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisplayProps) => {
   const [answers, setAnswers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
 
@@ -45,12 +46,13 @@ export const QCMAnswersDisplay = ({ currentQuestion }: QCMAnswersDisplayProps) =
   };
 
   const loadAnswers = async () => {
-    if (!currentQuestion?.id) return;
+    if (!currentQuestion?.id || !gameState?.game_session_id) return;
 
     const { data } = await supabase
       .from('team_answers')
       .select('*, teams(name, color)')
       .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
     if (data) {

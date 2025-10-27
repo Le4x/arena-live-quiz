@@ -86,7 +86,7 @@ const Screen = () => {
   };
 
   const loadBuzzers = async () => {
-    if (!currentQuestion?.id) {
+    if (!currentQuestion?.id || !gameState?.game_session_id) {
       setBuzzers([]);
       return;
     }
@@ -95,13 +95,14 @@ const Screen = () => {
       .from('buzzer_attempts')
       .select('*, teams(*)')
       .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
     if (data) setBuzzers(data);
   };
 
   const loadQcmAnswers = async () => {
-    if (!currentQuestion?.id || currentQuestion?.question_type !== 'qcm') {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'qcm' || !gameState?.game_session_id) {
       setQcmAnswers([]);
       return;
     }
@@ -109,13 +110,14 @@ const Screen = () => {
     const { data } = await supabase
       .from('team_answers')
       .select('*')
-      .eq('question_id', currentQuestion.id);
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
     
     if (data) setQcmAnswers(data);
   };
 
   const loadTextAnswers = async () => {
-    if (!currentQuestion?.id || currentQuestion?.question_type !== 'free_text') {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'free_text' || !gameState?.game_session_id) {
       setTextAnswers([]);
       return;
     }
@@ -123,7 +125,8 @@ const Screen = () => {
     const { data } = await supabase
       .from('team_answers')
       .select('*')
-      .eq('question_id', currentQuestion.id);
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
     
     if (data) setTextAnswers(data);
   };
