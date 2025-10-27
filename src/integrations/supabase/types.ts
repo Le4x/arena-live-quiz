@@ -107,6 +107,7 @@ export type Database = {
           id: string
           is_buzzer_active: boolean | null
           leaderboard_page: number | null
+          show_ambient_screen: boolean | null
           show_leaderboard: boolean | null
           timer_active: boolean | null
           timer_remaining: number | null
@@ -122,6 +123,7 @@ export type Database = {
           id?: string
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
+          show_ambient_screen?: boolean | null
           show_leaderboard?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
@@ -137,6 +139,7 @@ export type Database = {
           id?: string
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
+          show_ambient_screen?: boolean | null
           show_leaderboard?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null

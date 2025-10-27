@@ -182,8 +182,10 @@ const Screen = () => {
     if (data) setTextAnswers(data);
   };
 
-  // Écran d'accueil - affiché quand il n'y a pas de question et pas de classement
-  const showWelcomeScreen = !currentQuestion && !gameState?.show_leaderboard;
+  // Écran d'ambiance - affiché en début de soirée
+  const showAmbientScreen = gameState?.show_ambient_screen === true;
+  // Écran d'accueil - affiché quand on attend les équipes
+  const showWelcomeScreen = !showAmbientScreen && !currentQuestion && !gameState?.show_leaderboard;
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
@@ -194,8 +196,65 @@ const Screen = () => {
         <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      {showWelcomeScreen ? (
-        /* ===== ÉCRAN D'ACCUEIL ANIMÉ ===== */
+      {showAmbientScreen ? (
+        /* ===== ÉCRAN D'AMBIANCE DÉCORATIF ===== */
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
+          {/* Notes de musique flottantes */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-20 left-10 text-6xl opacity-30 animate-bounce" style={{ animationDelay: '0s', animationDuration: '3s' }}>🎵</div>
+            <div className="absolute top-40 right-20 text-7xl opacity-20 animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '4s' }}>🎶</div>
+            <div className="absolute bottom-32 left-1/4 text-8xl opacity-25 animate-bounce" style={{ animationDelay: '1s', animationDuration: '3.5s' }}>🎵</div>
+            <div className="absolute top-1/3 right-1/4 text-6xl opacity-30 animate-bounce" style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}>🎶</div>
+            <div className="absolute bottom-1/4 right-10 text-7xl opacity-20 animate-bounce" style={{ animationDelay: '2s', animationDuration: '3s' }}>🎵</div>
+            <div className="absolute top-1/2 left-20 text-8xl opacity-25 animate-bounce" style={{ animationDelay: '2.5s', animationDuration: '4s' }}>🎶</div>
+          </div>
+
+          {/* Logo principal */}
+          <div className="text-center animate-slide-in">
+            <h1 className="text-9xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-8">
+              MUSIC ARENA
+            </h1>
+            
+            {/* Égaliseur visuel */}
+            <div className="flex items-end justify-center gap-3 h-32 mb-8">
+              {[...Array(12)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-4 bg-gradient-arena rounded-t-lg animate-pulse"
+                  style={{
+                    animationDelay: `${i * 0.1}s`,
+                    animationDuration: '0.8s',
+                    height: `${Math.random() * 60 + 40}%`
+                  }}
+                ></div>
+              ))}
+            </div>
+
+            {/* Sous-titre animé */}
+            <div className="flex items-center justify-center gap-6 text-3xl mb-12">
+              <div className="w-16 h-1 bg-gradient-arena rounded animate-pulse"></div>
+              <p className="text-secondary font-bold animate-fade-in">
+                La soirée quiz musical
+              </p>
+              <div className="w-16 h-1 bg-gradient-arena rounded animate-pulse"></div>
+            </div>
+
+            {/* Animations de disques vinyles */}
+            <div className="flex justify-center gap-8 mt-16">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-secondary animate-spin" style={{ animationDuration: '3s' }}>
+                <div className="w-8 h-8 rounded-full bg-background absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+              </div>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-secondary to-accent animate-spin" style={{ animationDuration: '4s' }}>
+                <div className="w-8 h-8 rounded-full bg-background absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+              </div>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-accent to-primary animate-spin" style={{ animationDuration: '3.5s' }}>
+                <div className="w-8 h-8 rounded-full bg-background absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : showWelcomeScreen ? (
+        /* ===== ÉCRAN D'ACCUEIL AVEC ÉQUIPES ===== */
         <div className="relative z-10 h-screen flex flex-col items-center justify-center">
           {/* Titre principal animé */}
           <div className="text-center mb-12 animate-slide-in">

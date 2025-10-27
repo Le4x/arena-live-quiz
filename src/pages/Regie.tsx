@@ -562,6 +562,34 @@ const Regie = () => {
           </div>
         </header>
 
+        {/* Bouton écran d'ambiance */}
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 mb-6">
+          <Button
+            size="lg"
+            variant={gameState?.show_ambient_screen ? "default" : "secondary"}
+            className="w-full h-16 text-lg"
+            onClick={async () => {
+              if (!gameState) {
+                toast({ title: "Erreur", description: "Aucun état de jeu trouvé", variant: "destructive" });
+                return;
+              }
+              
+              const newValue = !gameState.show_ambient_screen;
+              await supabase
+                .from('game_state')
+                .update({ show_ambient_screen: newValue })
+                .eq('id', gameState.id);
+              
+              toast({ 
+                title: newValue ? "🎵 Écran d'ambiance activé" : "👥 Écran d'accueil activé",
+                description: newValue ? "L'écran décoratif est maintenant affiché" : "L'écran avec les équipes connectées est affiché"
+              });
+            }}
+          >
+            {gameState?.show_ambient_screen ? "🎵 Écran d'ambiance actif → Cliquer pour passer à l'écran d'accueil" : "👥 Écran d'accueil actif → Cliquer pour revenir à l'écran d'ambiance"}
+          </Button>
+        </Card>
+
         {/* Contrôles principaux */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
           <h2 className="text-2xl font-bold text-primary mb-4">Contrôles du jeu</h2>
