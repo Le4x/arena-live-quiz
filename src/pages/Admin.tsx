@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Settings, Music, Users, PlaySquare, Trash2, GamepadIcon } from "lucide-react";
+import { Settings, Music, Users, PlaySquare, Trash2, GamepadIcon, QrCode, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import QRCode from "qrcode";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -13,6 +20,9 @@ const Admin = () => {
   const [teams, setTeams] = useState<any[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamColor, setNewTeamColor] = useState("#FFD700");
+  const [selectedTeamQR, setSelectedTeamQR] = useState<any>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     loadTeams();
@@ -93,7 +103,50 @@ const Admin = () => {
     }
   };
 
-  const colors = ['#FFD700', '#3B82F6', '#A855F7', '#EF4444', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'];
+  const generateQRCode = async (team: any) => {
+    const url = `${window.location.origin}/client/${team.id}`;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(url, {
+        width: 400,
+        margin: 2,
+        color: {
+          dark: team.color,
+          light: '#ffffff'
+        }
+      });
+      setQrCodeUrl(qrDataUrl);
+      setSelectedTeamQR(team);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le QR code",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (!qrCodeUrl || !selectedTeamQR) return;
+    
+    const link = document.createElement('a');
+    link.download = `qr-${selectedTeamQR.name}.png`;
+    link.href = qrCodeUrl;
+    link.click();
+    
+    toast({
+      title: "QR Code téléchargé",
+      description: `QR code de ${selectedTeamQR.name} téléchargé`
+    });
+  };
+
+  const colors = [
+    '#FFD700', '#3B82F6', '#A855F7', '#EF4444', '#10B981', '#F59E0B', 
+    '#EC4899', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#EAB308',
+    '#14B8A6', '#6366F1', '#F43F5E', '#22D3EE', '#A3E635', '#FB923C',
+    '#FBBF24', '#2DD4BF', '#818CF8', '#FB7185', '#67E8F9', '#BEF264',
+    '#FCD34D', '#5EEAD4', '#A78BFA', '#FDA4AF', '#BAE6FD', '#D9F99D'
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
@@ -234,13 +287,22 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteTeam(team.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateQRCode(team)}
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteTeam(team.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -252,6 +314,35 @@ const Admin = () => {
           </div>
         </Card>
       </div>
+
+      {/* Dialog QR Code */}
+      <Dialog open={!!selectedTeamQR} onOpenChange={() => setSelectedTeamQR(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              QR Code - {selectedTeamQR?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-center p-4 bg-white rounded-lg">
+              {qrCodeUrl && (
+                <img src={qrCodeUrl} alt="QR Code" className="w-full max-w-[300px]" />
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground text-center">
+              Scannez ce code pour rejoindre l'équipe<br />
+              <span className="font-bold" style={{ color: selectedTeamQR?.color }}>
+                {selectedTeamQR?.name}
+              </span>
+            </div>
+            <Button onClick={downloadQRCode} className="w-full">
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger le QR Code
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
