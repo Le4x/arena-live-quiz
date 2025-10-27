@@ -182,15 +182,13 @@ const Screen = () => {
     if (data) setTextAnswers(data);
   };
 
-  // Écran d'ambiance - affiché en début de soirée
+  // Écran d'ambiance - affiché en début de soirée ET pour les pauses
   const showAmbientScreen = gameState?.show_ambient_screen === true;
-  // Écran de pause
-  const showPauseScreen = gameState?.show_pause_screen === true;
   // Intro de manche
   const showRoundIntro = gameState?.show_round_intro === true;
   const [currentRoundIntro, setCurrentRoundIntro] = useState<any>(null);
   // Écran d'accueil - affiché quand on attend les équipes
-  const showWelcomeScreen = !showAmbientScreen && !showPauseScreen && !showRoundIntro && !currentQuestion && !gameState?.show_leaderboard;
+  const showWelcomeScreen = !showAmbientScreen && !showRoundIntro && !currentQuestion && !gameState?.show_leaderboard;
 
   useEffect(() => {
     const loadRoundIntro = async () => {
@@ -215,66 +213,123 @@ const Screen = () => {
         <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      {showPauseScreen ? (
-        /* ===== ÉCRAN DE PAUSE ===== */
-        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
-          <div className="text-center animate-slide-in">
-            <div className="text-9xl mb-8 animate-pulse">⏸️</div>
-            <h1 className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-6">
-              PAUSE
-            </h1>
-            <p className="text-4xl text-secondary font-bold mb-8">
-              La partie reprendra bientôt...
-            </p>
-            
-            {/* Animation de points */}
-            <div className="flex items-center justify-center gap-3 mt-12">
-              <div className="w-4 h-4 bg-primary rounded-full animate-bounce"></div>
-              <div className="w-4 h-4 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-4 h-4 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-            </div>
-          </div>
-        </div>
-      ) : showRoundIntro && currentRoundIntro ? (
-        /* ===== INTRO DE MANCHE STYLE JEU TV ===== */
-        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
+      {showRoundIntro && currentRoundIntro ? (
+        /* ===== INTRO DE MANCHE STYLE JEU TV SPECTACULAIRE ===== */
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center overflow-hidden">
           {currentRoundIntro.jingle_url && (
             <audio autoPlay src={currentRoundIntro.jingle_url} />
           )}
           
-          <div className="text-center animate-scale-in">
-            {/* Effet de rideau qui s'ouvre */}
-            <div className="mb-12">
-              <div className="text-9xl animate-bounce mb-6">🎬</div>
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-arena blur-3xl opacity-50"></div>
-                <h1 className="relative text-7xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-4">
+          {/* Rideaux qui s'ouvrent */}
+          <div className="absolute inset-0 z-50 pointer-events-none">
+            <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-red-900 to-red-800 animate-slide-out-left" 
+                 style={{ animationDuration: '1.5s', animationFillMode: 'forwards' }}></div>
+            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-red-900 to-red-800 animate-slide-out-right" 
+                 style={{ animationDuration: '1.5s', animationFillMode: 'forwards' }}></div>
+          </div>
+          
+          {/* Spots lumineux rotatifs */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-32 h-screen bg-gradient-to-b from-yellow-300/30 to-transparent"
+                style={{
+                  left: `${i * 12.5}%`,
+                  transform: 'rotate(-15deg)',
+                  animation: 'pulse 2s ease-in-out infinite',
+                  animationDelay: `${i * 0.2}s`,
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Confettis */}
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(30)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-2 h-6 animate-bounce"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: '-20px',
+                  backgroundColor: ['#FFD700', '#FF69B4', '#00CED1', '#FF4500'][Math.floor(Math.random() * 4)],
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                  transform: `rotate(${Math.random() * 360}deg)`,
+                }}
+              />
+            ))}
+          </div>
+          
+          <div className="relative z-40 text-center">
+            {/* Flash d'entrée */}
+            <div className="absolute inset-0 bg-white animate-pulse opacity-0" 
+                 style={{ animationDuration: '0.3s', animationIterationCount: '3' }}></div>
+            
+            {/* Titre principal avec effet 3D */}
+            <div className="mb-8 animate-scale-in" style={{ animationDelay: '0.5s' }}>
+              <div className="relative inline-block">
+                {/* Ombre portée */}
+                <h1 className="absolute top-2 left-2 text-8xl font-black text-black/30 blur-sm">
+                  NOUVELLE MANCHE
+                </h1>
+                {/* Texte principal */}
+                <h1 className="relative text-8xl font-black bg-gradient-to-br from-yellow-300 via-yellow-500 to-orange-600 bg-clip-text text-transparent"
+                    style={{ textShadow: '0 0 40px rgba(255,215,0,0.5)' }}>
                   NOUVELLE MANCHE
                 </h1>
               </div>
             </div>
             
-            {/* Nom de la manche avec effet lumineux */}
-            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-4 border-primary shadow-glow-gold animate-slide-in">
-              <h2 className="text-6xl font-bold text-primary mb-4">
-                {currentRoundIntro.title}
-              </h2>
-              <div className="flex items-center justify-center gap-4 text-2xl text-muted-foreground">
-                <span className="font-semibold">{currentRoundIntro.type === 'blind_test' ? '🎵 Blind Test' : currentRoundIntro.type === 'qcm' ? '❓ QCM' : '✍️ Réponse libre'}</span>
-                <span>•</span>
-                <span className="font-semibold">⏱️ {currentRoundIntro.timer_duration}s</span>
+            {/* Carte de présentation avec animation */}
+            <div className="relative animate-slide-in" style={{ animationDelay: '1s' }}>
+              <div className="bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-xl rounded-3xl p-16 border-8 border-yellow-400 shadow-2xl relative overflow-hidden">
+                {/* Éclats lumineux animés */}
+                <div className="absolute top-0 left-0 w-full h-full">
+                  <div className="absolute top-4 left-4 w-20 h-20 bg-yellow-300 rounded-full blur-3xl animate-pulse"></div>
+                  <div className="absolute bottom-4 right-4 w-24 h-24 bg-pink-300 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                </div>
+                
+                {/* Contenu */}
+                <div className="relative z-10">
+                  {/* Icône dynamique */}
+                  <div className="text-9xl mb-6 animate-bounce">
+                    {currentRoundIntro.type === 'blind_test' ? '🎵' : currentRoundIntro.type === 'qcm' ? '❓' : '✍️'}
+                  </div>
+                  
+                  {/* Nom de la manche */}
+                  <h2 className="text-7xl font-black text-yellow-300 mb-8 uppercase tracking-wider"
+                      style={{ textShadow: '0 0 20px rgba(255,215,0,0.8), 4px 4px 0 rgba(0,0,0,0.3)' }}>
+                    {currentRoundIntro.title}
+                  </h2>
+                  
+                  {/* Détails avec style TV */}
+                  <div className="flex items-center justify-center gap-8 text-3xl text-white font-bold">
+                    <div className="bg-white/20 px-6 py-3 rounded-full backdrop-blur-sm border-2 border-white/30">
+                      {currentRoundIntro.type === 'blind_test' ? '🎵 Blind Test' : currentRoundIntro.type === 'qcm' ? '❓ QCM' : '✍️ Réponse libre'}
+                    </div>
+                    <div className="text-5xl">⚡</div>
+                    <div className="bg-orange-500 px-6 py-3 rounded-full border-2 border-yellow-300 shadow-glow-gold">
+                      ⏱️ {currentRoundIntro.timer_duration}s
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             
-            {/* Étoiles scintillantes */}
-            <div className="flex justify-center gap-6 mt-12">
-              {[...Array(5)].map((_, i) => (
+            {/* Feu d'artifice d'étoiles */}
+            <div className="flex justify-center gap-8 mt-16 animate-fade-in" style={{ animationDelay: '1.5s' }}>
+              {[...Array(7)].map((_, i) => (
                 <div 
                   key={i}
-                  className="text-6xl animate-pulse"
-                  style={{ animationDelay: `${i * 0.2}s` }}
+                  className="text-7xl animate-bounce"
+                  style={{ 
+                    animationDelay: `${i * 0.15}s`,
+                    animationDuration: '1s'
+                  }}
                 >
-                  ⭐
+                  {i % 2 === 0 ? '⭐' : '✨'}
                 </div>
               ))}
             </div>
@@ -318,7 +373,7 @@ const Screen = () => {
             <div className="flex items-center justify-center gap-6 text-3xl mb-12">
               <div className="w-16 h-1 bg-gradient-arena rounded animate-pulse"></div>
               <p className="text-secondary font-bold animate-fade-in">
-                La soirée quiz musical
+                Le plus grand blind test des Hauts de France
               </p>
               <div className="w-16 h-1 bg-gradient-arena rounded animate-pulse"></div>
             </div>

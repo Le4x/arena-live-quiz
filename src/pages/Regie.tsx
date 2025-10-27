@@ -613,7 +613,7 @@ const Regie = () => {
         {/* Contrôles principaux */}
         <Card className="p-2 bg-card/80 backdrop-blur-sm border-primary/20">
           <h2 className="text-xs font-bold text-primary mb-1.5">Contrôles</h2>
-          <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+          <div className="grid grid-cols-5 gap-1.5 mb-1.5">
             <Button 
               size="sm" 
               className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold text-[10px]"
@@ -641,8 +641,6 @@ const Regie = () => {
               <Pause className="mr-1 h-3 w-3" />
               Pause
             </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5 mb-1.5">
             <Button 
               size="sm" 
               className="h-10 bg-gradient-arena hover:opacity-90 text-[10px]"
@@ -659,23 +657,6 @@ const Regie = () => {
             >
               <SkipForward className="mr-1 h-3 w-3" />
               Suivante
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              className="h-10 text-[10px]"
-              onClick={async () => {
-                if (!gameState) return;
-                const newValue = !gameState.show_pause_screen;
-                await supabase
-                  .from('game_state')
-                  .update({ show_pause_screen: newValue })
-                  .eq('id', gameState.id);
-                toast({ title: newValue ? "⏸️ Pause activée" : "▶️ Pause désactivée" });
-              }}
-            >
-              <Clock className="mr-1 h-3 w-3" />
-              {gameState?.show_pause_screen ? "Reprendre" : "Pause"}
             </Button>
           </div>
           
