@@ -14,10 +14,11 @@ const Screen = () => {
   useEffect(() => {
     loadData();
     
-    // Realtime subscriptions
+    // Realtime subscriptions avec rechargement complet
     const teamsChannel = supabase
       .channel('screen-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        console.log('🔄 Screen: Teams changed');
         loadData();
       })
       .subscribe();
@@ -25,13 +26,18 @@ const Screen = () => {
     const gameStateChannel = supabase
       .channel('screen-game-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        console.log('🔄 Screen: Game state changed');
         loadData();
+        loadBuzzers();
+        loadQcmAnswers();
+        loadTextAnswers();
       })
       .subscribe();
 
     const buzzersChannel = supabase
       .channel('screen-buzzers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        console.log('🔄 Screen: Buzzer detected');
         loadBuzzers();
       })
       .subscribe();
@@ -39,6 +45,7 @@ const Screen = () => {
     const answersChannel = supabase
       .channel('screen-qcm-answers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        console.log('🔄 Screen: Answer received');
         loadQcmAnswers();
         loadTextAnswers();
       })
