@@ -299,6 +299,7 @@ export type Database = {
         Row: {
           avatar: string | null
           color: string
+          connected_device_id: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
@@ -308,6 +309,7 @@ export type Database = {
         Insert: {
           avatar?: string | null
           color: string
+          connected_device_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -317,6 +319,7 @@ export type Database = {
         Update: {
           avatar?: string | null
           color?: string
+          connected_device_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null

@@ -20,6 +20,17 @@ const Client = () => {
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [deviceBlocked, setDeviceBlocked] = useState(false);
+
+  // Générer ou récupérer l'ID unique de l'appareil
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('arena_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('arena_device_id', deviceId);
+    }
+    return deviceId;
+  };
 
   useEffect(() => {
     if (teamId) {
@@ -125,7 +136,31 @@ const Client = () => {
       .select('*')
       .eq('id', teamId)
       .single();
-    if (data) setTeam(data);
+    
+    if (data) {
+      const currentDeviceId = getDeviceId();
+      
+      // Vérifier si un appareil est déjà connecté
+      if (data.connected_device_id && data.connected_device_id !== currentDeviceId) {
+        setDeviceBlocked(true);
+        toast({
+          title: "Accès bloqué",
+          description: "Un appareil est déjà connecté à cette équipe",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Si aucun appareil n'est connecté ou si c'est le même appareil, enregistrer l'appareil
+      if (!data.connected_device_id) {
+        await supabase
+          .from('teams')
+          .update({ connected_device_id: currentDeviceId })
+          .eq('id', teamId);
+      }
+      
+      setTeam(data);
+    }
   };
 
   const loadGameState = async () => {
@@ -149,10 +184,12 @@ const Client = () => {
       return;
     }
 
+    const currentDeviceId = getDeviceId();
+
     const { data, error } = await supabase
       .from('teams')
       .insert([
-        { name: teamName, color: teamColor, score: 0 }
+        { name: teamName, color: teamColor, score: 0, connected_device_id: currentDeviceId }
       ])
       .select()
       .single();
@@ -295,6 +332,22 @@ const Client = () => {
       });
     }
   };
+
+  if (deviceBlocked) {
+    return (
+      <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
+        <Card className="w-full max-w-md p-8 bg-card/90 backdrop-blur-sm border-destructive/50">
+          <div className="text-center">
+            <X className="w-16 h-16 mx-auto mb-4 text-destructive" />
+            <h1 className="text-2xl font-bold text-destructive mb-4">Accès Bloqué</h1>
+            <p className="text-muted-foreground">
+              Un appareil est déjà connecté à cette équipe. Une seule connexion est autorisée par équipe.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (!team) {
     return (
