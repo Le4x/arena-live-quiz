@@ -180,6 +180,13 @@ const Regie = () => {
   const setQuestion = async (questionId: string) => {
     if (!gameState) return;
     
+    // Supprimer les anciens buzzers de cette question
+    await supabase
+      .from('buzzer_attempts')
+      .delete()
+      .eq('question_id', questionId)
+      .eq('game_session_id', gameState.game_session_id);
+    
     // Trouver la question pour obtenir sa durée
     const question = questions.find(q => q.id === questionId);
     const round = rounds.find(r => r.id === question?.round_id);
@@ -188,7 +195,8 @@ const Regie = () => {
       current_question_id: questionId,
       timer_active: true,
       timer_remaining: round?.timer_duration || 30,
-      excluded_teams: [] // Réinitialiser les équipes exclues pour la nouvelle question
+      excluded_teams: [], // Réinitialiser les équipes exclues pour la nouvelle question
+      answer_result: null // Réinitialiser le résultat de réponse
     }).eq('id', gameState.id);
     
     toast({ title: "Question chargée et chrono lancé" });
