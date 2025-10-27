@@ -53,10 +53,22 @@ const Screen = () => {
   }, []);
 
   useEffect(() => {
+    console.log('📌 Question or session changed, loading buzzers');
     loadBuzzers();
     loadQcmAnswers();
     loadTextAnswers();
-  }, [currentQuestion?.id]);
+  }, [currentQuestion?.id, gameState?.game_session_id]);
+
+  useEffect(() => {
+    // Vérifier les buzzers toutes les 2 secondes sur Screen aussi
+    const interval = setInterval(() => {
+      if (currentQuestion?.id && gameState?.game_session_id && gameState?.is_buzzer_active) {
+        loadBuzzers();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [currentQuestion?.id, gameState?.game_session_id, gameState?.is_buzzer_active]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;

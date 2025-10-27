@@ -64,10 +64,15 @@ const Regie = () => {
   }, []);
 
   useEffect(() => {
-    console.log('📌 Question or session changed, loading buzzers');
-    loadBuzzers();
-    setHasStoppedForBuzzer(false);
-  }, [currentQuestion?.id, gameState?.game_session_id]);
+    // Vérifier les buzzers toutes les 2 secondes en plus du realtime
+    const interval = setInterval(() => {
+      if (currentQuestion?.id && gameState?.game_session_id && gameState?.is_buzzer_active) {
+        loadBuzzers();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [currentQuestion?.id, gameState?.game_session_id, gameState?.is_buzzer_active]);
 
   useEffect(() => {
     // Arrêter automatiquement musique et chrono au premier buzzer
