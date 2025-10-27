@@ -303,17 +303,6 @@ const Screen = () => {
                       style={{ textShadow: '0 0 20px rgba(255,215,0,0.8), 4px 4px 0 rgba(0,0,0,0.3)' }}>
                     {currentRoundIntro.title}
                   </h2>
-                  
-                  {/* Détails avec style TV */}
-                  <div className="flex items-center justify-center gap-8 text-3xl text-white font-bold">
-                    <div className="bg-white/20 px-6 py-3 rounded-full backdrop-blur-sm border-2 border-white/30">
-                      {currentRoundIntro.type === 'blind_test' ? '🎵 Blind Test' : currentRoundIntro.type === 'qcm' ? '❓ QCM' : '✍️ Réponse libre'}
-                    </div>
-                    <div className="text-5xl">⚡</div>
-                    <div className="bg-orange-500 px-6 py-3 rounded-full border-2 border-yellow-300 shadow-glow-gold">
-                      ⏱️ {currentRoundIntro.timer_duration}s
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

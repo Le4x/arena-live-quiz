@@ -59,10 +59,18 @@ const Client = () => {
       })
       .subscribe();
 
+    const buzzerChannel = supabase
+      .channel('client-buzzer')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        checkIfBuzzed();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
+      supabase.removeChannel(buzzerChannel);
     };
   }, [teamId]);
 
@@ -115,7 +123,7 @@ const Client = () => {
       .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
     
-    if (data) setHasBuzzed(true);
+    setHasBuzzed(!!data);
   };
 
   const checkIfAnswered = async () => {
