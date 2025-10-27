@@ -163,7 +163,17 @@ const Client = () => {
 
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
-    if (!team || !currentQuestion || !finalAnswer.trim()) return;
+    if (!team || !currentQuestion || !finalAnswer.trim() || hasAnswered) return;
+
+    // Pour les QCM, valider automatiquement la réponse
+    let isCorrect = null;
+    let pointsAwarded = 0;
+    const isQCM = currentQuestion.question_type === 'qcm';
+    
+    if (isQCM && currentQuestion.correct_answer) {
+      isCorrect = finalAnswer.toLowerCase().trim() === currentQuestion.correct_answer.toLowerCase().trim();
+      pointsAwarded = isCorrect ? (currentQuestion.points || 0) : 0;
+    }
 
     const { error } = await supabase
       .from('team_answers')
@@ -171,7 +181,9 @@ const Client = () => {
         { 
           team_id: team.id, 
           question_id: currentQuestion.id,
-          answer: finalAnswer
+          answer: finalAnswer,
+          is_correct: isCorrect,
+          points_awarded: pointsAwarded,
         }
       ]);
 
@@ -184,9 +196,18 @@ const Client = () => {
     } else {
       setAnswer("");
       setHasAnswered(true);
+      
+      // Mettre à jour le score de l'équipe pour les QCM
+      if (isQCM && isCorrect) {
+        await supabase
+          .from('teams')
+          .update({ score: (team.score || 0) + pointsAwarded })
+          .eq('id', team.id);
+      }
+      
       toast({
-        title: "Réponse envoyée !",
-        description: "Votre réponse a été enregistrée",
+        title: isQCM ? "Réponse enregistrée !" : "Réponse envoyée !",
+        description: isQCM ? (isCorrect ? `Bonne réponse ! +${pointsAwarded} pts` : "Réponse enregistrée") : "Votre réponse a été enregistrée",
       });
     }
   };

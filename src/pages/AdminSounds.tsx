@@ -81,9 +81,9 @@ const AdminSounds = () => {
             </h1>
             <p className="text-muted-foreground text-xl mt-2">Bibliothèque audio pour le jeu</p>
           </div>
-          <Button onClick={() => navigate('/regie')} variant="outline" size="lg">
+          <Button onClick={() => navigate('/admin')} variant="outline" size="lg">
             <ArrowLeft className="mr-2 h-5 w-5" />
-            Retour à la régie
+            Retour à la configuration
           </Button>
         </header>
 
