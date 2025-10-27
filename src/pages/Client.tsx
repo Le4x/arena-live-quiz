@@ -42,6 +42,7 @@ const Client = () => {
       .channel('client-game-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
         loadGameState();
+        checkIfBuzzed();
       })
       .subscribe();
 

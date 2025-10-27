@@ -672,6 +672,7 @@ const Regie = () => {
                   className="h-8 text-[10px] justify-start"
                   onClick={async () => {
                     if (!gameState) return;
+                    setSelectedRound(round.id);
                     await supabase
                       .from('game_state')
                       .update({ 
@@ -803,12 +804,24 @@ const Regie = () => {
 
         {/* Questions par manche - Cartes compactes */}
         <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-xs font-bold text-secondary mb-2 flex items-center gap-1">
-            <List className="h-3 w-3" />
-            Questions
-          </h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-bold text-secondary flex items-center gap-1">
+              <List className="h-3 w-3" />
+              Questions {selectedRound && `- ${rounds.find(r => r.id === selectedRound)?.title}`}
+            </h2>
+            {selectedRound && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 text-[9px] px-2"
+                onClick={() => setSelectedRound(null)}
+              >
+                Tout afficher
+              </Button>
+            )}
+          </div>
           <div className="space-y-2">
-            {rounds.map((round) => {
+            {rounds.filter(round => !selectedRound || round.id === selectedRound).map((round) => {
               const roundQuestions = questions.filter(q => q.round_id === round.id);
               if (roundQuestions.length === 0) return null;
               
