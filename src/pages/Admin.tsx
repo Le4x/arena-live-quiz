@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Settings, Music, Users, PlaySquare, Trash2, GamepadIcon, QrCode, Download } from "lucide-react";
+import { Settings, Music, Users, PlaySquare, Trash2, GamepadIcon, QrCode, Download, Palette } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import QRCode from "qrcode";
@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 
 const Admin = () => {
@@ -22,6 +23,7 @@ const Admin = () => {
   const [newTeamColor, setNewTeamColor] = useState("#FFD700");
   const [selectedTeamQR, setSelectedTeamQR] = useState<any>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -248,18 +250,40 @@ const Admin = () => {
                 onChange={(e) => setNewTeamName(e.target.value)}
                 className="flex-1"
               />
-              <div className="flex gap-2">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    className={`w-10 h-10 rounded-full border-4 transition-all ${
-                      newTeamColor === color ? 'border-foreground scale-110' : 'border-transparent'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewTeamColor(color)}
-                  />
-                ))}
-              </div>
+              
+              <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <div
+                      className="w-5 h-5 rounded-full border-2 border-border"
+                      style={{ backgroundColor: newTeamColor }}
+                    />
+                    <Palette className="h-4 w-4" />
+                    Couleur
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Choisir une couleur</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-6 gap-3 p-4">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        className={`w-12 h-12 rounded-full border-4 transition-all hover:scale-110 ${
+                          newTeamColor === color ? 'border-foreground scale-110' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => {
+                          setNewTeamColor(color);
+                          setShowColorPicker(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Button onClick={createTeam}>
                 Créer
               </Button>
