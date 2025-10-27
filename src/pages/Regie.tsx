@@ -448,10 +448,13 @@ const Regie = () => {
     }
 
     try {
-      // 1. Désactiver toutes les équipes pour déconnecter les smartphones
+      // 1. Désactiver toutes les équipes et réinitialiser les device_id pour déconnecter les smartphones
       await supabase
         .from('teams')
-        .update({ is_active: false })
+        .update({ 
+          is_active: false,
+          connected_device_id: null
+        })
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all teams
 
       // 2. Appeler la fonction de réinitialisation de la base de données
@@ -494,6 +497,32 @@ const Regie = () => {
       toast({
         title: "Erreur",
         description: "Impossible de réinitialiser la session",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const disconnectTeam = async (teamId: string) => {
+    try {
+      await supabase
+        .from('teams')
+        .update({ 
+          is_active: false,
+          connected_device_id: null
+        })
+        .eq('id', teamId);
+
+      toast({
+        title: "✅ Équipe déconnectée",
+        description: "Le smartphone a été déconnecté",
+      });
+
+      await loadTeams();
+    } catch (error) {
+      console.error('Error disconnecting team:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de déconnecter l'équipe",
         variant: "destructive"
       });
     }
@@ -746,11 +775,23 @@ const Regie = () => {
                   className="p-4 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
                   style={{ borderLeftColor: team.color, borderLeftWidth: '4px' }}
                 >
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-lg">{team.name}</h3>
-                    <span className="text-2xl font-bold text-primary">{team.score}</span>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg">{team.name}</h3>
+                      <span className="text-2xl font-bold text-primary">{team.score}</span>
+                    </div>
+                    {isConnected && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => disconnectTeam(team.id)}
+                      >
+                        Déconnecter
+                      </Button>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="text-xs text-muted-foreground">
                     {isConnected ? "🟢 Connecté" : "⚪ Déconnecté"}
                   </div>
                 </div>
