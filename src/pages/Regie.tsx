@@ -539,17 +539,46 @@ const Regie = () => {
         {/* Header */}
         <header className="flex items-center justify-between py-2 animate-slide-in">
           <div className="text-center flex-1">
-            <h1 className="text-3xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+            <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
               ARENA
             </h1>
-            <p className="text-muted-foreground text-sm">Régie - MusicArena #1</p>
+            <p className="text-muted-foreground text-xs">Régie - MusicArena #1</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
+            <Button 
+              onClick={async () => {
+                if (!gameState) return;
+                await supabase
+                  .from('game_state')
+                  .update({ show_ambient_screen: false, show_welcome_screen: true })
+                  .eq('id', gameState.id);
+                toast({ title: "🎬 Show démarré !" });
+              }}
+              variant="default"
+              size="sm"
+              className="bg-gradient-arena hover:opacity-90"
+            >
+              🎬 Démarrer
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!gameState) return;
+                const newValue = !gameState.show_ambient_screen;
+                await supabase
+                  .from('game_state')
+                  .update({ show_ambient_screen: newValue })
+                  .eq('id', gameState.id);
+              }}
+              variant={gameState?.show_ambient_screen ? "default" : "outline"}
+              size="sm"
+            >
+              🎵
+            </Button>
             <Button onClick={() => navigate('/admin/setup')} variant="outline" size="sm">
-              Configuration
+              ⚙️
             </Button>
             <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="sm">
-              Sons
+              🔊
             </Button>
             <Button 
               onClick={resetCompleteSession} 
@@ -557,37 +586,29 @@ const Regie = () => {
               size="sm"
               className="bg-red-600 hover:bg-red-700"
             >
-              🔄 Reset
+              🔄
             </Button>
           </div>
         </header>
 
-        {/* Bouton écran d'ambiance */}
-        <Card className="p-2 bg-card/80 backdrop-blur-sm border-primary/20">
-          <Button
-            size="sm"
-            variant={gameState?.show_ambient_screen ? "default" : "secondary"}
-            className="w-full h-9 text-sm"
-            onClick={async () => {
-              if (!gameState) {
-                toast({ title: "Erreur", description: "Aucun état de jeu trouvé", variant: "destructive" });
-                return;
-              }
-              
-              const newValue = !gameState.show_ambient_screen;
-              await supabase
-                .from('game_state')
-                .update({ show_ambient_screen: newValue })
-                .eq('id', gameState.id);
-              
-              toast({ 
-                title: newValue ? "🎵 Écran d'ambiance" : "👥 Écran d'accueil",
-              });
-            }}
-          >
-            {gameState?.show_ambient_screen ? "🎵 Écran d'ambiance" : "👥 Écran d'accueil"}
-          </Button>
-        </Card>
+        {/* Question actuelle - EN HAUT */}
+        {currentQuestion && (
+          <Card className="p-3 bg-gradient-to-r from-accent/20 to-primary/20 backdrop-blur-sm border-accent shadow-glow-gold">
+            <h2 className="text-xs font-bold text-accent mb-1">QUESTION ACTUELLE</h2>
+            <p className="text-base font-semibold">{currentQuestion.question_text}</p>
+            <div className="mt-1 flex gap-2 items-center text-xs text-muted-foreground">
+              <span className="font-medium">{currentQuestion.question_type}</span>
+              <span>•</span>
+              <span className="font-bold text-primary">{currentQuestion.points} pts</span>
+              {currentQuestion.audio_url && (
+                <>
+                  <span>•</span>
+                  <Music className="h-3 w-3 text-secondary" />
+                </>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Contrôles principaux */}
         <Card className="p-3 bg-card/80 backdrop-blur-sm border-primary/20">
@@ -743,105 +764,92 @@ const Regie = () => {
         
         <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
-        {/* Sélection de la manche et questions */}
+        {/* Questions par manche - Cartes compactes */}
         <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-sm font-bold text-secondary mb-2 flex items-center gap-1">
-            <List className="h-4 w-4" />
+          <h2 className="text-xs font-bold text-secondary mb-2 flex items-center gap-1">
+            <List className="h-3 w-3" />
             Questions
           </h2>
-          <div className="mb-2">
-            <select
-              value={selectedRound || ""}
-              onChange={(e) => setSelectedRound(e.target.value)}
-              className="w-full h-9 rounded-md border border-border bg-input px-2 text-sm"
-            >
-              <option value="">Sélectionner une manche</option>
-              {rounds.map((round) => (
-                <option key={round.id} value={round.id}>{round.title}</option>
-              ))}
-            </select>
-          </div>
-          {selectedRound && (
-            <div className="grid gap-2">
-              {questions.filter(q => q.round_id === selectedRound).map((question) => (
-                <div
-                  key={question.id}
-                  className={`p-2 rounded-lg border cursor-pointer transition-all ${
-                    currentQuestion?.id === question.id
-                      ? 'border-secondary bg-secondary/10'
-                      : 'border-border bg-muted/50 hover:border-secondary/50'
-                  }`}
-                  onClick={() => setQuestion(question.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    {question.audio_url && <Music className="h-4 w-4 text-secondary" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{question.question_text}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {question.question_type} • {question.points} pts
+          <div className="space-y-2">
+            {rounds.map((round) => {
+              const roundQuestions = questions.filter(q => q.round_id === round.id);
+              if (roundQuestions.length === 0) return null;
+              
+              return (
+                <div key={round.id}>
+                  <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase">{round.title}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+                    {roundQuestions.map((question) => (
+                      <div
+                        key={question.id}
+                        className={`p-1.5 rounded border cursor-pointer transition-all ${
+                          currentQuestion?.id === question.id
+                            ? 'border-secondary bg-secondary/20 shadow-sm'
+                            : 'border-border bg-muted/30 hover:border-secondary/50 hover:bg-muted/50'
+                        }`}
+                        onClick={() => setQuestion(question.id)}
+                      >
+                        <div className="flex items-start gap-1">
+                          {question.audio_url && <Music className="h-3 w-3 text-secondary flex-shrink-0 mt-0.5" />}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-[10px] leading-tight line-clamp-2">{question.question_text}</div>
+                            <div className="text-[9px] text-muted-foreground mt-0.5">
+                              {question.points} pts
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </Card>
 
         {/* Équipes connectées */}
-        <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-sm font-bold text-secondary mb-2">
+        <Card className="p-2 bg-card/80 backdrop-blur-sm border-secondary/20">
+          <h2 className="text-xs font-bold text-secondary mb-1.5">
             Équipes ({teams.filter(t => t.connected_device_id && t.is_active).length}/{teams.length})
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1.5">
             {teams.map((team) => {
               const isConnected = team.connected_device_id !== null && team.is_active;
               return (
                 <div
                   key={team.id}
-                  className="p-2 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
-                  style={{ borderLeftColor: team.color, borderLeftWidth: '3px' }}
+                  className="p-1.5 rounded border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
+                  style={{ borderLeftColor: team.color, borderLeftWidth: '2px' }}
                 >
-                  <div className="flex justify-between items-start mb-1">
+                  <div className="flex justify-between items-start mb-0.5">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-xs truncate">{team.name}</h3>
-                      <span className="text-sm font-bold text-primary">{team.score}</span>
+                      <h3 className="font-bold text-[10px] truncate leading-tight">{team.name}</h3>
+                      <span className="text-xs font-bold text-primary">{team.score}</span>
                     </div>
                     {isConnected && (
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-6 px-2 text-[10px]"
+                        className="h-4 w-4 p-0 text-[8px]"
                         onClick={() => disconnectTeam(team.id)}
                       >
                         ✕
                       </Button>
                     )}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-[9px]">
                     {isConnected ? "🟢" : "⚪"}
                   </div>
                 </div>
               );
             })}
             {teams.length === 0 && (
-              <div className="col-span-full text-center py-4 text-xs text-muted-foreground">
+              <div className="col-span-full text-center py-2 text-[10px] text-muted-foreground">
                 Aucune équipe
               </div>
             )}
           </div>
         </Card>
-
-        {/* Question actuelle */}
-        {currentQuestion && (
-          <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20">
-            <h2 className="text-sm font-bold text-accent mb-2">Question actuelle</h2>
-            <p className="text-sm">{currentQuestion.question_text}</p>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {currentQuestion.question_type} • {currentQuestion.points} pts
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   );
