@@ -8,6 +8,7 @@ const Screen = () => {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timer, setTimer] = useState<number | null>(null);
   const [buzzers, setBuzzers] = useState<any[]>([]);
+  const [qcmAnswers, setQcmAnswers] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -34,15 +35,24 @@ const Screen = () => {
       })
       .subscribe();
 
+    const answersChannel = supabase
+      .channel('screen-qcm-answers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        loadQcmAnswers();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
+      supabase.removeChannel(answersChannel);
     };
   }, []);
 
   useEffect(() => {
     loadBuzzers();
+    loadQcmAnswers();
   }, [currentQuestion?.id]);
 
   useEffect(() => {
@@ -87,6 +97,20 @@ const Screen = () => {
     if (data) setBuzzers(data);
   };
 
+  const loadQcmAnswers = async () => {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'qcm') {
+      setQcmAnswers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('question_id', currentQuestion.id);
+    
+    if (data) setQcmAnswers(data);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
       {/* Background effects */}
@@ -109,8 +133,15 @@ const Screen = () => {
           <div className="max-w-5xl mx-auto mb-12 animate-slide-in">
             <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-2 border-primary shadow-glow-gold">
               <div className="text-center">
-                <div className="text-sm text-primary font-bold uppercase tracking-wider mb-4">
-                  Question
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm text-primary font-bold uppercase tracking-wider">
+                    Question
+                  </div>
+                  {currentQuestion.question_type === 'qcm' && (
+                    <div className="text-sm font-bold text-secondary">
+                      {qcmAnswers.length} / {teams.length} réponses
+                    </div>
+                  )}
                 </div>
                 <h2 className="text-5xl font-bold mb-8">{currentQuestion.question_text}</h2>
                 

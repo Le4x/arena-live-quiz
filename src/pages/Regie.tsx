@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Play, Pause, SkipForward, Trophy, Zap, Clock, Music, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { RoundCreator } from "@/components/RoundCreator";
-import { QuestionCreator } from "@/components/QuestionCreator";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
+import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
+import { useNavigate } from "react-router-dom";
 
 const Regie = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [teams, setTeams] = useState<any[]>([]);
@@ -18,7 +19,6 @@ const Regie = () => {
   const [rounds, setRounds] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [selectedRound, setSelectedRound] = useState<string | null>(null);
-  const [timerValue, setTimerValue] = useState(30);
   const [buzzers, setBuzzers] = useState<any[]>([]);
   const [hasStoppedForBuzzer, setHasStoppedForBuzzer] = useState(false);
 
@@ -156,8 +156,18 @@ const Regie = () => {
 
   const setQuestion = async (questionId: string) => {
     if (!gameState) return;
-    await supabase.from('game_state').update({ current_question_id: questionId }).eq('id', gameState.id);
-    toast({ title: "Question chargée" });
+    
+    // Trouver la question pour obtenir sa durée
+    const question = questions.find(q => q.id === questionId);
+    const round = rounds.find(r => r.id === question?.round_id);
+    
+    await supabase.from('game_state').update({ 
+      current_question_id: questionId,
+      timer_active: true,
+      timer_remaining: round?.timer_duration || 30
+    }).eq('id', gameState.id);
+    
+    toast({ title: "Question chargée et chrono lancé" });
   };
 
   const nextQuestion = async () => {
@@ -167,7 +177,8 @@ const Regie = () => {
     const currentIndex = roundQuestions.findIndex(q => q.id === currentQuestion.id);
     
     if (currentIndex < roundQuestions.length - 1) {
-      await setQuestion(roundQuestions[currentIndex + 1].id);
+      const nextQ = roundQuestions[currentIndex + 1];
+      await setQuestion(nextQ.id);
     } else {
       toast({ title: "Dernière question", description: "C'est la fin de cette manche", variant: "destructive" });
     }
@@ -175,9 +186,12 @@ const Regie = () => {
 
   const startTimer = async () => {
     if (!gameState) return;
+    const round = rounds.find(r => r.id === currentQuestion?.round_id);
+    const duration = round?.timer_duration || 30;
+    
     await supabase.from('game_state').update({ 
       timer_active: true, 
-      timer_remaining: timerValue 
+      timer_remaining: duration
     }).eq('id', gameState.id);
     toast({ title: "Chrono lancé" });
   };
@@ -235,11 +249,21 @@ const Regie = () => {
     <div className="min-h-screen bg-gradient-glow p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <header className="text-center py-8 animate-slide-in">
-          <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
-            ARENA
-          </h1>
-          <p className="text-muted-foreground text-xl mt-2">Régie - MusicArena #1</p>
+        <header className="flex items-center justify-between py-8 animate-slide-in">
+          <div className="text-center flex-1">
+            <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+              ARENA
+            </h1>
+            <p className="text-muted-foreground text-xl mt-2">Régie - MusicArena #1</p>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={() => navigate('/admin/setup')} variant="outline" size="lg">
+              Configuration
+            </Button>
+            <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="lg">
+              Sons
+            </Button>
+          </div>
         </header>
 
         {/* Contrôles principaux */}
@@ -349,37 +373,10 @@ const Regie = () => {
           </Card>
         )}
 
-        {/* Gestion du chrono */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
-          <h2 className="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            Chronomètre
-          </h2>
-          <div className="flex gap-4 items-center">
-            <input
-              type="number"
-              value={timerValue}
-              onChange={(e) => setTimerValue(parseInt(e.target.value))}
-              className="w-24 h-12 rounded-md border border-border bg-input px-3 text-center text-xl font-bold"
-            />
-            <Button onClick={startTimer} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              Démarrer {timerValue}s
-            </Button>
-            <Button onClick={stopTimer} variant="outline">
-              Arrêter
-            </Button>
-            {gameState?.timer_active && (
-              <div className="text-3xl font-bold text-accent ml-4">
-                {gameState.timer_remaining}s
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          <RoundCreator onRoundCreated={loadRounds} />
-          <QuestionCreator rounds={rounds} onQuestionCreated={loadQuestions} />
-        </div>
+        {/* Réponses - Prioritaire */}
+        <QCMAnswersDisplay currentQuestion={currentQuestion} />
+        
+        <TextAnswersDisplay currentQuestionId={currentQuestion?.id} />
 
         {/* Sélection de la manche et questions */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
@@ -425,10 +422,6 @@ const Regie = () => {
             </div>
           )}
         </Card>
-
-        <BuzzerMonitor currentQuestionId={currentQuestion?.id} />
-
-        <TextAnswersDisplay currentQuestionId={currentQuestion?.id} />
 
         {/* Équipes connectées */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">

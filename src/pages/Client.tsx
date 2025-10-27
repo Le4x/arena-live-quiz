@@ -17,6 +17,7 @@ const Client = () => {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [answer, setAnswer] = useState("");
   const [hasBuzzed, setHasBuzzed] = useState(false);
+  const [hasAnswered, setHasAnswered] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -48,7 +49,36 @@ const Client = () => {
     // Reset buzzer state when question changes
     setHasBuzzed(false);
     setAnswer("");
+    setHasAnswered(false);
+    checkIfBuzzed();
+    checkIfAnswered();
   }, [currentQuestion?.id]);
+
+  const checkIfBuzzed = async () => {
+    if (!team || !currentQuestion?.id) return;
+    
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .maybeSingle();
+    
+    if (data) setHasBuzzed(true);
+  };
+
+  const checkIfAnswered = async () => {
+    if (!team || !currentQuestion?.id) return;
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .maybeSingle();
+    
+    if (data) setHasAnswered(true);
+  };
 
   const loadTeam = async () => {
     if (!teamId) return;
@@ -131,8 +161,9 @@ const Client = () => {
     }
   };
 
-  const submitAnswer = async () => {
-    if (!team || !currentQuestion || !answer.trim()) return;
+  const submitAnswer = async (answerValue?: string) => {
+    const finalAnswer = answerValue || answer;
+    if (!team || !currentQuestion || !finalAnswer.trim()) return;
 
     const { error } = await supabase
       .from('team_answers')
@@ -140,7 +171,7 @@ const Client = () => {
         { 
           team_id: team.id, 
           question_id: currentQuestion.id,
-          answer: answer
+          answer: finalAnswer
         }
       ]);
 
@@ -152,6 +183,7 @@ const Client = () => {
       });
     } else {
       setAnswer("");
+      setHasAnswered(true);
       toast({
         title: "Réponse envoyée !",
         description: "Votre réponse a été enregistrée",
@@ -255,8 +287,9 @@ const Client = () => {
                       <Button
                         key={key}
                         variant="outline"
-                        className="w-full justify-start text-left h-auto py-4 px-6"
-                        onClick={() => setAnswer(value as string)}
+                        disabled={hasAnswered}
+                        className="w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-50"
+                        onClick={() => submitAnswer(value as string)}
                       >
                         <span className="text-primary font-bold mr-3">{key}.</span>
                         <span>{value as string}</span>
@@ -266,6 +299,11 @@ const Client = () => {
                     return <p className="text-destructive">Erreur de chargement des options</p>;
                   }
                 })()}
+                {hasAnswered && (
+                  <div className="text-center text-green-500 font-bold">
+                    ✓ Réponse enregistrée
+                  </div>
+                )}
               </div>
             )}
 
@@ -278,7 +316,7 @@ const Client = () => {
                   className="bg-input border-border"
                 />
                 <Button
-                  onClick={submitAnswer}
+                  onClick={() => submitAnswer()}
                   className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue"
                 >
                   <Send className="mr-2 h-5 w-5" />

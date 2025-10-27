@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Regie from "./pages/Regie";
 import Screen from "./pages/Screen";
 import Client from "./pages/Client";
+import AdminSetup from "./pages/AdminSetup";
+import AdminSounds from "./pages/AdminSounds";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,9 +20,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Regie />} />
+          <Route path="/regie" element={<Regie />} />
           <Route path="/screen" element={<Screen />} />
           <Route path="/client" element={<Client />} />
           <Route path="/client/:teamId" element={<Client />} />
+          <Route path="/admin/setup" element={<AdminSetup />} />
+          <Route path="/admin/sounds" element={<AdminSounds />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
