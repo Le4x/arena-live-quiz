@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Zap, Check, X } from "lucide-react";
+import { playSound } from "@/lib/sounds";
 
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
@@ -90,6 +91,15 @@ const Screen = () => {
     }
     return () => clearInterval(interval);
   }, [gameState?.timer_active, gameState?.timer_remaining]);
+
+  // Jouer les sons quand le résultat change
+  useEffect(() => {
+    if (gameState?.answer_result === 'correct') {
+      playSound('correct');
+    } else if (gameState?.answer_result === 'incorrect') {
+      playSound('incorrect');
+    }
+  }, [gameState?.answer_result]);
 
   const loadData = async () => {
     const [teamsRes, gameStateRes] = await Promise.all([
