@@ -66,9 +66,12 @@ const Client = () => {
     };
   }, [teamId]);
 
-  // Track presence when team is connected
+  // Track presence when team is connected and active
   useEffect(() => {
-    if (!team?.id) return;
+    if (!team?.id || !team?.is_active) {
+      // Si l'équipe est désactivée, ne pas tracker la présence
+      return;
+    }
 
     const presenceChannel = supabase.channel('team-presence');
 
@@ -89,7 +92,7 @@ const Client = () => {
     return () => {
       supabase.removeChannel(presenceChannel);
     };
-  }, [team?.id]);
+  }, [team?.id, team?.is_active]);
 
   useEffect(() => {
     // Reset buzzer state when question changes

@@ -443,19 +443,25 @@ const Regie = () => {
     }
 
     // Confirmation avant reset
-    if (!confirm("⚠️ Êtes-vous sûr de vouloir réinitialiser complètement la session ? Toutes les réponses et buzzers seront supprimés.")) {
+    if (!confirm("⚠️ Êtes-vous sûr de vouloir réinitialiser complètement la session ? Tous les smartphones seront déconnectés et toutes les données supprimées.")) {
       return;
     }
 
     try {
-      // Appeler la fonction de réinitialisation de la base de données
+      // 1. Désactiver toutes les équipes pour déconnecter les smartphones
+      await supabase
+        .from('teams')
+        .update({ is_active: false })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all teams
+
+      // 2. Appeler la fonction de réinitialisation de la base de données
       const { error } = await supabase.rpc('reset_game_session', {
         session_id: gameState.game_session_id
       });
 
       if (error) throw error;
 
-      // Réinitialiser aussi la question actuelle
+      // 3. Réinitialiser aussi la question actuelle
       await supabase
         .from('game_state')
         .update({ 
@@ -468,18 +474,20 @@ const Regie = () => {
         })
         .eq('id', gameState.id);
 
-      // Arrêter l'audio si en cours
+      // 4. Arrêter l'audio si en cours
       pauseAudio();
 
       toast({
         title: "✅ Session réinitialisée",
-        description: "Toutes les données ont été effacées",
+        description: "Tous les smartphones déconnectés et données effacées",
       });
 
-      // Recharger les données
+      // 5. Recharger les données
       await loadGameState();
+      await loadTeams();
       setBuzzers([]);
       setHasStoppedForBuzzer(false);
+      setConnectedTeams(new Set());
 
     } catch (error) {
       console.error('Error resetting session:', error);
