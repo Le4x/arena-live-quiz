@@ -246,17 +246,26 @@ const Client = () => {
 
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="space-y-3 mb-6">
-                {Object.entries(JSON.parse(currentQuestion.options) || {}).map(([key, value]) => (
-                  <Button
-                    key={key}
-                    variant="outline"
-                    className="w-full justify-start text-left h-auto py-4 px-6"
-                    onClick={() => setAnswer(value as string)}
-                  >
-                    <span className="text-primary font-bold mr-3">{key}.</span>
-                    <span>{value as string}</span>
-                  </Button>
-                ))}
+                {(() => {
+                  try {
+                    const options = typeof currentQuestion.options === 'string' 
+                      ? JSON.parse(currentQuestion.options) 
+                      : currentQuestion.options;
+                    return Object.entries(options || {}).map(([key, value]) => (
+                      <Button
+                        key={key}
+                        variant="outline"
+                        className="w-full justify-start text-left h-auto py-4 px-6"
+                        onClick={() => setAnswer(value as string)}
+                      >
+                        <span className="text-primary font-bold mr-3">{key}.</span>
+                        <span>{value as string}</span>
+                      </Button>
+                    ));
+                  } catch (e) {
+                    return <p className="text-destructive">Erreur de chargement des options</p>;
+                  }
+                })()}
               </div>
             )}
 

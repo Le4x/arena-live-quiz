@@ -114,19 +114,28 @@ const Screen = () => {
                 </div>
                 <h2 className="text-5xl font-bold mb-8">{currentQuestion.question_text}</h2>
                 
-                {currentQuestion.options && (
-                  <div className="grid grid-cols-2 gap-6 mt-8">
-                    {Object.entries(JSON.parse(currentQuestion.options as string) || {}).map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="bg-muted/50 rounded-2xl p-6 border-2 border-secondary/50 hover:border-secondary transition-all"
-                      >
-                        <span className="text-secondary font-bold text-2xl">{key}.</span>
-                        <span className="ml-4 text-2xl">{value as string}</span>
+                {currentQuestion.options && (() => {
+                  try {
+                    const options = typeof currentQuestion.options === 'string' 
+                      ? JSON.parse(currentQuestion.options as string) 
+                      : currentQuestion.options;
+                    return (
+                      <div className="grid grid-cols-2 gap-6 mt-8">
+                        {Object.entries(options || {}).map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="bg-muted/50 rounded-2xl p-6 border-2 border-secondary/50 hover:border-secondary transition-all"
+                          >
+                            <span className="text-secondary font-bold text-2xl">{key}.</span>
+                            <span className="ml-4 text-2xl">{value as string}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
               </div>
             </div>
           </div>
@@ -151,22 +160,43 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Buzzers en temps réel */}
+        {/* Premier buzzeur en grand */}
         {buzzers.length > 0 && !gameState?.show_leaderboard && (
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-slide-in z-50">
+            <div className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold"
+                 style={{ borderColor: buzzers[0].teams?.color }}>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-4 mb-6">
+                  <Zap className="w-16 h-16 text-primary animate-pulse" />
+                  <h2 className="text-6xl font-bold text-primary">BUZZER !</h2>
+                </div>
+                <div
+                  className="w-32 h-32 rounded-full mx-auto mb-6 animate-pulse"
+                  style={{ backgroundColor: buzzers[0].teams?.color }}
+                ></div>
+                <h3 className="text-5xl font-bold mb-2">{buzzers[0].teams?.name}</h3>
+                <p className="text-3xl text-muted-foreground">A buzzé en premier !</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Liste des buzzers */}
+        {buzzers.length > 1 && !gameState?.show_leaderboard && (
           <div className="fixed right-8 top-32 w-96 space-y-3 animate-slide-in">
             <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-4 border-2 border-primary shadow-glow-gold">
               <h3 className="text-xl font-bold text-primary mb-3 flex items-center gap-2">
                 <Zap className="w-5 h-5" />
-                Buzzers ({buzzers.length})
+                Autres buzzers ({buzzers.length - 1})
               </h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {buzzers.slice(0, 10).map((buzzer, index) => (
+                {buzzers.slice(1, 10).map((buzzer, index) => (
                   <div
                     key={buzzer.id}
                     className="flex items-center gap-3 p-3 rounded-lg border-2 bg-muted/50 animate-slide-in"
                     style={{ borderColor: buzzer.teams?.color, animationDelay: `${index * 0.1}s` }}
                   >
-                    <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
+                    <div className="text-2xl font-bold text-primary w-8">#{index + 2}</div>
                     <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: buzzer.teams?.color }}

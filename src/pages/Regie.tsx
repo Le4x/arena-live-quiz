@@ -19,6 +19,8 @@ const Regie = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [selectedRound, setSelectedRound] = useState<string | null>(null);
   const [timerValue, setTimerValue] = useState(30);
+  const [buzzers, setBuzzers] = useState<any[]>([]);
+  const [hasStoppedForBuzzer, setHasStoppedForBuzzer] = useState(false);
 
   useEffect(() => {
     loadTeams();
@@ -41,11 +43,37 @@ const Regie = () => {
       })
       .subscribe();
 
+    const buzzersChannel = supabase
+      .channel('regie-buzzers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        loadBuzzers();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(buzzersChannel);
     };
   }, []);
+
+  useEffect(() => {
+    loadBuzzers();
+    setHasStoppedForBuzzer(false);
+  }, [currentQuestion?.id]);
+
+  useEffect(() => {
+    // Arrêter automatiquement musique et chrono au premier buzzer
+    if (buzzers.length > 0 && !hasStoppedForBuzzer && gameState?.is_buzzer_active) {
+      pauseAudio();
+      stopTimer();
+      setHasStoppedForBuzzer(true);
+      toast({
+        title: "🔔 BUZZER !",
+        description: `${buzzers[0].teams?.name} a buzzé en premier !`,
+      });
+    }
+  }, [buzzers.length, hasStoppedForBuzzer]);
 
   const loadTeams = async () => {
     const { data } = await supabase
@@ -64,6 +92,21 @@ const Regie = () => {
       setGameState(data);
       setCurrentQuestion(data.questions);
     }
+  };
+
+  const loadBuzzers = async () => {
+    if (!currentQuestion?.id) {
+      setBuzzers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_id', currentQuestion.id)
+      .order('buzzed_at', { ascending: true });
+    
+    if (data) setBuzzers(data);
   };
 
   const toggleBuzzer = async () => {
@@ -159,6 +202,35 @@ const Regie = () => {
     }
   };
 
+  const validateAnswer = async (teamId: string, isCorrect: boolean) => {
+    const points = isCorrect ? (currentQuestion?.points || 10) : -(currentQuestion?.points || 10) / 2;
+    
+    // Update team score
+    const team = teams.find(t => t.id === teamId);
+    if (team) {
+      await supabase
+        .from('teams')
+        .update({ score: team.score + points })
+        .eq('id', teamId);
+    }
+
+    toast({
+      title: isCorrect ? "✅ Bonne réponse !" : "❌ Mauvaise réponse",
+      description: `${points > 0 ? '+' : ''}${points} points`,
+    });
+  };
+
+  const clearBuzzers = async () => {
+    if (!currentQuestion?.id) return;
+    
+    await supabase
+      .from('buzzer_attempts')
+      .delete()
+      .eq('question_id', currentQuestion.id);
+
+    toast({ title: "Buzzers réinitialisés" });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -223,6 +295,59 @@ const Regie = () => {
             <audio ref={audioRef} src={currentQuestion.audio_url} />
           )}
         </Card>
+
+        {/* Premier buzzeur - Validation */}
+        {buzzers.length > 0 && (
+          <Card className="p-6 bg-card/90 backdrop-blur-sm border-2 border-primary shadow-glow-gold animate-slide-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <Zap className="h-10 w-10 text-primary animate-pulse" />
+                  <div>
+                    <h3 className="text-sm text-muted-foreground">Premier buzzeur</h3>
+                    <div className="flex items-center gap-3 mt-1">
+                      <div
+                        className="w-6 h-6 rounded-full"
+                        style={{ backgroundColor: buzzers[0].teams?.color }}
+                      ></div>
+                      <p className="text-3xl font-bold">{buzzers[0].teams?.name}</p>
+                    </div>
+                  </div>
+                </div>
+                {buzzers.length > 1 && (
+                  <div className="text-sm text-muted-foreground">
+                    +{buzzers.length - 1} autre{buzzers.length > 2 ? 's' : ''} buzzeur{buzzers.length > 2 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  size="lg"
+                  className="h-16 px-8 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => validateAnswer(buzzers[0].team_id, true)}
+                >
+                  ✅ Bonne réponse
+                </Button>
+                <Button
+                  size="lg"
+                  variant="destructive"
+                  className="h-16 px-8"
+                  onClick={() => validateAnswer(buzzers[0].team_id, false)}
+                >
+                  ❌ Mauvaise réponse
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-16 px-6"
+                  onClick={clearBuzzers}
+                >
+                  Réinitialiser
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Gestion du chrono */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
