@@ -184,8 +184,27 @@ const Screen = () => {
 
   // Écran d'ambiance - affiché en début de soirée
   const showAmbientScreen = gameState?.show_ambient_screen === true;
+  // Écran de pause
+  const showPauseScreen = gameState?.show_pause_screen === true;
+  // Intro de manche
+  const showRoundIntro = gameState?.show_round_intro === true;
+  const [currentRoundIntro, setCurrentRoundIntro] = useState<any>(null);
   // Écran d'accueil - affiché quand on attend les équipes
-  const showWelcomeScreen = !showAmbientScreen && !currentQuestion && !gameState?.show_leaderboard;
+  const showWelcomeScreen = !showAmbientScreen && !showPauseScreen && !showRoundIntro && !currentQuestion && !gameState?.show_leaderboard;
+
+  useEffect(() => {
+    const loadRoundIntro = async () => {
+      if (gameState?.current_round_intro) {
+        const { data } = await supabase
+          .from('rounds')
+          .select('*')
+          .eq('id', gameState.current_round_intro)
+          .single();
+        if (data) setCurrentRoundIntro(data);
+      }
+    };
+    loadRoundIntro();
+  }, [gameState?.current_round_intro]);
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
@@ -196,7 +215,72 @@ const Screen = () => {
         <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      {showAmbientScreen ? (
+      {showPauseScreen ? (
+        /* ===== ÉCRAN DE PAUSE ===== */
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
+          <div className="text-center animate-slide-in">
+            <div className="text-9xl mb-8 animate-pulse">⏸️</div>
+            <h1 className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-6">
+              PAUSE
+            </h1>
+            <p className="text-4xl text-secondary font-bold mb-8">
+              La partie reprendra bientôt...
+            </p>
+            
+            {/* Animation de points */}
+            <div className="flex items-center justify-center gap-3 mt-12">
+              <div className="w-4 h-4 bg-primary rounded-full animate-bounce"></div>
+              <div className="w-4 h-4 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-4 h-4 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+            </div>
+          </div>
+        </div>
+      ) : showRoundIntro && currentRoundIntro ? (
+        /* ===== INTRO DE MANCHE STYLE JEU TV ===== */
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center">
+          {currentRoundIntro.jingle_url && (
+            <audio autoPlay src={currentRoundIntro.jingle_url} />
+          )}
+          
+          <div className="text-center animate-scale-in">
+            {/* Effet de rideau qui s'ouvre */}
+            <div className="mb-12">
+              <div className="text-9xl animate-bounce mb-6">🎬</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-arena blur-3xl opacity-50"></div>
+                <h1 className="relative text-7xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow mb-4">
+                  NOUVELLE MANCHE
+                </h1>
+              </div>
+            </div>
+            
+            {/* Nom de la manche avec effet lumineux */}
+            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-4 border-primary shadow-glow-gold animate-slide-in">
+              <h2 className="text-6xl font-bold text-primary mb-4">
+                {currentRoundIntro.title}
+              </h2>
+              <div className="flex items-center justify-center gap-4 text-2xl text-muted-foreground">
+                <span className="font-semibold">{currentRoundIntro.type === 'blind_test' ? '🎵 Blind Test' : currentRoundIntro.type === 'qcm' ? '❓ QCM' : '✍️ Réponse libre'}</span>
+                <span>•</span>
+                <span className="font-semibold">⏱️ {currentRoundIntro.timer_duration}s</span>
+              </div>
+            </div>
+            
+            {/* Étoiles scintillantes */}
+            <div className="flex justify-center gap-6 mt-12">
+              {[...Array(5)].map((_, i) => (
+                <div 
+                  key={i}
+                  className="text-6xl animate-pulse"
+                  style={{ animationDelay: `${i * 0.2}s` }}
+                >
+                  ⭐
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : showAmbientScreen ? (
         /* ===== ÉCRAN D'AMBIANCE DÉCORATIF ===== */
         <div className="relative z-10 h-screen flex flex-col items-center justify-center">
           {/* Notes de musique flottantes */}

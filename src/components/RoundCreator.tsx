@@ -13,6 +13,7 @@ export const RoundCreator = ({ onRoundCreated }: { onRoundCreated: () => void })
   const [title, setTitle] = useState("");
   const [type, setType] = useState("blind_test");
   const [timerDuration, setTimerDuration] = useState(30);
+  const [jingleUrl, setJingleUrl] = useState("");
 
   const createRound = async () => {
     if (!title.trim()) {
@@ -22,13 +23,20 @@ export const RoundCreator = ({ onRoundCreated }: { onRoundCreated: () => void })
 
     const { error } = await supabase
       .from('rounds')
-      .insert([{ title, type, timer_duration: timerDuration, status: 'pending' }]);
+      .insert([{ 
+        title, 
+        type, 
+        timer_duration: timerDuration, 
+        jingle_url: jingleUrl || null,
+        status: 'pending' 
+      }]);
 
     if (error) {
       toast({ title: "Erreur", description: "Impossible de créer la manche", variant: "destructive" });
     } else {
       toast({ title: "Manche créée !", description: `${title} a été créée` });
       setTitle("");
+      setJingleUrl("");
       onRoundCreated();
     }
   };
@@ -67,6 +75,18 @@ export const RoundCreator = ({ onRoundCreated }: { onRoundCreated: () => void })
             onChange={(e) => setTimerDuration(parseInt(e.target.value))}
             className="mt-1"
           />
+        </div>
+        <div>
+          <Label>URL du jingle (son d'intro de manche) - Optionnel</Label>
+          <Input
+            placeholder="https://exemple.com/jingle.mp3"
+            value={jingleUrl}
+            onChange={(e) => setJingleUrl(e.target.value)}
+            className="mt-1"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Ce son sera joué lors de l'intro de la manche sur l'écran
+          </p>
         </div>
         <Button onClick={createRound} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
           <PlusCircle className="mr-2 h-5 w-5" />

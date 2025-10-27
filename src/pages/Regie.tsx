@@ -611,53 +611,109 @@ const Regie = () => {
         )}
 
         {/* Contrôles principaux */}
-        <Card className="p-3 bg-card/80 backdrop-blur-sm border-primary/20">
-          <h2 className="text-sm font-bold text-primary mb-2">Contrôles</h2>
-          <div className="grid grid-cols-5 gap-2">
+        <Card className="p-2 bg-card/80 backdrop-blur-sm border-primary/20">
+          <h2 className="text-xs font-bold text-primary mb-1.5">Contrôles</h2>
+          <div className="grid grid-cols-3 gap-1.5 mb-1.5">
             <Button 
               size="sm" 
-              className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold text-xs"
+              className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold text-[10px]"
               onClick={toggleBuzzer}
             >
-              <Zap className="mr-1 h-4 w-4" />
+              <Zap className="mr-1 h-3 w-3" />
               {gameState?.is_buzzer_active ? "Off" : "On"} Buzzer
             </Button>
             <Button 
               size="sm" 
               variant="secondary" 
-              className="h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue text-xs"
+              className="h-10 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue text-[10px]"
               onClick={playAudio}
               disabled={!currentQuestion?.audio_url}
             >
-              <Play className="mr-1 h-4 w-4" />
+              <Play className="mr-1 h-3 w-3" />
               Musique
             </Button>
             <Button 
               size="sm" 
               variant="outline" 
-              className="h-12 border-accent text-accent hover:bg-accent hover:text-accent-foreground text-xs"
+              className="h-10 border-accent text-accent hover:bg-accent hover:text-accent-foreground text-[10px]"
               onClick={pauseAudio}
             >
-              <Pause className="mr-1 h-4 w-4" />
+              <Pause className="mr-1 h-3 w-3" />
               Pause
             </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 mb-1.5">
             <Button 
               size="sm" 
-              className="h-12 bg-gradient-arena hover:opacity-90 text-xs"
+              className="h-10 bg-gradient-arena hover:opacity-90 text-[10px]"
               onClick={showLeaderboard}
             >
-              <Trophy className="mr-1 h-4 w-4" />
+              <Trophy className="mr-1 h-3 w-3" />
               {gameState?.show_leaderboard ? "Hide" : "Show"} Score
             </Button>
             <Button 
               size="sm" 
               variant="secondary"
-              className="h-12 text-xs"
+              className="h-10 text-[10px]"
               onClick={nextQuestion}
             >
-              <SkipForward className="mr-1 h-4 w-4" />
+              <SkipForward className="mr-1 h-3 w-3" />
               Suivante
             </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="h-10 text-[10px]"
+              onClick={async () => {
+                if (!gameState) return;
+                const newValue = !gameState.show_pause_screen;
+                await supabase
+                  .from('game_state')
+                  .update({ show_pause_screen: newValue })
+                  .eq('id', gameState.id);
+                toast({ title: newValue ? "⏸️ Pause activée" : "▶️ Pause désactivée" });
+              }}
+            >
+              <Clock className="mr-1 h-3 w-3" />
+              {gameState?.show_pause_screen ? "Reprendre" : "Pause"}
+            </Button>
+          </div>
+          
+          {/* Boutons de lancement de jingle de manche */}
+          <div className="border-t border-border/50 pt-1.5">
+            <h3 className="text-[10px] font-semibold text-muted-foreground mb-1">Jingles de manche</h3>
+            <div className="grid grid-cols-2 gap-1">
+              {rounds.map((round) => (
+                <Button
+                  key={round.id}
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-[10px] justify-start"
+                  onClick={async () => {
+                    if (!gameState) return;
+                    await supabase
+                      .from('game_state')
+                      .update({ 
+                        show_round_intro: true,
+                        current_round_intro: round.id 
+                      })
+                      .eq('id', gameState.id);
+                    
+                    // Désactiver après 5 secondes
+                    setTimeout(async () => {
+                      await supabase
+                        .from('game_state')
+                        .update({ show_round_intro: false })
+                        .eq('id', gameState.id);
+                    }, 5000);
+                    
+                    toast({ title: `🎬 Intro: ${round.title}` });
+                  }}
+                >
+                  🎬 {round.title}
+                </Button>
+              ))}
+            </div>
           </div>
           
           {/* Navigation pagination du classement */}

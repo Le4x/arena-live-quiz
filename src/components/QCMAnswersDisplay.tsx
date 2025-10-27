@@ -72,93 +72,83 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   const notAnswered = teams.filter(t => !answers.find(a => a.team_id === t.id));
 
   return (
-    <Card className="p-3 bg-card/90 backdrop-blur-sm border-primary/20">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-bold text-primary flex items-center gap-1">
-          <Users className="h-4 w-4" />
+    <Card className="p-2 bg-card/90 backdrop-blur-sm border-primary/20">
+      <div className="flex items-center justify-between mb-1.5">
+        <h2 className="text-xs font-bold text-primary flex items-center gap-1">
+          <Users className="h-3 w-3" />
           QCM
         </h2>
-        <div className="flex gap-2 text-xs">
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-green-500" />
+        <div className="flex gap-2 text-[10px]">
+          <span className="flex items-center gap-0.5 text-green-500 font-medium">
+            <CheckCircle2 className="h-3 w-3" />
             {correctAnswers.length}
           </span>
-          <span className="flex items-center gap-1">
-            <XCircle className="h-3 w-3 text-red-500" />
+          <span className="flex items-center gap-0.5 text-red-500 font-medium">
+            <XCircle className="h-3 w-3" />
             {incorrectAnswers.length}
           </span>
-          <span className="flex items-center gap-1 text-muted-foreground">
-            {notAnswered.length}
+          <span className="flex items-center gap-0.5 text-muted-foreground font-medium">
+            ⚪ {notAnswered.length}
           </span>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-2">
-        {/* Bonnes réponses */}
-        <div className="space-y-1">
-          <h3 className="font-bold text-green-500 text-xs mb-1 flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3" />
-            Correctes ({correctAnswers.length})
-          </h3>
-          {correctAnswers.map((answer) => (
-            <div
-              key={answer.id}
-              className="p-1.5 rounded bg-green-500/10 border border-green-500/30"
-            >
-              <div className="font-medium text-xs flex items-center gap-1">
+      <div className="grid grid-cols-3 gap-1.5">
+        {/* Bonnes réponses - Compact */}
+        <div className="space-y-0.5">
+          <h3 className="font-semibold text-green-500 text-[10px] mb-0.5">✓ Correctes</h3>
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {correctAnswers.map((answer) => (
+              <div
+                key={answer.id}
+                className="px-1.5 py-1 rounded bg-green-500/10 border border-green-500/30 flex items-center gap-1"
+              >
                 <div 
-                  className="w-2 h-2 rounded-full"
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: answer.teams?.color }}
                 />
-                <span className="truncate">{answer.teams?.name}</span>
+                <span className="text-[10px] truncate">{answer.teams?.name}</span>
               </div>
-              <div className="text-[10px] mt-0.5 truncate">{answer.answer}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Mauvaises réponses */}
-        <div className="space-y-1">
-          <h3 className="font-bold text-red-500 text-xs mb-1 flex items-center gap-1">
-            <XCircle className="h-3 w-3" />
-            Incorrectes ({incorrectAnswers.length})
-          </h3>
-          {incorrectAnswers.map((answer) => (
-            <div
-              key={answer.id}
-              className="p-1.5 rounded bg-red-500/10 border border-red-500/30"
-            >
-              <div className="font-medium text-xs flex items-center gap-1">
+        {/* Mauvaises réponses - Compact */}
+        <div className="space-y-0.5">
+          <h3 className="font-semibold text-red-500 text-[10px] mb-0.5">✗ Incorrectes</h3>
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {incorrectAnswers.map((answer) => (
+              <div
+                key={answer.id}
+                className="px-1.5 py-1 rounded bg-red-500/10 border border-red-500/30 flex items-center gap-1"
+              >
                 <div 
-                  className="w-2 h-2 rounded-full"
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: answer.teams?.color }}
                 />
-                <span className="truncate">{answer.teams?.name}</span>
+                <span className="text-[10px] truncate">{answer.teams?.name}</span>
               </div>
-              <div className="text-[10px] mt-0.5 truncate">{answer.answer}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Pas de réponse */}
-        <div className="space-y-1">
-          <h3 className="font-bold text-muted-foreground text-xs mb-1">
-            Non répondues ({notAnswered.length})
-          </h3>
-          {notAnswered.map((team) => (
-            <div
-              key={team.id}
-              className="p-1.5 rounded bg-muted/30 border border-muted"
-            >
-              <div className="font-medium text-xs flex items-center gap-1">
+        {/* Pas de réponse - Compact */}
+        <div className="space-y-0.5">
+          <h3 className="font-semibold text-muted-foreground text-[10px] mb-0.5">⚪ Non répondu</h3>
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {notAnswered.map((team) => (
+              <div
+                key={team.id}
+                className="px-1.5 py-1 rounded bg-muted/30 border border-muted flex items-center gap-1"
+              >
                 <div 
-                  className="w-2 h-2 rounded-full"
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: team.color }}
                 />
-                <span className="truncate">{team.name}</span>
+                <span className="text-[10px] truncate">{team.name}</span>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </Card>
