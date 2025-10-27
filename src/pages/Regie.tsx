@@ -33,6 +33,7 @@ const Regie = () => {
     const teamsChannel = supabase
       .channel('teams-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        console.log('🔄 Teams changed');
         loadTeams();
       })
       .subscribe();
@@ -40,16 +41,20 @@ const Regie = () => {
     const gameStateChannel = supabase
       .channel('game-state-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        console.log('🔄 Game state changed');
         loadGameState();
       })
       .subscribe();
 
     const buzzersChannel = supabase
       .channel('regie-buzzers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, (payload) => {
+        console.log('🔔 Buzzer change detected:', payload);
         loadBuzzers();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Buzzer channel status:', status);
+      });
 
     return () => {
       supabase.removeChannel(teamsChannel);
@@ -59,9 +64,10 @@ const Regie = () => {
   }, []);
 
   useEffect(() => {
+    console.log('📌 Question or session changed, loading buzzers');
     loadBuzzers();
     setHasStoppedForBuzzer(false);
-  }, [currentQuestion?.id]);
+  }, [currentQuestion?.id, gameState?.game_session_id]);
 
   useEffect(() => {
     // Arrêter automatiquement musique et chrono au premier buzzer
@@ -96,19 +102,30 @@ const Regie = () => {
   };
 
   const loadBuzzers = async () => {
+    console.log('🔍 Loading buzzers...', {
+      questionId: currentQuestion?.id,
+      sessionId: gameState?.game_session_id
+    });
+
     if (!currentQuestion?.id || !gameState?.game_session_id) {
+      console.log('⚠️ Cannot load buzzers - missing question or session');
       setBuzzers([]);
       return;
     }
     
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('buzzer_attempts')
       .select('*, teams(*)')
       .eq('question_id', currentQuestion.id)
       .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
-    if (data) setBuzzers(data);
+    if (error) {
+      console.error('❌ Error loading buzzers:', error);
+    } else {
+      console.log('✅ Buzzers loaded:', data?.length || 0, data);
+      if (data) setBuzzers(data);
+    }
   };
 
   const toggleBuzzer = async () => {
