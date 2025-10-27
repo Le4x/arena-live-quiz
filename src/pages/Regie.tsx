@@ -205,6 +205,13 @@ const Regie = () => {
   const nextQuestion = async () => {
     if (!currentQuestion || !gameState?.game_session_id) return;
     
+    // Supprimer tous les buzzers de la question actuelle avant de passer à la suivante
+    await supabase
+      .from('buzzer_attempts')
+      .delete()
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
+    
     // Récupérer la session active pour avoir les manches sélectionnées
     const { data: activeSession } = await supabase
       .from("game_sessions")

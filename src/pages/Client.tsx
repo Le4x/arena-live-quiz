@@ -139,11 +139,30 @@ const Client = () => {
   };
 
   const handleBuzzer = async () => {
-    if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id || hasBuzzed) return;
+    console.log('🔔 Tentative de buzzer', {
+      team: team?.name,
+      teamId: team?.id,
+      question: currentQuestion?.id,
+      session: gameState?.game_session_id,
+      buzzerActive: gameState?.is_buzzer_active,
+      hasBuzzed,
+      excludedTeams: gameState?.excluded_teams
+    });
+
+    if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
+      console.log('❌ Buzzer bloqué - conditions non remplies');
+      return;
+    }
+
+    if (hasBuzzed) {
+      console.log('❌ Buzzer bloqué - déjà buzzé');
+      return;
+    }
 
     // Vérifier si l'équipe est exclue
     const excludedTeams = (gameState.excluded_teams || []) as string[];
     if (excludedTeams.includes(team.id)) {
+      console.log('❌ Buzzer bloqué - équipe exclue');
       toast({
         title: "Buzzer désactivé",
         description: "Vous ne pouvez plus buzzer pour cette question",
@@ -152,6 +171,7 @@ const Client = () => {
       return;
     }
 
+    console.log('✅ Insertion du buzzer...');
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
@@ -164,14 +184,22 @@ const Client = () => {
       ]);
 
     if (error) {
-      if (error.code === '23505') { // Unique constraint violation
+      console.error('❌ Erreur buzzer:', error);
+      if (error.code === '23505') {
         toast({
           title: "Déjà buzzé",
           description: "Vous avez déjà buzzé pour cette question",
           variant: "destructive"
         });
+      } else {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          variant: "destructive"
+        });
       }
     } else {
+      console.log('✅ Buzzer enregistré avec succès');
       setHasBuzzed(true);
       playSound('buzz');
       toast({
