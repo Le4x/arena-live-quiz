@@ -64,7 +64,7 @@ const Client = () => {
     const { data } = await supabase
       .from('game_state')
       .select('*, questions(*)')
-      .single();
+      .maybeSingle();
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);

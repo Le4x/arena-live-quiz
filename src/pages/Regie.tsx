@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RoundCreator } from "@/components/RoundCreator";
 import { QuestionCreator } from "@/components/QuestionCreator";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
+import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -301,6 +302,8 @@ const Regie = () => {
         </Card>
 
         <BuzzerMonitor currentQuestionId={currentQuestion?.id} />
+
+        <TextAnswersDisplay currentQuestionId={currentQuestion?.id} />
 
         {/* Équipes connectées */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
