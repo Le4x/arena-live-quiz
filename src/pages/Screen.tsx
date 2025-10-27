@@ -290,90 +290,122 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Classement - Mode podium visuel plein écran */}
+        {/* Classement - Mode podium visuel plein écran avec pagination */}
         {gameState?.show_leaderboard && (
-          <div className="max-w-[95vw] mx-auto animate-slide-in">
-            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-accent shadow-glow-purple">
-              <div className="flex items-center justify-center gap-4 mb-8">
-                <Trophy className="w-16 h-16 text-primary" />
-                <h2 className="text-6xl font-bold text-primary">Classement</h2>
+          <div className="max-w-[98vw] h-screen flex items-center justify-center mx-auto animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-12 border-2 border-accent shadow-glow-purple w-full h-[95vh] flex flex-col">
+              <div className="flex items-center justify-center gap-6 mb-12">
+                <Trophy className="w-20 h-20 text-primary" />
+                <h2 className="text-8xl font-bold text-primary">Classement</h2>
               </div>
               
-              {/* Top 3 - Podium style */}
-              {teams.length > 0 && (
-                <div className="flex items-end justify-center gap-6 mb-10">
-                  {/* 2ème place */}
-                  {teams[1] && (
-                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.2s' }}>
-                      <div className="bg-muted/50 rounded-2xl p-8 border-2 border-secondary/50 w-56 text-center">
-                        <div className="text-7xl mb-3">🥈</div>
-                        <div
-                          className="w-10 h-10 rounded-full mx-auto mb-3"
-                          style={{ backgroundColor: teams[1].color }}
-                        ></div>
-                        <h3 className="text-2xl font-bold mb-2 truncate">{teams[1].name}</h3>
-                        <div className="text-4xl font-bold text-secondary">{teams[1].score}</div>
-                      </div>
-                      <div className="w-full h-32 bg-secondary/20 rounded-t-xl mt-3"></div>
+              {/* Page 1 : Top 3 + places 4-6 */}
+              {(!gameState.leaderboard_page || gameState.leaderboard_page === 1) && (
+                <div className="flex-1 flex flex-col justify-center">
+                  {/* Top 3 - Podium style */}
+                  {teams.length > 0 && (
+                    <div className="flex items-end justify-center gap-8 mb-16">
+                      {/* 2ème place */}
+                      {teams[1] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.2s' }}>
+                          <div className="bg-muted/50 rounded-3xl p-10 border-2 border-secondary/50 w-72 text-center">
+                            <div className="text-9xl mb-4">🥈</div>
+                            <div
+                              className="w-14 h-14 rounded-full mx-auto mb-4"
+                              style={{ backgroundColor: teams[1].color }}
+                            ></div>
+                            <h3 className="text-3xl font-bold mb-3 truncate">{teams[1].name}</h3>
+                            <div className="text-6xl font-bold text-secondary">{teams[1].score}</div>
+                          </div>
+                          <div className="w-full h-40 bg-secondary/20 rounded-t-xl mt-4"></div>
+                        </div>
+                      )}
+                      
+                      {/* 1ère place */}
+                      {teams[0] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.1s' }}>
+                          <div className="bg-muted/50 rounded-3xl p-12 border-4 border-primary shadow-glow-gold w-80 text-center">
+                            <div className="text-[10rem] mb-4">🏆</div>
+                            <div
+                              className="w-16 h-16 rounded-full mx-auto mb-4 animate-pulse"
+                              style={{ backgroundColor: teams[0].color }}
+                            ></div>
+                            <h3 className="text-4xl font-bold mb-3 truncate">{teams[0].name}</h3>
+                            <div className="text-7xl font-bold text-primary">{teams[0].score}</div>
+                          </div>
+                          <div className="w-full h-52 bg-primary/20 rounded-t-xl mt-4"></div>
+                        </div>
+                      )}
+                      
+                      {/* 3ème place */}
+                      {teams[2] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.3s' }}>
+                          <div className="bg-muted/50 rounded-3xl p-10 border-2 border-accent/50 w-72 text-center">
+                            <div className="text-9xl mb-4">🥉</div>
+                            <div
+                              className="w-14 h-14 rounded-full mx-auto mb-4"
+                              style={{ backgroundColor: teams[2].color }}
+                            ></div>
+                            <h3 className="text-3xl font-bold mb-3 truncate">{teams[2].name}</h3>
+                            <div className="text-6xl font-bold text-accent">{teams[2].score}</div>
+                          </div>
+                          <div className="w-full h-32 bg-accent/20 rounded-t-xl mt-4"></div>
+                        </div>
+                      )}
                     </div>
                   )}
                   
-                  {/* 1ère place */}
-                  {teams[0] && (
-                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.1s' }}>
-                      <div className="bg-muted/50 rounded-2xl p-8 border-4 border-primary shadow-glow-gold w-64 text-center">
-                        <div className="text-8xl mb-3">🏆</div>
+                  {/* Places 4-6 */}
+                  {teams.length > 3 && (
+                    <div className="grid grid-cols-3 gap-8 max-w-5xl mx-auto">
+                      {teams.slice(3, 6).map((team, index) => (
                         <div
-                          className="w-12 h-12 rounded-full mx-auto mb-3 animate-pulse"
-                          style={{ backgroundColor: teams[0].color }}
-                        ></div>
-                        <h3 className="text-3xl font-bold mb-2 truncate">{teams[0].name}</h3>
-                        <div className="text-5xl font-bold text-primary">{teams[0].score}</div>
-                      </div>
-                      <div className="w-full h-40 bg-primary/20 rounded-t-xl mt-3"></div>
-                    </div>
-                  )}
-                  
-                  {/* 3ème place */}
-                  {teams[2] && (
-                    <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.3s' }}>
-                      <div className="bg-muted/50 rounded-2xl p-8 border-2 border-accent/50 w-56 text-center">
-                        <div className="text-7xl mb-3">🥉</div>
-                        <div
-                          className="w-10 h-10 rounded-full mx-auto mb-3"
-                          style={{ backgroundColor: teams[2].color }}
-                        ></div>
-                        <h3 className="text-2xl font-bold mb-2 truncate">{teams[2].name}</h3>
-                        <div className="text-4xl font-bold text-accent">{teams[2].score}</div>
-                      </div>
-                      <div className="w-full h-24 bg-accent/20 rounded-t-xl mt-3"></div>
+                          key={team.id}
+                          className="flex flex-col items-center gap-4 bg-muted/30 rounded-2xl p-8 border-2 border-border/50 hover:border-primary/50 transition-all animate-fade-in"
+                          style={{ animationDelay: `${(index + 3) * 0.1}s` }}
+                        >
+                          <div className="text-6xl font-bold text-muted-foreground">
+                            {index + 4}
+                          </div>
+                          <div
+                            className="w-12 h-12 rounded-full"
+                            style={{ backgroundColor: team.color }}
+                          ></div>
+                          <div className="text-3xl font-bold text-center truncate w-full">{team.name}</div>
+                          <div className="text-5xl font-bold text-primary">
+                            {team.score}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
               
-              {/* Reste du classement - Grid adaptatif pour grand écran */}
-              {teams.length > 3 && (
-                <div className="grid grid-cols-3 gap-4 mt-8 max-h-[40vh] overflow-y-auto px-4">
-                  {teams.slice(3).map((team, index) => (
-                    <div
-                      key={team.id}
-                      className="flex items-center gap-4 bg-muted/30 rounded-xl p-4 border border-border/50 hover:border-primary/50 transition-all animate-fade-in"
-                      style={{ animationDelay: `${(index + 3) * 0.05}s` }}
-                    >
-                      <div className="text-3xl font-bold text-muted-foreground w-12 text-center">
-                        {index + 4}
-                      </div>
+              {/* Page 2+ : Reste du classement en grille dense */}
+              {gameState.leaderboard_page && gameState.leaderboard_page > 1 && (
+                <div className="flex-1 flex items-center">
+                  <div className="grid grid-cols-4 gap-6 w-full px-8">
+                    {teams.slice(6 + (gameState.leaderboard_page - 2) * 20, 6 + (gameState.leaderboard_page - 1) * 20).map((team, index) => (
                       <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: team.color }}
-                      ></div>
-                      <div className="flex-1 font-bold text-xl truncate">{team.name}</div>
-                      <div className="text-3xl font-bold text-primary">
-                        {team.score}
+                        key={team.id}
+                        className="flex items-center gap-4 bg-muted/30 rounded-xl p-6 border border-border/50 hover:border-primary/50 transition-all animate-fade-in"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <div className="text-4xl font-bold text-muted-foreground w-16 text-center">
+                          {7 + (gameState.leaderboard_page - 2) * 20 + index}
+                        </div>
+                        <div
+                          className="w-6 h-6 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: team.color }}
+                        ></div>
+                        <div className="flex-1 font-bold text-2xl truncate">{team.name}</div>
+                        <div className="text-4xl font-bold text-primary">
+                          {team.score}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

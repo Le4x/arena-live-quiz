@@ -482,6 +482,51 @@ const Regie = () => {
               Question Suivante
             </Button>
           </div>
+          
+          {/* Navigation pagination du classement */}
+          {gameState?.show_leaderboard && teams.length > 6 && (
+            <div className="flex items-center justify-center gap-4 mt-4">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={async () => {
+                  const currentPage = gameState?.leaderboard_page || 1;
+                  if (currentPage > 1) {
+                    await supabase
+                      .from('game_state')
+                      .update({ leaderboard_page: currentPage - 1 })
+                      .eq('id', gameState.id);
+                    toast({ title: `Page ${currentPage - 1}` });
+                  }
+                }}
+                disabled={!gameState?.leaderboard_page || gameState?.leaderboard_page === 1}
+              >
+                ← Page Précédente
+              </Button>
+              <span className="text-lg font-bold">
+                Page {gameState?.leaderboard_page || 1} / {Math.ceil((teams.length - 6) / 20) + 1}
+              </span>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={async () => {
+                  const currentPage = gameState?.leaderboard_page || 1;
+                  const totalPages = Math.ceil((teams.length - 6) / 20) + 1;
+                  if (currentPage < totalPages) {
+                    await supabase
+                      .from('game_state')
+                      .update({ leaderboard_page: currentPage + 1 })
+                      .eq('id', gameState.id);
+                    toast({ title: `Page ${currentPage + 1}` });
+                  }
+                }}
+                disabled={gameState?.leaderboard_page >= Math.ceil((teams.length - 6) / 20) + 1}
+              >
+                Page Suivante →
+              </Button>
+            </div>
+          )}
+          
           {currentQuestion?.audio_url && (
             <audio ref={audioRef} src={currentQuestion.audio_url} />
           )}
