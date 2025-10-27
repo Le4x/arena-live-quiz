@@ -432,6 +432,65 @@ const Regie = () => {
     toast({ title: "Buzzers réinitialisés" });
   };
 
+  const resetCompleteSession = async () => {
+    if (!gameState?.game_session_id) {
+      toast({
+        title: "Erreur",
+        description: "Aucune session active",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Confirmation avant reset
+    if (!confirm("⚠️ Êtes-vous sûr de vouloir réinitialiser complètement la session ? Toutes les réponses et buzzers seront supprimés.")) {
+      return;
+    }
+
+    try {
+      // Appeler la fonction de réinitialisation de la base de données
+      const { error } = await supabase.rpc('reset_game_session', {
+        session_id: gameState.game_session_id
+      });
+
+      if (error) throw error;
+
+      // Réinitialiser aussi la question actuelle
+      await supabase
+        .from('game_state')
+        .update({ 
+          current_question_id: null,
+          current_round_id: null,
+          timer_active: false,
+          timer_remaining: null,
+          is_buzzer_active: false,
+          show_leaderboard: false
+        })
+        .eq('id', gameState.id);
+
+      // Arrêter l'audio si en cours
+      pauseAudio();
+
+      toast({
+        title: "✅ Session réinitialisée",
+        description: "Toutes les données ont été effacées",
+      });
+
+      // Recharger les données
+      await loadGameState();
+      setBuzzers([]);
+      setHasStoppedForBuzzer(false);
+
+    } catch (error) {
+      console.error('Error resetting session:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de réinitialiser la session",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -449,6 +508,14 @@ const Regie = () => {
             </Button>
             <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="lg">
               Sons
+            </Button>
+            <Button 
+              onClick={resetCompleteSession} 
+              variant="destructive" 
+              size="lg"
+              className="bg-red-600 hover:bg-red-700"
+            >
+              🔄 Réinitialiser Session
             </Button>
           </div>
         </header>
