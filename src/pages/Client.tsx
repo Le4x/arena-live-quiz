@@ -86,7 +86,12 @@ const Client = () => {
   }, [teamId, toast]);
 
   const loadTeam = async () => {
-    if (!teamId) return;
+    if (!teamId) {
+      console.log('📱 Client: No teamId provided');
+      return;
+    }
+    
+    console.log('📱 Client: Loading team', teamId);
     
     try {
       const { data, error } = await supabase
@@ -96,12 +101,15 @@ const Client = () => {
         .maybeSingle();
 
       if (data) {
+        console.log('✅ Client: Team loaded successfully', data);
         setTeam(data);
         saveToCache('team', { team: data });
       } else if (error) {
+        console.error('❌ Client: Error loading team', error);
         // Tenter de charger depuis le cache
         const cached = loadFromCache('team');
         if (cached?.team) {
+          console.log('💾 Client: Team loaded from cache');
           setTeam(cached.team);
           toast({
             title: "Mode dégradé",
@@ -111,15 +119,18 @@ const Client = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading team:', error);
+      console.error('❌ Client: Exception loading team:', error);
       const cached = loadFromCache('team');
       if (cached?.team) {
+        console.log('💾 Client: Team loaded from cache after exception');
         setTeam(cached.team);
       }
     }
   };
 
   const loadGameState = async () => {
+    console.log('🎮 Client: Loading game state');
+    
     try {
       const { data, error } = await supabase
         .from('game_state')
@@ -127,12 +138,14 @@ const Client = () => {
         .maybeSingle();
 
       if (data) {
+        console.log('✅ Client: Game state loaded', data);
         setGameState(data);
         setCurrentQuestion(data.questions);
         saveToCache('gameState', { gameState: data, currentQuestion: data.questions });
         
         // Réinitialiser les états si nouvelle question
         if (data.questions?.id !== currentQuestion?.id) {
+          console.log('🔄 Client: New question detected, resetting states');
           setHasBuzzed(false);
           setHasAnswered(false);
           setAnswerResult(null);
@@ -141,21 +154,25 @@ const Client = () => {
         
         // Afficher le résultat de la réponse si disponible
         if (data.answer_result && (data.answer_result === 'correct' || data.answer_result === 'incorrect')) {
+          console.log('✨ Client: Answer result:', data.answer_result);
           setAnswerResult(data.answer_result);
           setTimeout(() => setAnswerResult(null), 3000);
         }
       } else if (error) {
+        console.error('❌ Client: Error loading game state', error);
         // Tenter de charger depuis le cache
         const cached = loadFromCache('gameState');
         if (cached?.gameState) {
+          console.log('💾 Client: Game state loaded from cache');
           setGameState(cached.gameState);
           setCurrentQuestion(cached.currentQuestion);
         }
       }
     } catch (error) {
-      console.error('Error loading game state:', error);
+      console.error('❌ Client: Exception loading game state:', error);
       const cached = loadFromCache('gameState');
       if (cached?.gameState) {
+        console.log('💾 Client: Game state loaded from cache after exception');
         setGameState(cached.gameState);
         setCurrentQuestion(cached.currentQuestion);
       }
