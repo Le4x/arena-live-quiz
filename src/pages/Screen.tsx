@@ -52,18 +52,55 @@ const Screen = () => {
 
   const loadGameState = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: gameStateData, error } = await supabase
         .from('game_state')
-        .select('*, questions(*), rounds(*)')
+        .select('*')
         .maybeSingle();
 
-      if (data) {
-        setGameState(data);
-        setCurrentQuestion(data.questions);
-        setCurrentRound(data.rounds);
-        setTimer(data.timer_remaining || 0);
-        saveToCache('screenState', { gameState: data, currentQuestion: data.questions, currentRound: data.rounds });
+      if (gameStateData) {
+        console.log('🎮 Screen: Game state loaded', gameStateData);
+        setGameState(gameStateData);
+        setTimer(gameStateData.timer_remaining || 0);
+        
+        // Charger la question actuelle si elle existe
+        if (gameStateData.current_question_id) {
+          const { data: questionData } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('id', gameStateData.current_question_id)
+            .single();
+          
+          if (questionData) {
+            console.log('❓ Screen: Question loaded', questionData);
+            setCurrentQuestion(questionData);
+          }
+        } else {
+          setCurrentQuestion(null);
+        }
+        
+        // Charger la manche actuelle si elle existe
+        if (gameStateData.current_round_id) {
+          const { data: roundData } = await supabase
+            .from('rounds')
+            .select('*')
+            .eq('id', gameStateData.current_round_id)
+            .single();
+          
+          if (roundData) {
+            console.log('🎵 Screen: Round loaded', roundData);
+            setCurrentRound(roundData);
+          }
+        } else {
+          setCurrentRound(null);
+        }
+        
+        saveToCache('screenState', { 
+          gameState: gameStateData, 
+          currentQuestion: currentQuestion, 
+          currentRound: currentRound 
+        });
       } else if (error) {
+        console.error('Error loading game state:', error);
         const cached = loadFromCache('screenState');
         if (cached?.gameState) {
           setGameState(cached.gameState);
@@ -140,6 +177,50 @@ const Screen = () => {
   }, [currentRound?.id]);
 
   const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
+
+  // Écran d'accueil (au tout début, avant que le jeu commence)
+  if (!gameState || (!currentQuestion && !currentRound && sortedTeams.length === 0)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-pink-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
+        <SupabaseNetworkStatus />
+        
+        {/* Particules animées */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-32 h-32 sm:w-64 sm:h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-32 h-32 sm:w-96 sm:h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 sm:w-[500px] sm:h-[500px] bg-yellow-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
+        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
+          <div className="text-center space-y-6 sm:space-y-12 animate-fade-in">
+            <div className="relative">
+              <div className="text-8xl sm:text-9xl mb-6 sm:mb-8 animate-bounce">🎵</div>
+              <div className="absolute inset-0 blur-2xl bg-yellow-400/30 animate-pulse"></div>
+            </div>
+            
+            <div>
+              <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 bg-clip-text text-transparent drop-shadow-2xl mb-4 sm:mb-6 leading-tight">
+                MUSIC
+              </h1>
+              <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black bg-gradient-to-r from-purple-400 via-pink-400 to-yellow-400 bg-clip-text text-transparent drop-shadow-2xl leading-tight">
+                ARENA
+              </h1>
+            </div>
+            
+            <div className="flex items-center justify-center gap-4 sm:gap-6 mt-8 sm:mt-12">
+              <div className="w-16 h-1 sm:w-32 sm:h-2 bg-gradient-to-r from-transparent via-yellow-400 to-transparent animate-pulse"></div>
+              <Music className="w-8 h-8 sm:w-12 sm:h-12 text-yellow-400 animate-pulse" />
+              <div className="w-16 h-1 sm:w-32 sm:h-2 bg-gradient-to-r from-transparent via-yellow-400 to-transparent animate-pulse"></div>
+            </div>
+            
+            <p className="text-2xl sm:text-4xl md:text-5xl text-yellow-200 animate-pulse mt-8 sm:mt-12">
+              Bienvenue dans l'arène musicale
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Affichage du classement (priorité haute)
   if (gameState?.show_leaderboard) {
@@ -230,7 +311,7 @@ const Screen = () => {
           <div className="text-center space-y-6 sm:space-y-8 animate-fade-in">
             <Music className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-pulse" />
             <h1 className="text-5xl sm:text-7xl md:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl">
-              BLINDTEST
+              MUSIC ARENA
             </h1>
             <p className="text-2xl sm:text-3xl md:text-4xl text-yellow-200 animate-pulse">
               Préparez-vous...
@@ -281,7 +362,7 @@ const Screen = () => {
         {/* En-tête */}
         <div className="text-center mb-4 sm:mb-6 md:mb-8 animate-fade-in">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-2 sm:mb-4 drop-shadow-2xl bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-            🎯 BLINDTEST
+            🎵 MUSIC ARENA
           </h1>
           {currentRound && (
             <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl px-4 sm:px-8 py-2 sm:py-4 border border-yellow-500/30">
