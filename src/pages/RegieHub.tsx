@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Music, Gamepad2, Settings, Volume2 } from "lucide-react";
+import { Music, Gamepad2, Settings, Volume2, Wifi } from "lucide-react";
 
 const RegieHub = () => {
   const navigate = useNavigate();
@@ -18,7 +18,29 @@ const RegieHub = () => {
         </div>
 
         {/* Cartes principales */}
-        <div className="grid md:grid-cols-2 gap-6 animate-slide-in">
+        <div className="grid md:grid-cols-3 gap-6 animate-slide-in">
+          {/* Régie Locale */}
+          <Card 
+            className="p-8 bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm border-green-500 shadow-glow-green cursor-pointer hover:scale-105 transition-transform"
+            onClick={() => navigate('/regie/local')}
+          >
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center shadow-glow-green">
+                <Wifi className="h-10 w-10 text-green-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-green-500">Régie Locale</h2>
+              <p className="text-sm text-muted-foreground">
+                Mode offline - Sans Internet, serveur local WebSocket
+              </p>
+              <Button 
+                className="w-full bg-green-500 hover:bg-green-600 text-white"
+                size="lg"
+              >
+                Ouvrir
+              </Button>
+            </div>
+          </Card>
+
           {/* Régie Vidéo */}
           <Card 
             className="p-8 bg-gradient-to-br from-primary/20 to-accent/20 backdrop-blur-sm border-primary shadow-glow-gold cursor-pointer hover:scale-105 transition-transform"

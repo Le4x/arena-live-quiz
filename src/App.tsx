@@ -9,6 +9,7 @@ import Regie from "./pages/Regie";
 import RegieHub from "./pages/RegieHub";
 import RegieVideo from "./pages/RegieVideo";
 import RegieSound from "./pages/RegieSound";
+import RegieLocal from "./pages/RegieLocal";
 import Screen from "./pages/Screen";
 import Client from "./pages/Client";
 import AdminSetup from "./pages/AdminSetup";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/regie" element={<RegieHub />} />
           <Route path="/regie/video" element={<RegieVideo />} />
           <Route path="/regie/sound" element={<RegieSound />} />
+          <Route path="/regie/local" element={<RegieLocal />} />
           <Route path="/screen" element={<Screen />} />
           <Route path="/client" element={<Client />} />
           <Route path="/client/:teamId" element={<Client />} />

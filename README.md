@@ -1,73 +1,86 @@
-# Welcome to your Lovable project
+# Arena Live
 
-## Project info
+Application de quiz interactif en temps réel pour événements live.
 
-**URL**: https://lovable.dev/projects/4f58f6bc-1178-44ec-8309-edff0107ca29
+## 🎮 Modes de fonctionnement
 
-## How can I edit this code?
+### Mode Cloud (par défaut)
+Utilise Lovable Cloud (Supabase) pour la synchronisation en temps réel.
 
-There are several ways of editing your application.
+### Mode Local Offline ⭐ NOUVEAU
+**Pour événements sans connexion Internet stable.**
 
-**Use Lovable**
+Serveur WebSocket local + zéro dépendance cloud.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4f58f6bc-1178-44ec-8309-edff0107ca29) and start prompting.
+📖 [Documentation complète du mode local](README-LOCAL.md)
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Démarrage rapide
 
-**Use your preferred IDE**
+### Mode Cloud
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Mode Local
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Terminal 1: Serveur WebSocket
+cd server
+npm install
+npm start
 
-**Use GitHub Codespaces**
+# Terminal 2: Frontend
+npm install
+npm run dev
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Configurez l'IP locale dans `.env.local`:
+```bash
+VITE_WS_URL=http://VOTRE_IP:3001
+```
 
-## What technologies are used for this project?
+## 📁 Structure
 
-This project is built with:
+```
+arena-live/
+├── server/              # Serveur WebSocket local (mode offline)
+│   ├── index.js
+│   └── package.json
+├── src/
+│   ├── pages/
+│   │   ├── RegieLocal.tsx   # Régie mode local
+│   │   ├── RegieVideo.tsx   # Régie mode cloud
+│   │   ├── Client.tsx       # Interface clients
+│   │   └── Screen.tsx       # Affichage public
+│   ├── lib/
+│   │   └── realtime.ts      # Client WebSocket
+│   └── components/
+└── README-LOCAL.md      # Documentation mode local
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🌐 Routes
 
-## How can I deploy this project?
+| Route | Description |
+|-------|-------------|
+| `/regie/local` | Régie mode offline |
+| `/regie/video` | Régie mode cloud |
+| `/regie/sound` | Régie son |
+| `/client` | Interface équipes |
+| `/screen` | Affichage public |
 
-Simply open [Lovable](https://lovable.dev/projects/4f58f6bc-1178-44ec-8309-edff0107ca29) and click on Share -> Publish.
+## 🔧 Technologies
 
-## Can I connect a custom domain to my Lovable project?
+- **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
+- **Cloud**: Supabase (Lovable Cloud)
+- **Local**: Node.js, Express, Socket.IO
 
-Yes, you can!
+## 📖 Documentation
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- [Mode Local Offline](README-LOCAL.md) - Guide complet installation locale
+- [Lovable Docs](https://docs.lovable.dev)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+
+**URL Projet**: https://lovable.dev/projects/4f58f6bc-1178-44ec-8309-edff0107ca29
