@@ -21,6 +21,7 @@ export type Database = {
           id: string
           is_first: boolean | null
           question_id: string | null
+          question_instance_id: string | null
           team_id: string | null
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           is_first?: boolean | null
           question_id?: string | null
+          question_instance_id?: string | null
           team_id?: string | null
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           id?: string
           is_first?: boolean | null
           question_id?: string | null
+          question_instance_id?: string | null
           team_id?: string | null
         }
         Relationships: [
@@ -101,6 +104,7 @@ export type Database = {
           announcement_text: string | null
           answer_result: string | null
           current_question_id: string | null
+          current_question_instance_id: string | null
           current_round_id: string | null
           current_round_intro: string | null
           excluded_teams: Json | null
@@ -120,6 +124,7 @@ export type Database = {
           announcement_text?: string | null
           answer_result?: string | null
           current_question_id?: string | null
+          current_question_instance_id?: string | null
           current_round_id?: string | null
           current_round_intro?: string | null
           excluded_teams?: Json | null
@@ -139,6 +144,7 @@ export type Database = {
           announcement_text?: string | null
           answer_result?: string | null
           current_question_id?: string | null
+          current_question_instance_id?: string | null
           current_round_id?: string | null
           current_round_intro?: string | null
           excluded_teams?: Json | null
@@ -277,6 +283,7 @@ export type Database = {
           is_correct: boolean | null
           points_awarded: number | null
           question_id: string | null
+          question_instance_id: string | null
           team_id: string | null
         }
         Insert: {
@@ -287,6 +294,7 @@ export type Database = {
           is_correct?: boolean | null
           points_awarded?: number | null
           question_id?: string | null
+          question_instance_id?: string | null
           team_id?: string | null
         }
         Update: {
@@ -297,6 +305,7 @@ export type Database = {
           is_correct?: boolean | null
           points_awarded?: number | null
           question_id?: string | null
+          question_instance_id?: string | null
           team_id?: string | null
         }
         Relationships: [
