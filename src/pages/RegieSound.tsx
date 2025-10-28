@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, Volume2, ArrowLeft, Music } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Play, Pause, Volume2, ArrowLeft, Music, SkipForward } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { playSound } from "@/lib/sounds";
@@ -16,6 +17,11 @@ const RegieSound = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [cuePoints, setCuePoints] = useState({
+    search: { start: 0, end: 30 },
+    solution: { start: 30, end: 60 }
+  });
+  const [editingCuePoint, setEditingCuePoint] = useState<'search' | 'solution' | null>(null);
 
   useEffect(() => {
     loadGameState();
@@ -27,10 +33,39 @@ const RegieSound = () => {
       })
       .subscribe();
 
+    // Écouter les buzzers pour notification et coupure auto
+    const buzzerChannel = supabase
+      .channel('sound-buzzer')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'buzzer_attempts' }, async (payload) => {
+        // Charger le nom de l'équipe
+        const { data: team } = await supabase
+          .from('teams')
+          .select('name')
+          .eq('id', payload.new.team_id)
+          .single();
+        
+        if (team) {
+          toast({
+            title: "🔔 BUZZER !",
+            description: `${team.name} a buzzé !`,
+            duration: 5000,
+          });
+          playSound('buzz');
+          
+          // Couper automatiquement le son
+          if (audioRef.current && isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+          }
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(buzzerChannel);
     };
-  }, []);
+  }, [isPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -59,6 +94,15 @@ const RegieSound = () => {
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
+      
+      // Charger les points cue de la question
+      if (data.questions?.cue_points) {
+        const loadedCuePoints = data.questions.cue_points as {
+          search: { start: number; end: number };
+          solution: { start: number; end: number };
+        };
+        setCuePoints(loadedCuePoints);
+      }
     }
   };
 
@@ -83,6 +127,64 @@ const RegieSound = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const saveCuePoints = async () => {
+    if (!currentQuestion?.id) return;
+    
+    // Valider les points cue (max 30 secondes)
+    const validatedCuePoints = {
+      search: {
+        start: cuePoints.search.start,
+        end: Math.min(cuePoints.search.start + 30, cuePoints.search.end)
+      },
+      solution: {
+        start: cuePoints.solution.start,
+        end: Math.min(cuePoints.solution.start + 30, cuePoints.solution.end)
+      }
+    };
+
+    await supabase
+      .from('questions')
+      .update({ cue_points: validatedCuePoints })
+      .eq('id', currentQuestion.id);
+    
+    setCuePoints(validatedCuePoints);
+    toast({ title: "Points cue enregistrés !" });
+  };
+
+  const jumpToCuePoint = (type: 'search' | 'solution') => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = cuePoints[type].start;
+      audioRef.current.play();
+      setIsPlaying(true);
+      
+      // Arrêter automatiquement après 30 secondes
+      const maxDuration = Math.min(30, cuePoints[type].end - cuePoints[type].start);
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          setIsPlaying(false);
+        }
+      }, maxDuration * 1000);
+      
+      toast({ 
+        title: type === 'search' ? "🎵 Segment Recherche" : "🎶 Segment Solution",
+        description: `Lecture pendant ${maxDuration}s`
+      });
+    }
+  };
+
+  const setCuePointAtCurrentTime = (type: 'search' | 'solution', point: 'start' | 'end') => {
+    const newTime = Math.floor(currentTime);
+    setCuePoints(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [point]: newTime
+      }
+    }));
+    toast({ title: `Point ${point === 'start' ? 'de début' : 'de fin'} défini à ${formatTime(newTime)}` });
   };
 
   return (
@@ -143,11 +245,32 @@ const RegieSound = () => {
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden relative">
                   <div 
                     className="h-full bg-gradient-arena transition-all duration-300"
                     style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
                   />
+                  {/* Marqueurs des points cue */}
+                  {duration > 0 && (
+                    <>
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-green-500"
+                        style={{ left: `${(cuePoints.search.start / duration) * 100}%` }}
+                      />
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-green-500"
+                        style={{ left: `${(cuePoints.search.end / duration) * 100}%` }}
+                      />
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-blue-500"
+                        style={{ left: `${(cuePoints.solution.start / duration) * 100}%` }}
+                      />
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-blue-500"
+                        style={{ left: `${(cuePoints.solution.end / duration) * 100}%` }}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -186,6 +309,127 @@ const RegieSound = () => {
                 : "Aucune question sélectionnée"
               }
             </p>
+          </Card>
+        )}
+
+        {/* Points Cue (Segments de 30s) */}
+        {currentQuestion?.audio_url && (
+          <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 animate-fade-in">
+            <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+              <SkipForward className="h-5 w-5" />
+              Points Cue (max 30s chacun)
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Segment Recherche */}
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-green-600">🎵 Segment Recherche</h4>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => jumpToCuePoint('search')}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Jouer
+                  </Button>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Début: {formatTime(cuePoints.search.start)}</label>
+                    <div className="flex gap-1 mt-1">
+                      <Input
+                        type="number"
+                        value={cuePoints.search.start}
+                        onChange={(e) => setCuePoints(prev => ({
+                          ...prev,
+                          search: { ...prev.search, start: parseInt(e.target.value) || 0 }
+                        }))}
+                        className="h-8"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => setCuePointAtCurrentTime('search', 'start')}>
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Fin: {formatTime(cuePoints.search.end)}</label>
+                    <div className="flex gap-1 mt-1">
+                      <Input
+                        type="number"
+                        value={cuePoints.search.end}
+                        onChange={(e) => setCuePoints(prev => ({
+                          ...prev,
+                          search: { ...prev.search, end: parseInt(e.target.value) || 30 }
+                        }))}
+                        className="h-8"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => setCuePointAtCurrentTime('search', 'end')}>
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Segment Solution */}
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-blue-600">🎶 Segment Solution</h4>
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => jumpToCuePoint('solution')}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Jouer
+                  </Button>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Début: {formatTime(cuePoints.solution.start)}</label>
+                    <div className="flex gap-1 mt-1">
+                      <Input
+                        type="number"
+                        value={cuePoints.solution.start}
+                        onChange={(e) => setCuePoints(prev => ({
+                          ...prev,
+                          solution: { ...prev.solution, start: parseInt(e.target.value) || 0 }
+                        }))}
+                        className="h-8"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => setCuePointAtCurrentTime('solution', 'start')}>
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Fin: {formatTime(cuePoints.solution.end)}</label>
+                    <div className="flex gap-1 mt-1">
+                      <Input
+                        type="number"
+                        value={cuePoints.solution.end}
+                        onChange={(e) => setCuePoints(prev => ({
+                          ...prev,
+                          solution: { ...prev.solution, end: parseInt(e.target.value) || 60 }
+                        }))}
+                        className="h-8"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => setCuePointAtCurrentTime('solution', 'end')}>
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90"
+                onClick={saveCuePoints}
+              >
+                💾 Enregistrer les Points Cue
+              </Button>
+            </div>
           </Card>
         )}
 

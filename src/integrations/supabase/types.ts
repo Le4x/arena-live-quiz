@@ -190,6 +190,7 @@ export type Database = {
           audio_url: string | null
           correct_answer: string | null
           created_at: string | null
+          cue_points: Json | null
           display_order: number | null
           id: string
           options: Json | null
@@ -202,6 +203,7 @@ export type Database = {
           audio_url?: string | null
           correct_answer?: string | null
           created_at?: string | null
+          cue_points?: Json | null
           display_order?: number | null
           id?: string
           options?: Json | null
@@ -214,6 +216,7 @@ export type Database = {
           audio_url?: string | null
           correct_answer?: string | null
           created_at?: string | null
+          cue_points?: Json | null
           display_order?: number | null
           id?: string
           options?: Json | null

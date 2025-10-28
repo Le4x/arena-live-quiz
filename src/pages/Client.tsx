@@ -114,7 +114,10 @@ const Client = () => {
   }, [currentQuestion?.id]);
 
   const checkIfBuzzed = async () => {
-    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) {
+      setHasBuzzed(false);
+      return;
+    }
     
     const { data } = await supabase
       .from('buzzer_attempts')
@@ -124,7 +127,12 @@ const Client = () => {
       .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
     
-    setHasBuzzed(!!data);
+    // Explicitement mettre à jour hasBuzzed même si data est null
+    if (data) {
+      setHasBuzzed(true);
+    } else {
+      setHasBuzzed(false);
+    }
   };
 
   const checkIfAnswered = async () => {
