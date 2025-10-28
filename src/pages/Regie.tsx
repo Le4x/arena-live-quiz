@@ -283,9 +283,11 @@ const Regie = () => {
   const showReveal = async () => {
     await supabase.from('game_state').update({ show_answer: true }).eq('game_session_id', sessionId);
     toast({ title: '👁️ Réponse révélée' });
-    setTimeout(async () => { 
-      await supabase.from('game_state').update({ show_answer: false }).eq('game_session_id', sessionId); 
-    }, 15000);
+  };
+
+  const hideReveal = async () => {
+    await supabase.from('game_state').update({ show_answer: false }).eq('game_session_id', sessionId);
+    toast({ title: '🙈 Réponse cachée' });
   };
 
   const showLeaderboard = async () => {
@@ -449,7 +451,9 @@ const Regie = () => {
             }
           }}
           reveal={{
-            onReveal: showReveal
+            onReveal: showReveal,
+            onHide: hideReveal,
+            isRevealed: gameState?.show_answer || false
           }}
         />
       </div>

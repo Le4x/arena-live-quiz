@@ -25,6 +25,8 @@ interface ControlBarProps {
   };
   reveal: {
     onReveal: () => void;
+    onHide: () => void;
+    isRevealed: boolean;
   };
 }
 
@@ -82,13 +84,23 @@ export const ControlBar = ({ timer, audio, buzzer, reveal }: ControlBarProps) =>
         {/* Reveal (révèle juste la réponse à l'écran) */}
         <div className="col-span-4 flex items-center gap-2 border-l border-accent/30 pl-3">
           <span className="text-xs font-bold text-muted-foreground uppercase">Reveal</span>
-          <Button 
-            size="sm" 
-            className="bg-primary hover:bg-primary/90"
-            onClick={reveal.onReveal}
-          >
-            👁️ Révéler réponse
-          </Button>
+          {!reveal.isRevealed ? (
+            <Button 
+              size="sm" 
+              className="bg-primary hover:bg-primary/90"
+              onClick={reveal.onReveal}
+            >
+              👁️ Révéler réponse
+            </Button>
+          ) : (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={reveal.onHide}
+            >
+              🙈 Cacher réponse
+            </Button>
+          )}
         </div>
       </div>
     </div>
