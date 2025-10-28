@@ -2,40 +2,41 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Trophy, Zap, Check, X, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, Zap, Trophy, Send } from "lucide-react";
-import { SupabaseNetworkStatus } from "@/components/SupabaseNetworkStatus";
-import { useSupabaseResilience } from "@/hooks/useSupabaseResilience";
 import { playSound } from "@/lib/sounds";
 
 const Client = () => {
   const { teamId } = useParams();
   const { toast } = useToast();
-  const { saveToCache, loadFromCache } = useSupabaseResilience();
-  
-  const [gameState, setGameState] = useState<any>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [team, setTeam] = useState<any>(null);
   const [teamName, setTeamName] = useState("");
-  const [teamColor, setTeamColor] = useState("#3B82F6");
+  const [teamColor, setTeamColor] = useState("#FFD700");
+  const [gameState, setGameState] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [answer, setAnswer] = useState("");
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [deviceBlocked, setDeviceBlocked] = useState(false);
 
-  // Charger l'équipe depuis Supabase
+  // Générer ou récupérer l'ID unique de l'appareil
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('arena_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('arena_device_id', deviceId);
+    }
+    return deviceId;
+  };
+
   useEffect(() => {
     if (teamId) {
       loadTeam();
-      loadGameState();
     }
-  }, [teamId]);
-
-  // Écouter les changements en temps réel
-  useEffect(() => {
-    if (!teamId) return;
+    loadGameState();
 
     const gameStateChannel = supabase
       .channel('client-game-state')
@@ -51,135 +52,129 @@ const Client = () => {
       })
       .subscribe();
 
-    const buzzerChannel = supabase
-      .channel('client-buzzers')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'buzzer_attempts' }, (payload) => {
-        if (payload.new.team_id === teamId && payload.new.is_first) {
-          setHasBuzzed(true);
-          playSound('buzz');
-          toast({
-            title: "🔔 Buzz enregistré !",
-            description: "Vous avez buzzé en premier !",
-          });
-        }
+    const answersChannel = supabase
+      .channel('client-answers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        checkAnswerResult();
       })
       .subscribe();
-
-    // Track team presence
-    const presenceChannel = supabase.channel('team-presence');
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        console.log('Presence synced');
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({ team_id: teamId, online_at: new Date().toISOString() });
-        }
-      });
 
     return () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
-      supabase.removeChannel(buzzerChannel);
-      supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(answersChannel);
     };
-  }, [teamId, toast]);
+  }, [teamId]);
+
+  useEffect(() => {
+    // Reset buzzer state when question changes
+    setHasBuzzed(false);
+    setAnswer("");
+    setHasAnswered(false);
+    setAnswerResult(null);
+    checkIfBuzzed();
+    checkIfAnswered();
+  }, [currentQuestion?.id]);
+
+  const checkIfBuzzed = async () => {
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
+      .maybeSingle();
+    
+    if (data) setHasBuzzed(true);
+  };
+
+  const checkIfAnswered = async () => {
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
+      .maybeSingle();
+    
+    if (data) {
+      setHasAnswered(true);
+      if (data.is_correct !== null) {
+        setAnswerResult(data.is_correct ? 'correct' : 'incorrect');
+      }
+    }
+  };
+
+  const checkAnswerResult = async () => {
+    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('is_correct')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
+      .maybeSingle();
+    
+    if (data && data.is_correct !== null) {
+      const result = data.is_correct ? 'correct' : 'incorrect';
+      if (result !== answerResult) {
+        setAnswerResult(result);
+        playSound(result);
+      }
+    }
+  };
 
   const loadTeam = async () => {
-    if (!teamId) {
-      console.log('📱 Client: No teamId provided');
-      return;
-    }
+    if (!teamId) return;
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
     
-    console.log('📱 Client: Loading team', teamId);
-    
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .maybeSingle();
-
-      if (data) {
-        console.log('✅ Client: Team loaded successfully', data);
-        setTeam(data);
-        saveToCache('team', { team: data });
-      } else if (error) {
-        console.error('❌ Client: Error loading team', error);
-        // Tenter de charger depuis le cache
-        const cached = loadFromCache('team');
-        if (cached?.team) {
-          console.log('💾 Client: Team loaded from cache');
-          setTeam(cached.team);
-          toast({
-            title: "Mode dégradé",
-            description: "Données chargées depuis le cache local",
-            variant: "default"
-          });
-        }
+    if (data) {
+      const currentDeviceId = getDeviceId();
+      
+      // Vérifier si un appareil est déjà connecté
+      if (data.connected_device_id && data.connected_device_id !== currentDeviceId) {
+        setDeviceBlocked(true);
+        toast({
+          title: "Accès bloqué",
+          description: "Un appareil est déjà connecté à cette équipe",
+          variant: "destructive"
+        });
+        return;
       }
-    } catch (error) {
-      console.error('❌ Client: Exception loading team:', error);
-      const cached = loadFromCache('team');
-      if (cached?.team) {
-        console.log('💾 Client: Team loaded from cache after exception');
-        setTeam(cached.team);
+      
+      // Si aucun appareil n'est connecté ou si c'est le même appareil, enregistrer l'appareil
+      if (!data.connected_device_id) {
+        await supabase
+          .from('teams')
+          .update({ connected_device_id: currentDeviceId })
+          .eq('id', teamId);
       }
+      
+      setTeam(data);
     }
   };
 
   const loadGameState = async () => {
-    console.log('🎮 Client: Loading game state');
-    
-    try {
-      const { data, error } = await supabase
-        .from('game_state')
-        .select('*, questions(*)')
-        .maybeSingle();
-
-      if (data) {
-        console.log('✅ Client: Game state loaded', data);
-        setGameState(data);
-        setCurrentQuestion(data.questions);
-        saveToCache('gameState', { gameState: data, currentQuestion: data.questions });
-        
-        // Réinitialiser les états si nouvelle question
-        if (data.questions?.id !== currentQuestion?.id) {
-          console.log('🔄 Client: New question detected, resetting states');
-          setHasBuzzed(false);
-          setHasAnswered(false);
-          setAnswerResult(null);
-          setAnswer("");
-        }
-        
-        // Afficher le résultat de la réponse si disponible
-        if (data.answer_result && (data.answer_result === 'correct' || data.answer_result === 'incorrect')) {
-          console.log('✨ Client: Answer result:', data.answer_result);
-          setAnswerResult(data.answer_result);
-          setTimeout(() => setAnswerResult(null), 3000);
-        }
-      } else if (error) {
-        console.error('❌ Client: Error loading game state', error);
-        // Tenter de charger depuis le cache
-        const cached = loadFromCache('gameState');
-        if (cached?.gameState) {
-          console.log('💾 Client: Game state loaded from cache');
-          setGameState(cached.gameState);
-          setCurrentQuestion(cached.currentQuestion);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Client: Exception loading game state:', error);
-      const cached = loadFromCache('gameState');
-      if (cached?.gameState) {
-        console.log('💾 Client: Game state loaded from cache after exception');
-        setGameState(cached.gameState);
-        setCurrentQuestion(cached.currentQuestion);
-      }
+    const { data } = await supabase
+      .from('game_state')
+      .select('*, questions(*)')
+      .maybeSingle();
+    if (data) {
+      setGameState(data);
+      setCurrentQuestion(data.questions);
     }
   };
 
-  const handleCreateTeam = async () => {
+  const createTeam = async () => {
     if (!teamName.trim()) {
       toast({
         title: "Erreur",
@@ -189,114 +184,174 @@ const Client = () => {
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .insert({
-          name: teamName,
-          color: teamColor,
-          score: 0,
-          is_active: true
-        })
-        .select()
-        .single();
+    const currentDeviceId = getDeviceId();
 
-      if (error) throw error;
+    const { data, error } = await supabase
+      .from('teams')
+      .insert([
+        { name: teamName, color: teamColor, score: 0, connected_device_id: currentDeviceId }
+      ])
+      .select()
+      .single();
 
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer l'équipe",
+        variant: "destructive"
+      });
+    } else if (data) {
       setTeam(data);
       window.history.replaceState(null, '', `/client/${data.id}`);
-      
       toast({
         title: "Équipe créée !",
         description: `Bienvenue ${data.name} !`,
-      });
-    } catch (error) {
-      console.error('Error creating team:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer l'équipe. Vérifiez votre connexion.",
-        variant: "destructive"
       });
     }
   };
 
   const handleBuzzer = async () => {
-    if (!team || !currentQuestion || !gameState?.is_buzzer_active || hasBuzzed) {
+    console.log('🔔 Tentative de buzzer', {
+      team: team?.name,
+      teamId: team?.id,
+      question: currentQuestion?.id,
+      session: gameState?.game_session_id,
+      buzzerActive: gameState?.is_buzzer_active,
+      hasBuzzed,
+      excludedTeams: gameState?.excluded_teams
+    });
+
+    if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
+      console.log('❌ Buzzer bloqué - conditions non remplies');
+      return;
+    }
+
+    if (hasBuzzed) {
+      console.log('❌ Buzzer bloqué - déjà buzzé');
       return;
     }
 
     // Vérifier si l'équipe est exclue
     const excludedTeams = (gameState.excluded_teams || []) as string[];
     if (excludedTeams.includes(team.id)) {
+      console.log('❌ Buzzer bloqué - équipe exclue');
       toast({
-        title: "Vous êtes exclu",
-        description: "Vous ne pouvez plus répondre à cette question",
+        title: "Buzzer désactivé",
+        description: "Vous ne pouvez plus buzzer pour cette question",
         variant: "destructive"
       });
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('buzzer_attempts')
-        .insert({
-          team_id: team.id,
+    console.log('✅ Insertion du buzzer...');
+    const { error } = await supabase
+      .from('buzzer_attempts')
+      .insert([
+        { 
+          team_id: team.id, 
           question_id: currentQuestion.id,
           game_session_id: gameState.game_session_id,
-          is_first: false
+          is_first: true
+        }
+      ]);
+
+    if (error) {
+      console.error('❌ Erreur buzzer:', error);
+      if (error.code === '23505') {
+        toast({
+          title: "Déjà buzzé",
+          description: "Vous avez déjà buzzé pour cette question",
+          variant: "destructive"
         });
-
-      if (error) throw error;
-
+      } else {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    } else {
+      console.log('✅ Buzzer enregistré avec succès');
       setHasBuzzed(true);
-    } catch (error) {
-      console.error('Error buzzing:', error);
+      playSound('buzz');
       toast({
-        title: "Erreur",
-        description: "Impossible d'enregistrer le buzz",
-        variant: "destructive"
+        title: "Buzzé !",
+        description: "Votre buzzer a été enregistré",
       });
     }
   };
 
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
-    if (!team || !currentQuestion || !finalAnswer.trim() || hasAnswered) return;
+    if (!team || !currentQuestion || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
-    try {
-      const { error } = await supabase
-        .from('team_answers')
-        .insert({
-          team_id: team.id,
+    // Pour les QCM, valider automatiquement la réponse
+    let isCorrect = null;
+    let pointsAwarded = 0;
+    const isQCM = currentQuestion.question_type === 'qcm';
+    
+    if (isQCM && currentQuestion.correct_answer) {
+      isCorrect = finalAnswer.toLowerCase().trim() === currentQuestion.correct_answer.toLowerCase().trim();
+      pointsAwarded = isCorrect ? (currentQuestion.points || 0) : 0;
+    }
+
+    const { error } = await supabase
+      .from('team_answers')
+      .insert([
+        { 
+          team_id: team.id, 
           question_id: currentQuestion.id,
-          game_session_id: gameState?.game_session_id,
           answer: finalAnswer,
-          is_correct: null
-        });
+          is_correct: isCorrect,
+          points_awarded: pointsAwarded,
+          game_session_id: gameState.game_session_id
+        }
+      ]);
 
-      if (error) throw error;
-
-      setAnswer("");
-      setHasAnswered(true);
-      
-      toast({
-        title: "Réponse envoyée !",
-        description: "Votre réponse a été enregistrée",
-      });
-    } catch (error) {
-      console.error('Error submitting answer:', error);
+    if (error) {
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer la réponse",
         variant: "destructive"
       });
+    } else {
+      setAnswer("");
+      setHasAnswered(true);
+      
+      // Mettre à jour le score de l'équipe pour les QCM
+      if (isQCM && isCorrect) {
+        await supabase
+          .from('teams')
+          .update({ score: (team.score || 0) + pointsAwarded })
+          .eq('id', team.id);
+      }
+      
+      toast({
+        title: isQCM ? "Réponse enregistrée !" : "Réponse envoyée !",
+        description: isQCM ? (isCorrect ? `Bonne réponse ! +${pointsAwarded} pts` : "Réponse enregistrée") : "Votre réponse a été enregistrée",
+      });
     }
   };
+
+  if (deviceBlocked) {
+    return (
+      <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
+        <Card className="w-full max-w-md p-8 bg-card/90 backdrop-blur-sm border-destructive/50">
+          <div className="text-center">
+            <X className="w-16 h-16 mx-auto mb-4 text-destructive" />
+            <h1 className="text-2xl font-bold text-destructive mb-4">Accès Bloqué</h1>
+            <p className="text-muted-foreground">
+              Un appareil est déjà connecté à cette équipe. Une seule connexion est autorisée par équipe.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (!team) {
     return (
       <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
-        <SupabaseNetworkStatus />
         <Card className="w-full max-w-md p-8 bg-card/90 backdrop-blur-sm border-primary/20">
           <h1 className="text-4xl font-bold text-center bg-gradient-arena bg-clip-text text-transparent mb-8">
             ARENA
@@ -331,7 +386,7 @@ const Client = () => {
             </div>
 
             <Button 
-              onClick={handleCreateTeam} 
+              onClick={createTeam} 
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold h-12 text-lg"
             >
               Rejoindre
@@ -344,7 +399,6 @@ const Client = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
-      <SupabaseNetworkStatus />
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header équipe */}
         <Card className="p-6 bg-card/90 backdrop-blur-sm border-2" style={{ borderColor: team.color }}>
@@ -355,13 +409,13 @@ const Client = () => {
             ></div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold">{team.name}</h2>
-              <p className="text-muted-foreground">Score: {team.score || 0} points</p>
+              <p className="text-muted-foreground">Score: {team.score} points</p>
             </div>
           </div>
         </Card>
 
-        {/* Buzzer - Pour les questions type buzzer */}
-        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'buzzer' && (
+        {/* Buzzer - Uniquement pour blind test */}
+        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
           <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
             <Button
               onClick={handleBuzzer}
@@ -386,74 +440,87 @@ const Client = () => {
                 <div className="text-center">
                   {answerResult === 'correct' ? (
                     <>
-                      <Check className="w-32 h-32 mx-auto mb-4 text-white" />
-                      <p className="text-4xl font-bold text-white">CORRECT !</p>
+                      <Check className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
+                      <p className="text-4xl font-bold text-white">BONNE RÉPONSE !</p>
                     </>
                   ) : (
                     <>
-                      <X className="w-32 h-32 mx-auto mb-4 text-white" />
-                      <p className="text-4xl font-bold text-white">INCORRECT</p>
+                      <X className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
+                      <p className="text-4xl font-bold text-white">MAUVAISE RÉPONSE</p>
                     </>
                   )}
                 </div>
               </div>
             )}
+            <h3 className="text-xl font-bold text-secondary mb-4">Question actuelle</h3>
+            <p className="text-lg mb-6">{currentQuestion.question_text}</p>
 
-            <h3 className="text-2xl font-bold mb-4">{currentQuestion.question_text}</h3>
-            
-            {/* Options QCM */}
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
-              <div className="space-y-3">
-                {(currentQuestion.options as string[]).map((option: string, index: number) => (
-                  <Button
-                    key={index}
-                    onClick={() => submitAnswer(option)}
-                    disabled={hasAnswered}
-                    className="w-full text-lg py-6 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                  >
-                    {option}
-                  </Button>
-                ))}
+              <div className="space-y-3 mb-6">
+                {(() => {
+                  try {
+                    const options = typeof currentQuestion.options === 'string' 
+                      ? JSON.parse(currentQuestion.options) 
+                      : currentQuestion.options;
+                    return Object.entries(options || {}).map(([key, value]) => (
+                      <Button
+                        key={key}
+                        variant="outline"
+                        disabled={hasAnswered}
+                        className="w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-50"
+                        onClick={() => submitAnswer(value as string)}
+                      >
+                        <span className="text-primary font-bold mr-3">{key}.</span>
+                        <span>{value as string}</span>
+                      </Button>
+                    ));
+                  } catch (e) {
+                    return <p className="text-destructive">Erreur de chargement des options</p>;
+                  }
+                })()}
+                {hasAnswered && (
+                  <div className="text-center text-green-500 font-bold">
+                    ✓ Réponse enregistrée
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Réponse texte libre */}
-            {currentQuestion.question_type === 'texte' && (
-              <div className="space-y-3">
+            {currentQuestion.question_type === 'free_text' && (
+              <div className="space-y-4">
                 <Input
                   placeholder="Votre réponse..."
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !hasAnswered) {
+                      submitAnswer();
+                    }
+                  }}
                   disabled={hasAnswered}
-                  className="text-lg py-6"
+                  className="bg-input border-border"
                 />
                 <Button
                   onClick={() => submitAnswer()}
-                  disabled={hasAnswered || !answer.trim()}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={hasAnswered}
+                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue disabled:opacity-50"
                 >
                   <Send className="mr-2 h-5 w-5" />
                   Envoyer la réponse
                 </Button>
-              </div>
-            )}
-
-            {hasAnswered && !answerResult && (
-              <div className="text-center text-muted-foreground mt-4">
-                Réponse envoyée. En attente de validation...
+                {hasAnswered && (
+                  <div className="text-center text-green-500 font-bold">
+                    ✓ Réponse envoyée
+                  </div>
+                )}
               </div>
             )}
           </Card>
         )}
 
-        {/* En attente */}
         {!currentQuestion && (
-          <Card className="p-12 bg-card/90 backdrop-blur-sm border-muted/20 text-center">
-            <Trophy className="w-24 h-24 mx-auto mb-6 text-muted-foreground animate-pulse" />
-            <h3 className="text-3xl font-bold mb-2">En attente</h3>
-            <p className="text-muted-foreground text-xl">
-              La prochaine question arrive bientôt...
-            </p>
+          <Card className="p-12 bg-card/90 backdrop-blur-sm text-center">
+            <p className="text-xl text-muted-foreground">En attente de la prochaine question...</p>
           </Card>
         )}
       </div>

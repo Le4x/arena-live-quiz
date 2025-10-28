@@ -102,16 +102,12 @@ export type Database = {
           answer_result: string | null
           current_question_id: string | null
           current_round_id: string | null
-          current_round_intro: string | null
           excluded_teams: Json | null
           game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
           leaderboard_page: number | null
-          show_ambient_screen: boolean | null
           show_leaderboard: boolean | null
-          show_pause_screen: boolean | null
-          show_round_intro: boolean | null
           timer_active: boolean | null
           timer_remaining: number | null
           updated_at: string | null
@@ -121,16 +117,12 @@ export type Database = {
           answer_result?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
-          current_round_intro?: string | null
           excluded_teams?: Json | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
-          show_ambient_screen?: boolean | null
           show_leaderboard?: boolean | null
-          show_pause_screen?: boolean | null
-          show_round_intro?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
@@ -140,16 +132,12 @@ export type Database = {
           answer_result?: string | null
           current_question_id?: string | null
           current_round_id?: string | null
-          current_round_intro?: string | null
           excluded_teams?: Json | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
-          show_ambient_screen?: boolean | null
           show_leaderboard?: boolean | null
-          show_pause_screen?: boolean | null
-          show_round_intro?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
@@ -170,13 +158,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "game_state_current_round_intro_fkey"
-            columns: ["current_round_intro"]
-            isOneToOne: false
-            referencedRelation: "rounds"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "game_state_game_session_id_fkey"
             columns: ["game_session_id"]
             isOneToOne: false
@@ -190,7 +171,6 @@ export type Database = {
           audio_url: string | null
           correct_answer: string | null
           created_at: string | null
-          cue_points: Json | null
           display_order: number | null
           id: string
           options: Json | null
@@ -203,7 +183,6 @@ export type Database = {
           audio_url?: string | null
           correct_answer?: string | null
           created_at?: string | null
-          cue_points?: Json | null
           display_order?: number | null
           id?: string
           options?: Json | null
@@ -216,7 +195,6 @@ export type Database = {
           audio_url?: string | null
           correct_answer?: string | null
           created_at?: string | null
-          cue_points?: Json | null
           display_order?: number | null
           id?: string
           options?: Json | null
@@ -239,7 +217,6 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          jingle_url: string | null
           status: string | null
           timer_duration: number | null
           timer_started_at: string | null
@@ -249,7 +226,6 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
-          jingle_url?: string | null
           status?: string | null
           timer_duration?: number | null
           timer_started_at?: string | null
@@ -259,7 +235,6 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
-          jingle_url?: string | null
           status?: string | null
           timer_duration?: number | null
           timer_started_at?: string | null

@@ -1,2 +1,0 @@
--- Add cue_points column to questions table to store audio cue points
-ALTER TABLE questions ADD COLUMN IF NOT EXISTS cue_points jsonb DEFAULT '{"search": {"start": 0, "end": 30}, "solution": {"start": 30, "end": 60}}'::jsonb;

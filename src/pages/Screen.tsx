@@ -1,505 +1,456 @@
-import { useState, useEffect, useRef } from "react";
-import { Trophy, Music, Play } from "lucide-react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Trophy, Zap, Check, X } from "lucide-react";
 import { playSound } from "@/lib/sounds";
-import { SupabaseNetworkStatus } from "@/components/SupabaseNetworkStatus";
-import { useSupabaseResilience } from "@/hooks/useSupabaseResilience";
 
 const Screen = () => {
-  const [gameState, setGameState] = useState<any>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
-  const [currentRound, setCurrentRound] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
-  const [firstBuzzTeam, setFirstBuzzTeam] = useState<any>(null);
-  const [timer, setTimer] = useState<number>(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { saveToCache, loadFromCache } = useSupabaseResilience();
+  const [gameState, setGameState] = useState<any>(null);
+  const [currentSession, setCurrentSession] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [timer, setTimer] = useState<number | null>(null);
+  const [buzzers, setBuzzers] = useState<any[]>([]);
+  const [qcmAnswers, setQcmAnswers] = useState<any[]>([]);
+  const [textAnswers, setTextAnswers] = useState<any[]>([]);
 
   useEffect(() => {
-    loadGameState();
-    loadTeams();
-
-    // Écouter les changements en temps réel
-    const gameStateChannel = supabase
-      .channel('screen-game-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
-        loadGameState();
-      })
-      .subscribe();
-
+    loadData();
+    
+    // Realtime subscriptions avec rechargement complet
     const teamsChannel = supabase
       .channel('screen-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        loadTeams();
+        console.log('🔄 Screen: Teams changed');
+        loadData();
       })
       .subscribe();
 
-    const buzzerChannel = supabase
+    const gameStateChannel = supabase
+      .channel('screen-game-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        console.log('🔄 Screen: Game state changed');
+        loadData();
+        loadBuzzers();
+        loadQcmAnswers();
+        loadTextAnswers();
+      })
+      .subscribe();
+
+    const buzzersChannel = supabase
       .channel('screen-buzzers')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'buzzer_attempts' }, (payload) => {
-        if (payload.new.is_first) {
-          handleFirstBuzz(payload.new.team_id);
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        console.log('🔄 Screen: Buzzer detected');
+        loadBuzzers();
+      })
+      .subscribe();
+
+    const answersChannel = supabase
+      .channel('screen-qcm-answers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        console.log('🔄 Screen: Answer received');
+        loadQcmAnswers();
+        loadTextAnswers();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
-      supabase.removeChannel(buzzerChannel);
+      supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(buzzersChannel);
+      supabase.removeChannel(answersChannel);
     };
   }, []);
 
-  const loadGameState = async () => {
-    try {
-      const { data: gameStateData, error } = await supabase
-        .from('game_state')
-        .select('*')
-        .maybeSingle();
-
-      if (gameStateData) {
-        console.log('🎮 Screen: Game state loaded', gameStateData);
-        setGameState(gameStateData);
-        setTimer(gameStateData.timer_remaining || 0);
-        
-        // NE PAS charger la question si on est en mode intro de manche
-        if (gameStateData.show_round_intro) {
-          console.log('🎬 Mode intro de manche activé - pas de chargement de question');
-          setCurrentQuestion(null);
-        }
-        // Charger la question actuelle si elle existe et qu'on n'est pas en intro
-        else if (gameStateData.current_question_id) {
-          const { data: questionData } = await supabase
-            .from('questions')
-            .select('*')
-            .eq('id', gameStateData.current_question_id)
-            .single();
-          
-          if (questionData) {
-            console.log('❓ Screen: Question loaded', questionData);
-            setCurrentQuestion(questionData);
-          }
-        } else {
-          setCurrentQuestion(null);
-        }
-        
-        // Charger la manche pour l'intro (current_round_intro) ou pour le jeu (current_round_id)
-        const roundIdToLoad = gameStateData.show_round_intro 
-          ? gameStateData.current_round_intro 
-          : gameStateData.current_round_id;
-          
-        if (roundIdToLoad) {
-          const { data: roundData } = await supabase
-            .from('rounds')
-            .select('*')
-            .eq('id', roundIdToLoad)
-            .single();
-          
-          if (roundData) {
-            console.log('🎵 Screen: Round loaded', roundData);
-            setCurrentRound(roundData);
-          }
-        } else {
-          setCurrentRound(null);
-        }
-        
-        saveToCache('screenState', { 
-          gameState: gameStateData, 
-          currentQuestion: currentQuestion, 
-          currentRound: currentRound 
-        });
-      } else if (error) {
-        console.error('Error loading game state:', error);
-        const cached = loadFromCache('screenState');
-        if (cached?.gameState) {
-          setGameState(cached.gameState);
-          setCurrentQuestion(cached.currentQuestion);
-          setCurrentRound(cached.currentRound);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading game state:', error);
-      const cached = loadFromCache('screenState');
-      if (cached?.gameState) {
-        setGameState(cached.gameState);
-        setCurrentQuestion(cached.currentQuestion);
-        setCurrentRound(cached.currentRound);
-      }
-    }
-  };
-
-  const loadTeams = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('is_active', true)
-        .order('score', { ascending: false });
-
-      if (data) {
-        setTeams(data);
-        saveToCache('screenTeams', { teams: data });
-      } else if (error) {
-        const cached = loadFromCache('screenTeams');
-        if (cached?.teams) {
-          setTeams(cached.teams);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading teams:', error);
-      const cached = loadFromCache('screenTeams');
-      if (cached?.teams) {
-        setTeams(cached.teams);
-      }
-    }
-  };
-
-  const handleFirstBuzz = (teamId: string) => {
-    playSound('buzz');
-    const team = teams.find((t: any) => t.id === teamId);
-    if (team) {
-      setFirstBuzzTeam(team);
-      setTimeout(() => setFirstBuzzTeam(null), 3000);
-    }
-  };
-
-  // Gérer le décompte du timer
   useEffect(() => {
-    if (!gameState?.timer_active) return;
-    
+    console.log('📌 Question or session changed, loading buzzers');
+    loadBuzzers();
+    loadQcmAnswers();
+    loadTextAnswers();
+  }, [currentQuestion?.id, gameState?.game_session_id]);
+
+  useEffect(() => {
+    // Vérifier les buzzers toutes les 2 secondes sur Screen aussi
     const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 0) return 0;
-        return prev - 1;
-      });
-    }, 1000);
+      if (currentQuestion?.id && gameState?.game_session_id && gameState?.is_buzzer_active) {
+        loadBuzzers();
+      }
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [gameState?.timer_active]);
+  }, [currentQuestion?.id, gameState?.game_session_id, gameState?.is_buzzer_active]);
 
-  // Jouer le jingle de la manche quand on affiche l'intro
   useEffect(() => {
-    if (gameState?.show_round_intro && currentRound?.jingle_url && audioRef.current) {
-      console.log('🎵 Playing round jingle:', currentRound.jingle_url);
-      audioRef.current.src = currentRound.jingle_url;
-      audioRef.current.play().catch((error) => {
-        console.error('❌ Error playing jingle:', error);
-      });
+    let interval: NodeJS.Timeout;
+    if (gameState?.timer_active && gameState?.timer_remaining !== null) {
+      setTimer(gameState.timer_remaining);
+      interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev === null || prev <= 0) return 0;
+          return prev - 1;
+        });
+      }, 1000);
     }
-  }, [gameState?.show_round_intro, currentRound?.id]);
+    return () => clearInterval(interval);
+  }, [gameState?.timer_active, gameState?.timer_remaining]);
 
-  const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
+  // Jouer les sons quand le résultat change
+  useEffect(() => {
+    if (gameState?.answer_result === 'correct') {
+      playSound('correct');
+    } else if (gameState?.answer_result === 'incorrect') {
+      playSound('incorrect');
+    }
+  }, [gameState?.answer_result]);
 
-  // Écran d'accueil (au tout début, avant que le jeu commence)
-  if (!gameState || (!currentQuestion && !currentRound && sortedTeams.length === 0)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-pink-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
-        <SupabaseNetworkStatus />
-        
-        {/* Particules animées */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 sm:w-64 sm:h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-32 h-32 sm:w-96 sm:h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 sm:w-[500px] sm:h-[500px] bg-yellow-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-        </div>
+  const loadData = async () => {
+    const [teamsRes, gameStateRes] = await Promise.all([
+      supabase.from('teams').select('*').order('score', { ascending: false }),
+      supabase.from('game_state').select('*, questions(*), game_sessions(*)').maybeSingle()
+    ]);
 
-        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
-          <div className="text-center space-y-6 sm:space-y-12 animate-fade-in">
-            <div className="relative">
-              <div className="text-8xl sm:text-9xl mb-6 sm:mb-8 animate-bounce">🎵</div>
-              <div className="absolute inset-0 blur-2xl bg-yellow-400/30 animate-pulse"></div>
-            </div>
-            
-            <div>
-              <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 bg-clip-text text-transparent drop-shadow-2xl mb-4 sm:mb-6 leading-tight">
-                MUSIC
-              </h1>
-              <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black bg-gradient-to-r from-purple-400 via-pink-400 to-yellow-400 bg-clip-text text-transparent drop-shadow-2xl leading-tight">
-                ARENA
-              </h1>
-            </div>
-            
-            <div className="flex items-center justify-center gap-4 sm:gap-6 mt-8 sm:mt-12">
-              <div className="w-16 h-1 sm:w-32 sm:h-2 bg-gradient-to-r from-transparent via-yellow-400 to-transparent animate-pulse"></div>
-              <Music className="w-8 h-8 sm:w-12 sm:h-12 text-yellow-400 animate-pulse" />
-              <div className="w-16 h-1 sm:w-32 sm:h-2 bg-gradient-to-r from-transparent via-yellow-400 to-transparent animate-pulse"></div>
-            </div>
-            
-            <p className="text-2xl sm:text-4xl md:text-5xl text-yellow-200 animate-pulse mt-8 sm:mt-12">
-              Bienvenue dans l'arène musicale
-            </p>
-          </div>
-        </div>
+    if (teamsRes.data) setTeams(teamsRes.data);
+    if (gameStateRes.data) {
+      setGameState(gameStateRes.data);
+      setCurrentQuestion(gameStateRes.data.questions);
+      setCurrentSession(gameStateRes.data.game_sessions);
+    }
+  };
+
+  const loadBuzzers = async () => {
+    if (!currentQuestion?.id || !gameState?.game_session_id) {
+      setBuzzers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id)
+      .order('buzzed_at', { ascending: true });
+    
+    if (data) setBuzzers(data);
+  };
+
+  const loadQcmAnswers = async () => {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'qcm' || !gameState?.game_session_id) {
+      setQcmAnswers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
+    
+    if (data) setQcmAnswers(data);
+  };
+
+  const loadTextAnswers = async () => {
+    if (!currentQuestion?.id || currentQuestion?.question_type !== 'free_text' || !gameState?.game_session_id) {
+      setTextAnswers([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('question_id', currentQuestion.id)
+      .eq('game_session_id', gameState.game_session_id);
+    
+    if (data) setTextAnswers(data);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
-    );
-  }
 
-  // Intro de manche (PRIORITÉ MAXIMALE - avant classement)
-  if (gameState?.show_round_intro && currentRound) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
-        <SupabaseNetworkStatus />
-        <audio ref={audioRef} autoPlay />
-        
-        {/* Effet de lumière animé */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-yellow-500/30 to-transparent blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-purple-500/20 blur-3xl animate-pulse" />
-          <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-indigo-500/20 blur-3xl animate-pulse" />
-        </div>
+      <div className="relative z-10 p-8">
+        {/* Logo et titre */}
+        <header className="text-center py-6 animate-slide-in">
+          <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+            {currentSession?.name || 'ARENA'}
+          </h1>
+          <p className="text-accent text-xl mt-2 font-bold">
+            {teams.length} équipe{teams.length > 1 ? 's' : ''} connectée{teams.length > 1 ? 's' : ''}
+          </p>
+        </header>
 
-        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
-          <div className="text-center space-y-6 sm:space-y-12 animate-scale-in">
-            {/* Icône animée */}
-            <div className="relative">
-              <Play className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-bounce" />
-              <div className="absolute inset-0 w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto bg-yellow-400/20 rounded-full blur-2xl animate-pulse" />
-            </div>
-            
-            <div>
-              <div className="text-2xl sm:text-3xl md:text-4xl text-yellow-400 font-semibold mb-2 sm:mb-4 uppercase tracking-wider animate-pulse">
-                Nouvelle Manche
-              </div>
-              <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl px-4 animate-pulse">
-                {currentRound.title}
-              </h1>
-            </div>
-            
-            <div className="flex items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl md:text-3xl text-yellow-200 animate-pulse">
-              <Music className="w-6 h-6 sm:w-8 sm:h-8 animate-bounce" />
-              <span className="uppercase tracking-wider font-bold">{currentRound.type}</span>
-              <Music className="w-6 h-6 sm:w-8 sm:h-8 animate-bounce" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
-  // Affichage du classement
-  if (gameState?.show_leaderboard) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-4 sm:p-8 md:p-12">
-        <SupabaseNetworkStatus />
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12 animate-scale-in">
-            <Trophy className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 text-yellow-400 animate-bounce" />
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold mb-2 sm:mb-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              🏆 CLASSEMENT 🏆
-            </h1>
-          </div>
-          
-          <div className="space-y-3 sm:space-y-6 animate-fade-in">
-            {sortedTeams.map((team, index) => (
-              <div 
-                key={team.id}
-                className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex items-center gap-4 sm:gap-8 transform transition-all hover:scale-105 border-l-4 sm:border-l-8 shadow-2xl"
-                style={{ borderLeftColor: team.color, boxShadow: `0 8px 40px ${team.color}30` }}
-              >
-                <div className="text-4xl sm:text-6xl md:text-8xl font-bold w-16 sm:w-32 text-center flex-shrink-0">
-                  {index === 0 && <span className="drop-shadow-2xl">🥇</span>}
-                  {index === 1 && <span className="drop-shadow-2xl">🥈</span>}
-                  {index === 2 && <span className="drop-shadow-2xl">🥉</span>}
-                  {index > 2 && <span className="text-yellow-400">#{index + 1}</span>}
+        {/* Question actuelle */}
+        {currentQuestion && !gameState?.show_leaderboard && (
+          <div className="max-w-5xl mx-auto mb-8 animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold">
+              <div className="text-center">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm text-primary font-bold uppercase tracking-wider">
+                    Question
+                  </div>
+                  {(currentQuestion.question_type === 'qcm' || currentQuestion.question_type === 'free_text') && (
+                    <div className="text-sm font-bold text-secondary">
+                      {currentQuestion.question_type === 'qcm' ? qcmAnswers.length : textAnswers.length} / {teams.length} réponses
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-yellow-50 truncate">{team.name}</div>
-                </div>
-                <div className="text-4xl sm:text-6xl md:text-8xl font-bold tabular-nums text-yellow-400 flex-shrink-0">{team.score}</div>
+                <h2 className="text-4xl font-bold mb-6">{currentQuestion.question_text}</h2>
+                
+                {currentQuestion.options && (() => {
+                  try {
+                    const options = typeof currentQuestion.options === 'string' 
+                      ? JSON.parse(currentQuestion.options as string) 
+                      : currentQuestion.options;
+                    return (
+                      <div className="grid grid-cols-2 gap-4 mt-6">
+                        {Object.entries(options || {}).map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="bg-muted/50 rounded-xl p-4 border-2 border-secondary/50 hover:border-secondary transition-all"
+                          >
+                            <span className="text-secondary font-bold text-xl">{key}.</span>
+                            <span className="ml-3 text-xl">{value as string}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
-    );
-  }
+        )}
 
-
-  // Écran d'attente / ambiance (quand aucune question active)
-  if (!currentQuestion) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
-        <SupabaseNetworkStatus />
-        <audio ref={audioRef} loop />
-        
-        {/* Particules animées */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 sm:w-64 sm:h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-32 h-32 sm:w-96 sm:h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        </div>
-
-        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
-          <div className="text-center space-y-6 sm:space-y-8 animate-fade-in">
-            <Music className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-pulse" />
-            <h1 className="text-5xl sm:text-7xl md:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl">
-              MUSIC ARENA
-            </h1>
-            <p className="text-2xl sm:text-3xl md:text-4xl text-yellow-200 animate-pulse">
-              Préparez-vous...
-            </p>
+        {/* Timer */}
+        {timer !== null && timer > 0 && (
+          <div className="fixed top-8 right-8 animate-slide-in">
+            <div className="bg-accent/90 backdrop-blur-xl rounded-full w-32 h-32 flex items-center justify-center shadow-glow-purple">
+              <span className="text-6xl font-bold text-accent-foreground">{timer}</span>
+            </div>
           </div>
+        )}
 
-          {/* Mini classement en bas */}
-          {sortedTeams.length > 0 && (
-            <div className="absolute bottom-4 sm:bottom-8 left-0 right-0">
-              <div className="flex flex-wrap justify-center gap-2 sm:gap-4 px-4">
-                {sortedTeams.slice(0, 4).map((team, index) => (
-                  <div 
-                    key={team.id}
-                    className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-xl rounded-xl sm:rounded-2xl px-3 py-2 sm:px-6 sm:py-4 text-center border-l-4"
-                    style={{ borderLeftColor: team.color }}
+        {/* Buzzer actif indicator */}
+        {gameState?.is_buzzer_active && (
+          <div className="fixed top-8 left-8 animate-pulse">
+            <div className="bg-primary/90 backdrop-blur-xl rounded-full px-8 py-4 flex items-center gap-3 shadow-glow-gold">
+              <Zap className="w-8 h-8 text-primary-foreground" />
+              <span className="text-2xl font-bold text-primary-foreground">BUZZER ACTIF</span>
+            </div>
+          </div>
+        )}
+
+        {/* Premier buzzeur en grand */}
+        {buzzers.length > 0 && !gameState?.show_leaderboard && (
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-slide-in z-50">
+            <div className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold"
+                 style={{ borderColor: buzzers[0].teams?.color }}>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-4 mb-6">
+                  <Zap className="w-16 h-16 text-primary animate-pulse" />
+                  <h2 className="text-6xl font-bold text-primary">BUZZER !</h2>
+                </div>
+                <div
+                  className="w-32 h-32 rounded-full mx-auto mb-6 animate-pulse"
+                  style={{ backgroundColor: buzzers[0].teams?.color }}
+                ></div>
+                <h3 className="text-5xl font-bold mb-2">{buzzers[0].teams?.name}</h3>
+                <p className="text-3xl text-muted-foreground">A buzzé en premier !</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Liste des buzzers */}
+        {buzzers.length > 1 && !gameState?.show_leaderboard && (
+          <div className="fixed right-8 top-32 w-96 space-y-3 animate-slide-in">
+            <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-4 border-2 border-primary shadow-glow-gold">
+              <h3 className="text-xl font-bold text-primary mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Autres buzzers ({buzzers.length - 1})
+              </h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {buzzers.slice(1, 10).map((buzzer, index) => (
+                  <div
+                    key={buzzer.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border-2 bg-muted/50 animate-slide-in"
+                    style={{ borderColor: buzzer.teams?.color, animationDelay: `${index * 0.1}s` }}
                   >
-                    <div className="text-xs sm:text-sm text-yellow-400 font-semibold">#{index + 1}</div>
-                    <div className="text-sm sm:text-xl font-bold text-yellow-50 truncate max-w-[80px] sm:max-w-none">{team.name}</div>
-                    <div className="text-lg sm:text-3xl font-bold text-yellow-400">{team.score}</div>
+                    <div className="text-2xl font-bold text-primary w-8">#{index + 2}</div>
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: buzzer.teams?.color }}
+                    ></div>
+                    <div className="flex-1 font-bold">{buzzer.teams?.name}</div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-
-  // Écran de jeu principal
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-4 sm:p-6 md:p-8 relative overflow-hidden">
-      <SupabaseNetworkStatus />
-      <audio ref={audioRef} />
-      
-      {/* Effet buzz */}
-      {firstBuzzTeam && (
-        <div className="absolute inset-0 pointer-events-none z-50">
-          <div className="absolute inset-0 bg-yellow-500/30 animate-pulse" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-6xl sm:text-8xl md:text-9xl animate-bounce">🔔</div>
           </div>
-        </div>
-      )}
-      
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8 relative z-10">
-        {/* En-tête */}
-        <div className="text-center mb-4 sm:mb-6 md:mb-8 animate-fade-in">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-2 sm:mb-4 drop-shadow-2xl bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-            🎵 MUSIC ARENA
-          </h1>
-          {currentRound && (
-            <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-xl sm:rounded-2xl px-4 sm:px-8 py-2 sm:py-4 border border-yellow-500/30">
-              <h2 className="text-xl sm:text-2xl md:text-4xl font-semibold text-yellow-400">{currentRound.title}</h2>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Question */}
-        {currentQuestion && (
-          <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-10 md:p-12 text-center shadow-2xl border-2 border-yellow-500/30 animate-scale-in">
-            <div className="mb-4 sm:mb-6">
-              <span className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 rounded-full text-base sm:text-lg md:text-xl font-semibold uppercase tracking-wider border border-yellow-500/30">
-                {currentQuestion.question_type}
-              </span>
-            </div>
-            <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-yellow-50 px-2 sm:px-4">
-              {currentQuestion.question_text}
-            </h3>
-            
-            {/* Options QCM */}
-            {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8">
-                {(() => {
-                  console.log('🎯 Options QCM raw:', currentQuestion.options, typeof currentQuestion.options);
-                  
-                  let options = [];
-                  
-                  // Si c'est déjà un array
-                  if (Array.isArray(currentQuestion.options)) {
-                    options = currentQuestion.options;
-                  }
-                  // Si c'est un string JSON
-                  else if (typeof currentQuestion.options === 'string') {
-                    try {
-                      const parsed = JSON.parse(currentQuestion.options);
-                      options = Array.isArray(parsed) ? parsed : Object.values(parsed);
-                    } catch (e) {
-                      console.error('Error parsing options:', e);
-                    }
-                  }
-                  // Si c'est un objet JSONB de Supabase
-                  else if (typeof currentQuestion.options === 'object') {
-                    options = Object.values(currentQuestion.options);
-                  }
-                  
-                  console.log('✅ Options parsed:', options);
-                  
-                  return options.map((option: string, idx: number) => (
-                    <div 
-                      key={idx} 
-                      className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-xl p-4 sm:p-6 text-lg sm:text-xl md:text-2xl font-semibold border border-yellow-500/20 hover-scale transition-all"
-                    >
-                      <span className="text-yellow-400 text-xl sm:text-2xl md:text-3xl font-bold mr-2 sm:mr-3">
-                        {String.fromCharCode(65 + idx)}
-                      </span>
-                      <span className="text-yellow-50">{option}</span>
+        {/* Classement - Mode podium visuel plein écran avec pagination */}
+        {gameState?.show_leaderboard && (
+          <div className="w-full h-screen flex items-center justify-center animate-slide-in px-4">
+            <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-6 border-2 border-accent shadow-glow-purple w-full max-w-[95vw] h-[90vh] flex flex-col">
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <Trophy className="w-10 h-10 text-primary" />
+                <h2 className="text-4xl font-bold text-primary">Classement</h2>
+              </div>
+              
+              {/* Page 1 : Top 3 + places 4-6 */}
+              {(!gameState.leaderboard_page || gameState.leaderboard_page === 1) && (
+                <div className="flex-1 flex flex-col justify-center gap-6">
+                  {/* Top 3 - Podium style */}
+                  {teams.length > 0 && (
+                    <div className="flex items-end justify-center gap-4 mb-4">
+                      {/* 2ème place */}
+                      {teams[1] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.2s' }}>
+                          <div className="bg-muted/50 rounded-2xl p-4 border-2 border-secondary/50 w-44 text-center">
+                            <div className="text-5xl mb-2">🥈</div>
+                            <div
+                              className="w-8 h-8 rounded-full mx-auto mb-2"
+                              style={{ backgroundColor: teams[1].color }}
+                            ></div>
+                            <h3 className="text-lg font-bold mb-1 truncate">{teams[1].name}</h3>
+                            <div className="text-3xl font-bold text-secondary">{teams[1].score}</div>
+                          </div>
+                          <div className="w-full h-20 bg-secondary/20 rounded-t-xl mt-2"></div>
+                        </div>
+                      )}
+                      
+                      {/* 1ère place */}
+                      {teams[0] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.1s' }}>
+                          <div className="bg-muted/50 rounded-2xl p-5 border-3 border-primary shadow-glow-gold w-48 text-center">
+                            <div className="text-6xl mb-2">🏆</div>
+                            <div
+                              className="w-10 h-10 rounded-full mx-auto mb-2 animate-pulse"
+                              style={{ backgroundColor: teams[0].color }}
+                            ></div>
+                            <h3 className="text-xl font-bold mb-1 truncate">{teams[0].name}</h3>
+                            <div className="text-4xl font-bold text-primary">{teams[0].score}</div>
+                          </div>
+                          <div className="w-full h-28 bg-primary/20 rounded-t-xl mt-2"></div>
+                        </div>
+                      )}
+                      
+                      {/* 3ème place */}
+                      {teams[2] && (
+                        <div className="flex flex-col items-center animate-scale-in" style={{ animationDelay: '0.3s' }}>
+                          <div className="bg-muted/50 rounded-2xl p-4 border-2 border-accent/50 w-44 text-center">
+                            <div className="text-5xl mb-2">🥉</div>
+                            <div
+                              className="w-8 h-8 rounded-full mx-auto mb-2"
+                              style={{ backgroundColor: teams[2].color }}
+                            ></div>
+                            <h3 className="text-lg font-bold mb-1 truncate">{teams[2].name}</h3>
+                            <div className="text-3xl font-bold text-accent">{teams[2].score}</div>
+                          </div>
+                          <div className="w-full h-16 bg-accent/20 rounded-t-xl mt-2"></div>
+                        </div>
+                      )}
                     </div>
-                  ));
-                })()}
+                  )}
+                  
+                  {/* Places 4-6 */}
+                  {teams.length > 3 && (
+                    <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto">
+                      {teams.slice(3, 6).map((team, index) => (
+                        <div
+                          key={team.id}
+                          className="flex flex-col items-center gap-2 bg-muted/30 rounded-xl p-4 border border-border/50 hover:border-primary/50 transition-all animate-fade-in"
+                          style={{ animationDelay: `${(index + 3) * 0.1}s` }}
+                        >
+                          <div className="text-3xl font-bold text-muted-foreground">
+                            {index + 4}
+                          </div>
+                          <div
+                            className="w-6 h-6 rounded-full"
+                            style={{ backgroundColor: team.color }}
+                          ></div>
+                          <div className="text-lg font-bold text-center truncate w-full">{team.name}</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {team.score}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Page 2+ : Reste du classement en grille dense */}
+              {gameState.leaderboard_page && gameState.leaderboard_page > 1 && (
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-4 gap-3 p-4">
+                    {teams.slice(6 + (gameState.leaderboard_page - 2) * 20, 6 + (gameState.leaderboard_page - 1) * 20).map((team, index) => (
+                      <div
+                        key={team.id}
+                        className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 border border-border/50 hover:border-primary/50 transition-all animate-fade-in"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <div className="text-xl font-bold text-muted-foreground w-10 text-center flex-shrink-0">
+                          {7 + (gameState.leaderboard_page - 2) * 20 + index}
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: team.color }}
+                        ></div>
+                        <div className="flex-1 font-bold text-base truncate">{team.name}</div>
+                        <div className="text-xl font-bold text-primary flex-shrink-0">
+                          {team.score}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Résultat de validation - Effet de suspense */}
+        {gameState?.answer_result && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+            <div className={`transform transition-all duration-500 animate-bounce-in ${
+              gameState.answer_result === 'correct' 
+                ? 'bg-green-500/95' 
+                : 'bg-red-500/95'
+            } backdrop-blur-xl rounded-3xl p-16 border-4 shadow-glow-gold`}>
+              <div className="text-center">
+                {gameState.answer_result === 'correct' ? (
+                  <>
+                    <Check className="w-40 h-40 text-white mx-auto mb-8 animate-pulse" />
+                    <h2 className="text-8xl font-bold text-white">CORRECT !</h2>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-40 h-40 text-white mx-auto mb-8 animate-pulse" />
+                    <h2 className="text-8xl font-bold text-white">INCORRECT !</h2>
+                  </>
+                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Timer plus discret */}
-        {gameState?.timer_active && (
-          <div className="text-center animate-scale-in">
-            <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-full px-8 sm:px-12 py-4 sm:py-6 shadow-2xl border-2 border-yellow-500/40">
-              <div className={`text-4xl sm:text-5xl md:text-6xl font-bold tabular-nums transition-all duration-300 ${
-                timer <= 10 ? 'text-red-500 animate-pulse scale-110' : 'text-yellow-400'
-              }`}>
-                {timer}
-              </div>
-              <div className="text-sm sm:text-base opacity-80 mt-1 text-yellow-200">secondes</div>
-            </div>
-            {/* Barre de progression */}
-            <div className="w-full max-w-3xl mx-auto mt-4 h-3 sm:h-4 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/20">
-              <div 
-                className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 transition-all duration-1000 shadow-lg"
-                style={{ width: `${(timer / 30) * 100}%` }}
-              />
             </div>
           </div>
         )}
 
-        {/* Premier buzz avec effet */}
-        {firstBuzzTeam && (
-          <div 
-            className="bg-gradient-to-br from-gray-800/95 to-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-8 sm:p-12 md:p-16 text-center border-4 sm:border-8 shadow-2xl transform scale-105 animate-scale-in"
-            style={{ borderColor: firstBuzzTeam.color, boxShadow: `0 0 80px ${firstBuzzTeam.color}` }}
-          >
-            <div className="text-6xl sm:text-7xl md:text-8xl mb-4 sm:mb-6 animate-bounce">🔔</div>
-            <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-2 sm:mb-4 animate-pulse truncate px-2" style={{ color: firstBuzzTeam.color }}>
-              {firstBuzzTeam.name}
-            </div>
-            <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-yellow-400 uppercase tracking-wider font-bold">
-              PREMIER BUZZ !
+        {/* Message d'annonce */}
+        {gameState?.announcement_text && (
+          <div className="fixed bottom-12 left-1/2 transform -translate-x-1/2 max-w-4xl animate-slide-in">
+            <div className="bg-secondary/90 backdrop-blur-xl rounded-2xl px-12 py-6 border-2 border-secondary shadow-glow-blue">
+              <p className="text-3xl font-bold text-center text-secondary-foreground">
+                {gameState.announcement_text}
+              </p>
             </div>
           </div>
         )}
-
-        {/* Scores compacts en bas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 animate-fade-in">
-          {sortedTeams.map((team, index) => (
-            <div 
-              key={team.id}
-              className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 text-center border-l-4 sm:border-l-8 shadow-lg hover-scale transition-all duration-300"
-              style={{ borderLeftColor: team.color, boxShadow: `0 4px 20px ${team.color}20` }}
-            >
-              <div className="text-xs sm:text-sm text-yellow-400 mb-1 font-semibold">#{index + 1}</div>
-              <div className="text-base sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2 text-yellow-50 truncate">{team.name}</div>
-              <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums text-yellow-400">{team.score}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

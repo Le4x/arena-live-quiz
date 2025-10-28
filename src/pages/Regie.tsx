@@ -15,7 +15,6 @@ const Regie = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [teams, setTeams] = useState<any[]>([]);
-  const [connectedTeams, setConnectedTeams] = useState<Set<string>>(new Set());
   const [gameState, setGameState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [rounds, setRounds] = useState<any[]>([]);
@@ -57,29 +56,10 @@ const Regie = () => {
         console.log('📡 Buzzer channel status:', status);
       });
 
-    // Track connected teams via presence
-    const presenceChannel = supabase.channel('team-presence');
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const connected = new Set<string>();
-        Object.values(state).forEach((presences: any) => {
-          presences.forEach((presence: any) => {
-            if (presence.team_id) {
-              connected.add(presence.team_id);
-            }
-          });
-        });
-        setConnectedTeams(connected);
-        console.log('🔄 Regie: Connected teams:', connected.size);
-      })
-      .subscribe();
-
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
-      supabase.removeChannel(presenceChannel);
     };
   }, []);
 
@@ -432,291 +412,82 @@ const Regie = () => {
     toast({ title: "Buzzers réinitialisés" });
   };
 
-  const resetCompleteSession = async () => {
-    if (!gameState?.game_session_id) {
-      toast({
-        title: "Erreur",
-        description: "Aucune session active",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Confirmation avant reset
-    if (!confirm("⚠️ Êtes-vous sûr de vouloir réinitialiser complètement la session ? Tous les smartphones seront déconnectés et toutes les données supprimées.")) {
-      return;
-    }
-
-    try {
-      // 1. Désactiver toutes les équipes, réinitialiser les scores et les device_id pour déconnecter les smartphones
-      await supabase
-        .from('teams')
-        .update({ 
-          is_active: false,
-          connected_device_id: null,
-          score: 0
-        })
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all teams
-
-      // 2. Appeler la fonction de réinitialisation de la base de données
-      const { error } = await supabase.rpc('reset_game_session', {
-        session_id: gameState.game_session_id
-      });
-
-      if (error) throw error;
-
-      // 3. Réinitialiser aussi la question actuelle
-      await supabase
-        .from('game_state')
-        .update({ 
-          current_question_id: null,
-          current_round_id: null,
-          timer_active: false,
-          timer_remaining: null,
-          is_buzzer_active: false,
-          show_leaderboard: false
-        })
-        .eq('id', gameState.id);
-
-      // 4. Arrêter l'audio si en cours
-      pauseAudio();
-
-      toast({
-        title: "✅ Session réinitialisée",
-        description: "Tous les smartphones déconnectés et données effacées",
-      });
-
-      // 5. Recharger les données
-      await loadGameState();
-      await loadTeams();
-      setBuzzers([]);
-      setHasStoppedForBuzzer(false);
-      setConnectedTeams(new Set());
-
-    } catch (error) {
-      console.error('Error resetting session:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de réinitialiser la session",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const disconnectTeam = async (teamId: string) => {
-    if (!confirm("⚠️ Êtes-vous sûr de vouloir déconnecter cette équipe ?")) {
-      return;
-    }
-
-    try {
-      await supabase
-        .from('teams')
-        .update({ 
-          is_active: false,
-          connected_device_id: null
-        })
-        .eq('id', teamId);
-
-      toast({
-        title: "✅ Équipe déconnectée",
-        description: "Le smartphone a été déconnecté",
-      });
-
-      await loadTeams();
-    } catch (error) {
-      console.error('Error disconnecting team:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de déconnecter l'équipe",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-glow p-3">
-      <div className="max-w-7xl mx-auto space-y-3">
+    <div className="min-h-screen bg-gradient-glow p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <header className="flex items-center justify-between py-2 animate-slide-in">
+        <header className="flex items-center justify-between py-8 animate-slide-in">
           <div className="text-center flex-1">
-            <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+            <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
               ARENA
             </h1>
-            <p className="text-muted-foreground text-xs">Régie - MusicArena #1</p>
+            <p className="text-muted-foreground text-xl mt-2">Régie - MusicArena #1</p>
           </div>
-          <div className="flex gap-1">
-            <Button 
-              onClick={async () => {
-                if (!gameState) return;
-                await supabase
-                  .from('game_state')
-                  .update({ show_ambient_screen: false, show_welcome_screen: true })
-                  .eq('id', gameState.id);
-                toast({ title: "🎬 Show démarré !" });
-              }}
-              variant="default"
-              size="sm"
-              className="bg-gradient-arena hover:opacity-90"
-            >
-              🎬 Démarrer
+          <div className="flex gap-3">
+            <Button onClick={() => navigate('/admin/setup')} variant="outline" size="lg">
+              Configuration
             </Button>
-            <Button 
-              onClick={async () => {
-                if (!gameState) return;
-                const newValue = !gameState.show_ambient_screen;
-                await supabase
-                  .from('game_state')
-                  .update({ show_ambient_screen: newValue })
-                  .eq('id', gameState.id);
-              }}
-              variant={gameState?.show_ambient_screen ? "default" : "outline"}
-              size="sm"
-            >
-              🎵
-            </Button>
-            <Button onClick={() => navigate('/admin/setup')} variant="outline" size="sm">
-              ⚙️
-            </Button>
-            <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="sm">
-              🔊
-            </Button>
-            <Button 
-              onClick={resetCompleteSession} 
-              variant="destructive" 
-              size="sm"
-              className="bg-red-600 hover:bg-red-700"
-            >
-              🔄
+            <Button onClick={() => navigate('/admin/sounds')} variant="outline" size="lg">
+              Sons
             </Button>
           </div>
         </header>
 
-        {/* Question actuelle - EN HAUT */}
-        {currentQuestion && (
-          <Card className="p-3 bg-gradient-to-r from-accent/20 to-primary/20 backdrop-blur-sm border-accent shadow-glow-gold">
-            <h2 className="text-xs font-bold text-accent mb-1">QUESTION ACTUELLE</h2>
-            <p className="text-base font-semibold">{currentQuestion.question_text}</p>
-            <div className="mt-1 flex gap-2 items-center text-xs text-muted-foreground">
-              <span className="font-medium">{currentQuestion.question_type}</span>
-              <span>•</span>
-              <span className="font-bold text-primary">{currentQuestion.points} pts</span>
-              {currentQuestion.audio_url && (
-                <>
-                  <span>•</span>
-                  <Music className="h-3 w-3 text-secondary" />
-                </>
-              )}
-            </div>
-          </Card>
-        )}
-
         {/* Contrôles principaux */}
-        <Card className="p-2 bg-card/80 backdrop-blur-sm border-primary/20">
-          <h2 className="text-xs font-bold text-primary mb-1.5">Contrôles</h2>
-          <div className="grid grid-cols-5 gap-1.5 mb-1.5">
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
+          <h2 className="text-2xl font-bold text-primary mb-4">Contrôles du jeu</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Button 
-              size="sm" 
-              className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold text-[10px]"
+              size="lg" 
+              className="h-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold"
               onClick={toggleBuzzer}
             >
-              <Zap className="mr-1 h-3 w-3" />
-              {gameState?.is_buzzer_active ? "Off" : "On"} Buzzer
+              <Zap className="mr-2 h-6 w-6" />
+              {gameState?.is_buzzer_active ? "Désactiver" : "Activer"} Buzzer
             </Button>
             <Button 
-              size="sm" 
+              size="lg" 
               variant="secondary" 
-              className="h-10 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue text-[10px]"
+              className="h-20 bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue"
               onClick={playAudio}
               disabled={!currentQuestion?.audio_url}
             >
-              <Play className="mr-1 h-3 w-3" />
+              <Play className="mr-2 h-6 w-6" />
               Musique
             </Button>
             <Button 
-              size="sm" 
+              size="lg" 
               variant="outline" 
-              className="h-10 border-accent text-accent hover:bg-accent hover:text-accent-foreground text-[10px]"
+              className="h-20 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
               onClick={pauseAudio}
             >
-              <Pause className="mr-1 h-3 w-3" />
+              <Pause className="mr-2 h-6 w-6" />
               Pause
             </Button>
             <Button 
-              size="sm" 
-              className="h-10 bg-gradient-arena hover:opacity-90 text-[10px]"
+              size="lg" 
+              className="h-20 bg-gradient-arena hover:opacity-90"
               onClick={showLeaderboard}
             >
-              <Trophy className="mr-1 h-3 w-3" />
-              {gameState?.show_leaderboard ? "Hide" : "Show"} Score
+              <Trophy className="mr-2 h-6 w-6" />
+              {gameState?.show_leaderboard ? "Masquer" : "Afficher"} Score
             </Button>
             <Button 
-              size="sm" 
+              size="lg" 
               variant="secondary"
-              className="h-10 text-[10px]"
+              className="h-20"
               onClick={nextQuestion}
             >
-              <SkipForward className="mr-1 h-3 w-3" />
-              Suivante
+              <SkipForward className="mr-2 h-6 w-6" />
+              Question Suivante
             </Button>
-          </div>
-          
-          {/* Boutons de lancement de jingle de manche */}
-          <div className="border-t border-border/50 pt-1.5">
-            <h3 className="text-[10px] font-semibold text-muted-foreground mb-1">Jingles de manche</h3>
-            <div className="grid grid-cols-2 gap-1">
-              {rounds.map((round) => (
-                <Button
-                  key={round.id}
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-[10px] justify-start"
-                  onClick={async () => {
-                    if (!gameState) return;
-                    setSelectedRound(round.id);
-                    
-                    // Précharger les questions de la manche en arrière-plan
-                    const { data: roundQuestions } = await supabase
-                      .from('questions')
-                      .select('*')
-                      .eq('round_id', round.id)
-                      .order('display_order', { ascending: true });
-                    
-                    console.log(`✅ Questions préchargées pour ${round.title}:`, roundQuestions?.length || 0);
-                    
-                    // Lancer l'animation sans question
-                    await supabase
-                      .from('game_state')
-                      .update({ 
-                        show_round_intro: true,
-                        current_round_intro: round.id,
-                        current_question_id: null, // NE PAS afficher de question pendant le jingle
-                        timer_active: false,
-                        is_buzzer_active: false
-                      })
-                      .eq('id', gameState.id);
-                    
-                    // Désactiver après 10 secondes
-                    setTimeout(async () => {
-                      await supabase
-                        .from('game_state')
-                        .update({ show_round_intro: false })
-                        .eq('id', gameState.id);
-                    }, 10000);
-                    
-                    toast({ title: `🎬 Intro: ${round.title} (${roundQuestions?.length || 0} questions)` });
-                  }}
-                >
-                  🎬 {round.title}
-                </Button>
-              ))}
-            </div>
           </div>
           
           {/* Navigation pagination du classement */}
           {gameState?.show_leaderboard && teams.length > 6 && (
-            <div className="flex items-center justify-center gap-2 mt-2">
+            <div className="flex items-center justify-center gap-4 mt-4">
               <Button
-                size="sm"
+                size="lg"
                 variant="outline"
                 onClick={async () => {
                   const currentPage = gameState?.leaderboard_page || 1;
@@ -730,13 +501,13 @@ const Regie = () => {
                 }}
                 disabled={!gameState?.leaderboard_page || gameState?.leaderboard_page === 1}
               >
-                ← Préc.
+                ← Page Précédente
               </Button>
-              <span className="text-sm font-bold">
+              <span className="text-lg font-bold">
                 Page {gameState?.leaderboard_page || 1} / {Math.ceil((teams.length - 6) / 20) + 1}
               </span>
               <Button
-                size="sm"
+                size="lg"
                 variant="outline"
                 onClick={async () => {
                   const currentPage = gameState?.leaderboard_page || 1;
@@ -751,7 +522,7 @@ const Regie = () => {
                 }}
                 disabled={gameState?.leaderboard_page >= Math.ceil((teams.length - 6) / 20) + 1}
               >
-                Suiv. →
+                Page Suivante →
               </Button>
             </div>
           )}
@@ -763,48 +534,53 @@ const Regie = () => {
 
         {/* Premier buzzeur - Validation */}
         {buzzers.length > 0 && currentQuestion?.question_type === 'blind_test' && (
-          <Card className="p-3 bg-card/90 backdrop-blur-sm border-2 border-primary shadow-glow-gold animate-slide-in">
-            <div className="space-y-2">
+          <Card className="p-6 bg-card/90 backdrop-blur-sm border-4 border-primary shadow-glow-gold animate-slide-in">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-6 w-6 text-primary animate-pulse" />
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-5 h-5 rounded-full border border-foreground"
-                      style={{ backgroundColor: buzzers[0].teams?.color }}
-                    ></div>
-                    <p className="text-lg font-bold">{buzzers[0].teams?.name}</p>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <Zap className="h-12 w-12 text-primary animate-pulse" />
+                    <div>
+                      <h3 className="text-lg text-primary font-bold">🔔 QUELQU'UN A BUZZÉ !</h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div
+                          className="w-8 h-8 rounded-full border-2 border-foreground"
+                          style={{ backgroundColor: buzzers[0].teams?.color }}
+                        ></div>
+                        <p className="text-4xl font-bold">{buzzers[0].teams?.name}</p>
+                      </div>
+                    </div>
                   </div>
                   {buzzers.length > 1 && (
-                    <span className="text-xs text-muted-foreground">
-                      +{buzzers.length - 1}
-                    </span>
+                    <div className="text-sm text-muted-foreground">
+                      +{buzzers.length - 1} autre{buzzers.length > 2 ? 's' : ''} buzzeur{buzzers.length > 2 ? 's' : ''}
+                    </div>
                   )}
                 </div>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button
-                  size="sm"
-                  className="h-10 px-4 bg-green-600 hover:bg-green-700 text-white text-xs"
+                  size="lg"
+                  className="h-16 px-8 bg-green-600 hover:bg-green-700 text-white text-lg"
                   onClick={() => validateAnswer(buzzers[0].team_id, true)}
                 >
-                  ✅ Bonne
+                  ✅ Bonne réponse
                 </Button>
                 <Button
-                  size="sm"
-                  className="h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                  size="lg"
+                  className="h-16 px-8 bg-orange-600 hover:bg-orange-700 text-white text-lg"
                   onClick={() => validateAnswer(buzzers[0].team_id, false)}
                 >
-                  ❌ Mauvaise
+                  ❌ Mauvaise - Relancer
                 </Button>
                 <Button
-                  size="sm"
+                  size="lg"
                   variant="outline"
-                  className="h-10 px-3 text-xs"
+                  className="h-16 px-6"
                   onClick={resetBuzzerForQuestion}
                 >
-                  Reset
+                  Réinitialiser tout
                 </Button>
               </div>
             </div>
@@ -816,104 +592,90 @@ const Regie = () => {
         
         <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
-        {/* Questions par manche - Cartes compactes */}
-        <Card className="p-3 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-secondary flex items-center gap-1">
-              <List className="h-3 w-3" />
-              Questions {selectedRound && `- ${rounds.find(r => r.id === selectedRound)?.title}`}
-            </h2>
-            {selectedRound && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-5 text-[9px] px-2"
-                onClick={() => setSelectedRound(null)}
-              >
-                Tout afficher
-              </Button>
-            )}
+        {/* Sélection de la manche et questions */}
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
+          <h2 className="text-2xl font-bold text-secondary mb-4 flex items-center gap-2">
+            <List className="h-6 w-6" />
+            Questions disponibles
+          </h2>
+          <div className="mb-4">
+            <select
+              value={selectedRound || ""}
+              onChange={(e) => setSelectedRound(e.target.value)}
+              className="w-full h-12 rounded-md border border-border bg-input px-3"
+            >
+              <option value="">Sélectionner une manche</option>
+              {rounds.map((round) => (
+                <option key={round.id} value={round.id}>{round.title}</option>
+              ))}
+            </select>
           </div>
-          <div className="space-y-2">
-            {rounds.filter(round => !selectedRound || round.id === selectedRound).map((round) => {
-              const roundQuestions = questions.filter(q => q.round_id === round.id);
-              if (roundQuestions.length === 0) return null;
-              
-              return (
-                <div key={round.id}>
-                  <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase">{round.title}</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
-                    {roundQuestions.map((question) => (
-                      <div
-                        key={question.id}
-                        className={`p-1.5 rounded border cursor-pointer transition-all ${
-                          currentQuestion?.id === question.id
-                            ? 'border-secondary bg-secondary/20 shadow-sm'
-                            : 'border-border bg-muted/30 hover:border-secondary/50 hover:bg-muted/50'
-                        }`}
-                        onClick={() => setQuestion(question.id)}
-                      >
-                        <div className="flex items-start gap-1">
-                          {question.audio_url && <Music className="h-3 w-3 text-secondary flex-shrink-0 mt-0.5" />}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-[10px] leading-tight line-clamp-2">{question.question_text}</div>
-                            <div className="text-[9px] text-muted-foreground mt-0.5">
-                              {question.points} pts
-                            </div>
-                          </div>
-                        </div>
+          {selectedRound && (
+            <div className="grid gap-3">
+              {questions.filter(q => q.round_id === selectedRound).map((question) => (
+                <div
+                  key={question.id}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    currentQuestion?.id === question.id
+                      ? 'border-secondary bg-secondary/10'
+                      : 'border-border bg-muted/50 hover:border-secondary/50'
+                  }`}
+                  onClick={() => setQuestion(question.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    {question.audio_url && <Music className="h-5 w-5 text-secondary" />}
+                    <div className="flex-1">
+                      <div className="font-bold">{question.question_text}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {question.question_type} • {question.points} pts
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Équipes connectées */}
-        <Card className="p-2 bg-card/80 backdrop-blur-sm border-secondary/20">
-          <h2 className="text-xs font-bold text-secondary mb-1.5">
-            Équipes ({teams.filter(t => t.connected_device_id && t.is_active).length}/{teams.length})
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
+          <h2 className="text-2xl font-bold text-secondary mb-4">
+            Équipes connectées ({teams.length}/30)
           </h2>
-          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-1.5">
-            {teams.map((team) => {
-              const isConnected = team.connected_device_id !== null && team.is_active;
-              return (
-                <div
-                  key={team.id}
-                  className="p-1.5 rounded border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
-                  style={{ borderLeftColor: team.color, borderLeftWidth: '2px' }}
-                >
-                  <div className="flex justify-between items-start mb-0.5">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-[10px] truncate leading-tight">{team.name}</h3>
-                      <span className="text-xs font-bold text-primary">{team.score}</span>
-                    </div>
-                    {isConnected && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-4 w-4 p-0 text-[8px]"
-                        onClick={() => disconnectTeam(team.id)}
-                      >
-                        ✕
-                      </Button>
-                    )}
-                  </div>
-                  <div className="text-[9px]">
-                    {isConnected ? "🟢" : "⚪"}
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teams.map((team) => (
+              <div
+                key={team.id}
+                className="p-4 rounded-lg border border-border bg-muted/50 hover:bg-muted/80 transition-colors"
+                style={{ borderLeftColor: team.color, borderLeftWidth: '4px' }}
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-lg">{team.name}</h3>
+                  <span className="text-2xl font-bold text-primary">{team.score}</span>
                 </div>
-              );
-            })}
+                <div className="text-xs text-muted-foreground mt-1">
+                  {team.is_active ? "🟢 Actif" : "🔴 Inactif"}
+                </div>
+              </div>
+            ))}
             {teams.length === 0 && (
-              <div className="col-span-full text-center py-2 text-[10px] text-muted-foreground">
-                Aucune équipe
+              <div className="col-span-full text-center py-8 text-muted-foreground">
+                Aucune équipe connectée
               </div>
             )}
           </div>
         </Card>
+
+        {/* Question actuelle */}
+        {currentQuestion && (
+          <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
+            <h2 className="text-2xl font-bold text-accent mb-4">Question actuelle</h2>
+            <p className="text-xl">{currentQuestion.question_text}</p>
+            <div className="mt-4 text-sm text-muted-foreground">
+              Type: {currentQuestion.question_type} • Points: {currentQuestion.points}
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );
