@@ -131,31 +131,33 @@ const Screen = () => {
     const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 text-white p-12">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-12">
         <SupabaseNetworkStatus />
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <Trophy className="w-32 h-32 mx-auto mb-6 animate-bounce" />
-            <h1 className="text-7xl font-bold mb-4">🏆 CLASSEMENT 🏆</h1>
+          <div className="text-center mb-12 animate-scale-in">
+            <Trophy className="w-32 h-32 mx-auto mb-6 text-yellow-400 animate-bounce" />
+            <h1 className="text-8xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              🏆 CLASSEMENT 🏆
+            </h1>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {sortedTeams.map((team, index) => (
               <div 
                 key={team.id}
-                className="bg-white/20 backdrop-blur-lg rounded-3xl p-8 flex items-center gap-8 transform transition-all hover:scale-105"
-                style={{ borderLeft: `12px solid ${team.color}` }}
+                className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-8 flex items-center gap-8 transform transition-all hover:scale-105 border-l-8 shadow-2xl"
+                style={{ borderLeftColor: team.color, boxShadow: `0 8px 40px ${team.color}30` }}
               >
                 <div className="text-8xl font-bold w-32 text-center">
-                  {index === 0 && '🥇'}
-                  {index === 1 && '🥈'}
-                  {index === 2 && '🥉'}
-                  {index > 2 && `#${index + 1}`}
+                  {index === 0 && <span className="drop-shadow-2xl">🥇</span>}
+                  {index === 1 && <span className="drop-shadow-2xl">🥈</span>}
+                  {index === 2 && <span className="drop-shadow-2xl">🥉</span>}
+                  {index > 2 && <span className="text-yellow-400">#{index + 1}</span>}
                 </div>
                 <div className="flex-1">
-                  <div className="text-5xl font-bold">{team.name}</div>
+                  <div className="text-5xl font-bold text-yellow-50">{team.name}</div>
                 </div>
-                <div className="text-8xl font-bold tabular-nums">{team.score}</div>
+                <div className="text-8xl font-bold tabular-nums text-yellow-400">{team.score}</div>
               </div>
             ))}
           </div>
@@ -167,7 +169,7 @@ const Screen = () => {
   const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/80 to-primary/60 text-white p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-8 relative overflow-hidden">
       <SupabaseNetworkStatus />
       
       {/* Effet buzz */}
@@ -182,26 +184,28 @@ const Screen = () => {
       
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         {/* En-tête */}
-        <div className="text-center mb-8">
-          <h1 className="text-6xl font-bold mb-4 drop-shadow-2xl">🎯 Arena Live</h1>
+        <div className="text-center mb-8 animate-fade-in">
+          <h1 className="text-7xl font-bold mb-4 drop-shadow-2xl bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+            🎯 ARENA LIVE
+          </h1>
         </div>
 
         {/* Question */}
         {currentQuestion && (
-          <div className="bg-white/15 backdrop-blur-lg rounded-3xl p-12 text-center shadow-2xl border-2 border-white/30">
+          <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-12 text-center shadow-2xl border-2 border-yellow-500/30 animate-scale-in">
             <div className="mb-6">
-              <span className="px-6 py-3 bg-white/30 rounded-full text-xl font-semibold uppercase">
+              <span className="px-6 py-3 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 rounded-full text-xl font-semibold uppercase tracking-wider border border-yellow-500/30">
                 {currentQuestion.question_type}
               </span>
             </div>
-            <h3 className="text-5xl font-bold leading-tight">{currentQuestion.question_text}</h3>
+            <h3 className="text-5xl font-bold leading-tight text-yellow-50">{currentQuestion.question_text}</h3>
             
             {/* Options QCM */}
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="grid grid-cols-2 gap-6 mt-8">
                 {(currentQuestion.options as string[]).map((option: string, idx: number) => (
-                  <div key={idx} className="bg-white/10 rounded-xl p-6 text-2xl font-semibold">
-                    {String.fromCharCode(65 + idx)}. {option}
+                  <div key={idx} className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-xl p-6 text-2xl font-semibold border border-yellow-500/20 hover-scale">
+                    <span className="text-yellow-400">{String.fromCharCode(65 + idx)}.</span> {option}
                   </div>
                 ))}
               </div>
@@ -211,19 +215,19 @@ const Screen = () => {
 
         {/* Timer XXL */}
         {gameState?.timer_active && (
-          <div className="text-center">
-            <div className="inline-block bg-white/20 backdrop-blur-lg rounded-full px-20 py-12 shadow-2xl border-4 border-white/40">
-              <div className={`text-9xl font-bold tabular-nums transition-colors ${
-                timer <= 10 ? 'text-red-400 animate-pulse' : ''
+          <div className="text-center animate-scale-in">
+            <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-full px-20 py-12 shadow-2xl border-4 border-yellow-500/40">
+              <div className={`text-9xl font-bold tabular-nums transition-all duration-300 ${
+                timer <= 10 ? 'text-red-500 animate-pulse scale-110' : 'text-yellow-400'
               }`}>
                 {timer}
               </div>
-              <div className="text-3xl opacity-80 mt-2">secondes</div>
+              <div className="text-3xl opacity-80 mt-2 text-yellow-200">secondes</div>
             </div>
             {/* Barre de progression */}
-            <div className="w-full max-w-3xl mx-auto mt-8 h-6 bg-white/20 rounded-full overflow-hidden">
+            <div className="w-full max-w-3xl mx-auto mt-8 h-6 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/20">
               <div 
-                className="h-full bg-gradient-to-r from-green-400 to-red-500 transition-all duration-1000"
+                className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 transition-all duration-1000 shadow-lg"
                 style={{ width: `${(timer / 30) * 100}%` }}
               />
             </div>
@@ -233,28 +237,28 @@ const Screen = () => {
         {/* Premier buzz avec effet */}
         {firstBuzzTeam && (
           <div 
-            className="bg-white/25 backdrop-blur-lg rounded-3xl p-16 text-center border-8 shadow-2xl transform scale-105"
-            style={{ borderColor: firstBuzzTeam.color, boxShadow: `0 0 60px ${firstBuzzTeam.color}` }}
+            className="bg-gradient-to-br from-gray-800/95 to-gray-900/95 backdrop-blur-xl rounded-3xl p-16 text-center border-8 shadow-2xl transform scale-105 animate-scale-in"
+            style={{ borderColor: firstBuzzTeam.color, boxShadow: `0 0 80px ${firstBuzzTeam.color}` }}
           >
             <div className="text-8xl mb-6 animate-bounce">🔔</div>
-            <div className="text-7xl font-bold mb-4" style={{ color: firstBuzzTeam.color }}>
+            <div className="text-7xl font-bold mb-4 animate-pulse" style={{ color: firstBuzzTeam.color }}>
               {firstBuzzTeam.name}
             </div>
-            <div className="text-4xl opacity-90 uppercase tracking-wider">PREMIER BUZZ !</div>
+            <div className="text-5xl text-yellow-400 uppercase tracking-wider font-bold">PREMIER BUZZ !</div>
           </div>
         )}
 
         {/* Scores compacts en bas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
           {sortedTeams.map((team, index) => (
             <div 
               key={team.id}
-              className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 text-center border-l-8 shadow-lg"
-              style={{ borderLeftColor: team.color }}
+              className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-xl rounded-2xl p-6 text-center border-l-8 shadow-lg hover-scale transition-all duration-300"
+              style={{ borderLeftColor: team.color, boxShadow: `0 4px 20px ${team.color}20` }}
             >
-              <div className="text-sm opacity-70 mb-1">#{index + 1}</div>
-              <div className="text-2xl font-bold mb-1">{team.name}</div>
-              <div className="text-5xl font-bold tabular-nums">{team.score}</div>
+              <div className="text-sm text-yellow-400 mb-1 font-semibold">#{index + 1}</div>
+              <div className="text-2xl font-bold mb-2 text-yellow-50">{team.name}</div>
+              <div className="text-5xl font-bold tabular-nums text-yellow-400">{team.score}</div>
             </div>
           ))}
         </div>
