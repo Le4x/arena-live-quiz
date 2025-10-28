@@ -50,9 +50,13 @@ const Screen = () => {
       .subscribe();
 
     const buzzersChannel = supabase
-      .channel('screen-buzzers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
-        console.log('🔄 Screen: Buzzer detected');
+      .channel('screen-buzzers-global')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🔄 Screen: Buzzer INSERT détecté', payload);
         loadBuzzers();
       })
       .subscribe();
@@ -191,18 +195,31 @@ const Screen = () => {
   };
 
   const loadBuzzers = async () => {
-    if (!currentQuestion?.id || !gameState?.game_session_id) {
+    const qId = currentQuestion?.id;
+    const sId = gameState?.game_session_id;
+    
+    console.log('🔍 Screen: loadBuzzers appelé', { qId, sId });
+    
+    if (!qId || !sId) {
+      console.log('⚠️ Screen: Pas de question ou session');
       setBuzzers([]);
       setShowBuzzerNotif(false);
       return;
     }
     
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('buzzer_attempts')
       .select('*, teams(*)')
-      .eq('question_id', currentQuestion.id)
-      .eq('game_session_id', gameState.game_session_id)
+      .eq('question_id', qId)
+      .eq('game_session_id', sId)
       .order('buzzed_at', { ascending: true });
+    
+    if (error) {
+      console.error('❌ Screen: Erreur chargement buzzers', error);
+      return;
+    }
+    
+    console.log('📥 Screen: Buzzers chargés', data?.length || 0, data);
     
     if (data && data.length > 0) {
       const hadBuzzers = buzzers.length > 0;
@@ -210,6 +227,7 @@ const Screen = () => {
       
       // Afficher la notification seulement si c'est un nouveau buzzer
       if (data.length > buzzers.length || !hadBuzzers) {
+        console.log('🔔 Screen: Nouvelle notification buzzer');
         setShowBuzzerNotif(true);
         setTimeout(() => setShowBuzzerNotif(false), 5000);
       }

@@ -52,45 +52,28 @@ const Regie = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadTeams)
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(teamsChannel);
-    };
-  }, []);
-
-  // Abonnement buzzers spécifique à la question courante
-  useEffect(() => {
-    if (!currentQuestionId || !sessionId) {
-      console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
-      setBuzzers([]);
-      return;
-    }
-
-    console.log('🔔 Regie: Abonnement buzzers pour question', currentQuestionId);
-    
-    // Charger immédiatement les buzzers existants
-    loadBuzzers();
-
-    const buzzersChannel = supabase
-      .channel(`regie-buzzers-${currentQuestionId}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'buzzer_attempts',
-          filter: `question_id=eq.${currentQuestionId}`
-        },
-        (payload) => {
-          console.log('🔔 Regie: Buzzer realtime détecté', payload);
-          loadBuzzers();
-        }
-      )
+    // Abonnement buzzers GLOBAL
+    const buzzersChannel = supabase.channel('regie-buzzers-global')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🔔 Regie: Buzzer INSERT détecté', payload);
+        loadBuzzers();
+      })
       .subscribe();
 
     return () => {
-      console.log('🔕 Regie: Désabonnement buzzers pour question', currentQuestionId);
+      supabase.removeChannel(teamsChannel);
       supabase.removeChannel(buzzersChannel);
     };
+  }, []);
+
+  // Recharger les buzzers quand la question change
+  useEffect(() => {
+    console.log('📌 Regie: Question changed, reloading buzzers', { currentQuestionId, sessionId });
+    loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
   useEffect(() => {
@@ -202,9 +185,13 @@ const Regie = () => {
   };
 
   const loadBuzzers = async () => {
-    console.log('🔍 Regie: loadBuzzers appelé', { currentQuestionId, sessionId });
+    // Utiliser les refs pour éviter les stale closures
+    const qId = currentQuestionId;
+    const sId = sessionId;
     
-    if (!currentQuestionId || !sessionId) {
+    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId });
+    
+    if (!qId || !sId) {
       console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
       setBuzzers([]);
       return;
@@ -212,8 +199,8 @@ const Regie = () => {
     
     const { data, error } = await supabase.from('buzzer_attempts')
       .select('*, teams(*)')
-      .eq('question_id', currentQuestionId)
-      .eq('game_session_id', sessionId)
+      .eq('question_id', qId)
+      .eq('game_session_id', sId)
       .order('buzzed_at', { ascending: true });
     
     if (error) {
@@ -221,8 +208,10 @@ const Regie = () => {
       return;
     }
     
-    console.log('📥 Regie: Buzzers chargés', data?.length || 0);
-    if (data) setBuzzers(data);
+    console.log('📥 Regie: Buzzers chargés', data?.length || 0, data);
+    if (data) {
+      setBuzzers(data);
+    }
   };
 
   const loadAudioTracks = () => {
