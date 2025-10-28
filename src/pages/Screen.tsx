@@ -12,6 +12,7 @@ const Screen = () => {
   const [buzzers, setBuzzers] = useState<any[]>([]);
   const [qcmAnswers, setQcmAnswers] = useState<any[]>([]);
   const [textAnswers, setTextAnswers] = useState<any[]>([]);
+  const [currentRound, setCurrentRound] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -111,8 +112,23 @@ const Screen = () => {
     if (teamsRes.data) setTeams(teamsRes.data);
     if (gameStateRes.data) {
       setGameState(gameStateRes.data);
-      setCurrentQuestion(gameStateRes.data.questions);
+      
+      // NE PAS charger la question si on affiche l'intro de manche
+      if (!gameStateRes.data.show_round_intro) {
+        setCurrentQuestion(gameStateRes.data.questions);
+      }
+      
       setCurrentSession(gameStateRes.data.game_sessions);
+      
+      // Charger la manche de l'intro si nécessaire
+      if (gameStateRes.data.show_round_intro && gameStateRes.data.current_round_intro) {
+        const { data: roundData } = await supabase
+          .from('rounds')
+          .select('*')
+          .eq('id', gameStateRes.data.current_round_intro)
+          .single();
+        if (roundData) setCurrentRound(roundData);
+      }
     }
   };
 
@@ -181,9 +197,34 @@ const Screen = () => {
           </p>
         </header>
 
+        {/* Intro de manche (PRIORITAIRE) */}
+        {gameState?.show_round_intro && currentRound && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-glow animate-fade-in">
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-secondary/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            </div>
+            
+            <div className="relative z-10 text-center animate-scale-in">
+              <div className="mb-8 animate-pulse-glow">
+                <div className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent mb-4">
+                  {currentRound.title}
+                </div>
+                <div className="text-4xl text-primary font-bold uppercase tracking-wider animate-bounce">
+                  Préparez-vous !
+                </div>
+              </div>
+              
+              {currentRound.jingle_url && (
+                <audio src={currentRound.jingle_url} autoPlay />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Question actuelle */}
-        {currentQuestion && !gameState?.show_leaderboard && (
+        {currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
           <div className="max-w-5xl mx-auto mb-8 animate-slide-in">
             <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold">
               <div className="text-center">

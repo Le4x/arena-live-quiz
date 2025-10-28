@@ -592,6 +592,63 @@ const Regie = () => {
         
         <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
+        {/* Jingles des manches */}
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
+          <h2 className="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
+            <Music className="h-6 w-6" />
+            Jingles de manche
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {rounds.map((round) => (
+              <Button
+                key={round.id}
+                size="lg"
+                variant="outline"
+                className="h-16 text-lg border-accent/50 hover:border-accent hover:bg-accent/10"
+                onClick={async () => {
+                  if (!gameState) return;
+                  
+                  // Précharger les questions de la manche
+                  const { data: roundQuestions } = await supabase
+                    .from('questions')
+                    .select('*')
+                    .eq('round_id', round.id);
+                  
+                  console.log(`🎵 Jingle lancé pour ${round.title}, ${roundQuestions?.length || 0} questions préchargées`);
+                  
+                  // Lancer l'intro de manche SANS question
+                  await supabase
+                    .from('game_state')
+                    .update({
+                      current_question_id: null, // Important : pas de question
+                      show_round_intro: true,
+                      current_round_intro: round.id,
+                      timer_active: false,
+                      is_buzzer_active: false
+                    })
+                    .eq('id', gameState.id);
+                  
+                  toast({
+                    title: `🎵 Intro ${round.title}`,
+                    description: `${roundQuestions?.length || 0} questions préchargées`
+                  });
+                  
+                  // Désactiver l'intro après 10 secondes
+                  setTimeout(async () => {
+                    await supabase
+                      .from('game_state')
+                      .update({ show_round_intro: false })
+                      .eq('id', gameState.id);
+                  }, 10000);
+                }}
+              >
+                <Music className="mr-2 h-5 w-5" />
+                {round.title}
+              </Button>
+            ))}
+          </div>
+        </Card>
+
         {/* Sélection de la manche et questions */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
           <h2 className="text-2xl font-bold text-secondary mb-4 flex items-center gap-2">
