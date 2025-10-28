@@ -74,7 +74,10 @@ const Client = () => {
     // S'abonner aux événements de jeu
     const unsubBuzzerReset = gameEvents.on<BuzzerResetEvent>('BUZZER_RESET', (event) => {
       console.log('🔔 Événement BUZZER_RESET reçu', event);
+      console.log('Current instance:', currentQuestionInstanceId, 'Event instance:', event.data.questionInstanceId);
+      
       if (event.data.questionInstanceId === currentQuestionInstanceId) {
+        console.log('✅ Reset accepté - réinitialisation buzzer');
         setHasBuzzed(false);
         setTimeout(() => {
           buzzerButtonRef.current?.focus();
@@ -83,6 +86,8 @@ const Client = () => {
           title: "🔔 Buzzer réactivé !",
           description: "Vous pouvez buzzer à nouveau",
         });
+      } else {
+        console.log('⚠️ Reset ignoré - instance différente');
       }
     });
 

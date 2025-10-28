@@ -158,6 +158,7 @@ const Screen = () => {
   const loadBuzzers = async () => {
     if (!currentQuestion?.id || !gameState?.game_session_id) {
       setBuzzers([]);
+      setShowBuzzerNotif(false);
       return;
     }
     
@@ -168,13 +169,18 @@ const Screen = () => {
       .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
-    if (data) {
+    if (data && data.length > 0) {
+      const hadBuzzers = buzzers.length > 0;
       setBuzzers(data);
-      // Auto-dismiss notification après 5s si nouveau buzzer
-      if (data.length > 0) {
+      
+      // Afficher la notification seulement si c'est un nouveau buzzer
+      if (data.length > buzzers.length || !hadBuzzers) {
         setShowBuzzerNotif(true);
         setTimeout(() => setShowBuzzerNotif(false), 5000);
       }
+    } else {
+      setBuzzers([]);
+      setShowBuzzerNotif(false);
     }
   };
 

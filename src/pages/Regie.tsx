@@ -85,15 +85,26 @@ const Regie = () => {
     return () => clearInterval(interval);
   }, [timerActive, timerRemaining]);
 
-  // Auto-lock buzzer quand premier arrive
+  // Auto-lock buzzer quand premier arrive + notification pour tous
   useEffect(() => {
-    if (buzzers.length > 0 && !buzzerLocked && gameState?.is_buzzer_active) {
-      setBuzzerLocked(true);
-      setTimerActive(false);
-      audioEngine.stopWithFade(300);
-      toast({ title: `🔔 ${buzzers[0].teams?.name} a buzzé !`, duration: 2000 });
+    if (buzzers.length > 0) {
+      const latestBuzzer = buzzers[buzzers.length - 1];
+      
+      // Lock au premier buzzer
+      if (!buzzerLocked && gameState?.is_buzzer_active) {
+        setBuzzerLocked(true);
+        setTimerActive(false);
+        audioEngine.stopWithFade(300);
+      }
+      
+      // Notification pour chaque buzzer
+      toast({ 
+        title: `🔔 ${latestBuzzer.teams?.name} a buzzé !`, 
+        description: `Position #${buzzers.length}`,
+        duration: 3000 
+      });
     }
-  }, [buzzers.length]);
+  }, [buzzers.length, gameState?.is_buzzer_active]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
@@ -400,14 +411,29 @@ const Regie = () => {
             onWrong: handleWrongAnswer,
             onCorrect: handleCorrectAnswer,
             onReset: async () => {
+              if (!currentQuestionInstanceId) {
+                toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
+                return;
+              }
+              
+              console.log('🔄 Reset buzzers pour instance:', currentQuestionInstanceId);
+              
               // Supprimer les tentatives de buzzer pour cette question
-              if (currentQuestionInstanceId && sessionId) {
-                await supabase.from('buzzer_attempts')
+              if (sessionId) {
+                const { error } = await supabase.from('buzzer_attempts')
                   .delete()
                   .eq('question_instance_id', currentQuestionInstanceId)
                   .eq('game_session_id', sessionId);
+                
+                if (error) {
+                  console.error('❌ Erreur suppression buzzers:', error);
+                  toast({ title: '❌ Erreur reset', variant: 'destructive' });
+                  return;
+                }
               }
-              await gameEvents.resetBuzzer(currentQuestionInstanceId || '');
+              
+              // Envoyer l'événement de reset
+              await gameEvents.resetBuzzer(currentQuestionInstanceId);
               setBuzzerLocked(false);
               setBuzzers([]);
               toast({ title: '🔄 Buzzers réinitialisés' });
