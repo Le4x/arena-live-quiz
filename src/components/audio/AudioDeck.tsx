@@ -93,13 +93,30 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
 
   const handleFadeToggle = async () => {
     if (state.isPlaying) {
-      await engine.fadeOut(1500);
+      await engine.stopWithFade(300);
       toast({ title: '🔉 Fade out' });
     } else if (selectedTrack) {
       await engine.loadAndPlay(selectedTrack);
-      await engine.fadeIn(1500);
+      await engine.fadeIn(300);
       toast({ title: '🔊 Fade in' });
     }
+  };
+
+  const handleClip30s = async () => {
+    if (!selectedTrack) return;
+    await engine.loadAndPlay(selectedTrack);
+    await engine.playClip30s(300);
+    onTrackChange?.(selectedTrack);
+    toast({ title: '🎵 Extrait 30s lancé' });
+  };
+
+  const handlePlaySolution = async () => {
+    if (!selectedTrack) return;
+    if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
+      await engine.loadAndPlay(selectedTrack);
+    }
+    await engine.playSolution(8, 300, 300);
+    toast({ title: '🎼 Solution lancée (8s)' });
   };
 
   const formatTime = (seconds: number): string => {
@@ -206,13 +223,30 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
           </div>
         </div>
 
-        {/* Fade controls */}
-        <div className="flex gap-2">
+        {/* Clip & Solution controls */}
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleClip30s}
+            disabled={!selectedTrack}
+            className="bg-accent hover:bg-accent/90"
+          >
+            Extrait 30s (CUE#1)
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handlePlaySolution}
+            disabled={!selectedTrack}
+            className="bg-secondary hover:bg-secondary/90"
+          >
+            Solution 8s (CUE#2)
+          </Button>
           <Button
             variant="secondary"
             size="sm"
             onClick={handleFadeToggle}
-            className="flex-1"
           >
             Fade {state.isPlaying ? 'Out' : 'In'}
           </Button>

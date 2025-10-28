@@ -40,6 +40,7 @@ export class AudioEngine {
   private animationFrame: number | null = null;
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private isFading: boolean = false;
+  private autoStopTimeout: number | null = null;
 
   constructor() {
     this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -170,6 +171,80 @@ export class AudioEngine {
   }
 
   /**
+   * Arrêter avec fade out
+   */
+  async stopWithFade(duration: number = 300): Promise<void> {
+    await this.fadeOut(duration);
+    this.stop();
+    this.gainNode.gain.setValueAtTime(this.volume, this.audioContext.currentTime);
+  }
+
+  /**
+   * Jouer depuis un cue point
+   */
+  async playFromCue(cueIndex: number): Promise<void> {
+    if (!this.currentTrack || !this.currentTrack.cues[cueIndex]) {
+      console.warn('Cue point invalide');
+      return;
+    }
+    const cueTime = this.currentTrack.cues[cueIndex].time;
+    await this.play(cueTime);
+  }
+
+  /**
+   * Jouer un clip de temps défini (avec auto-stop)
+   */
+  async playFromTo(startTime: number, endTime: number, fadeOutDuration: number = 300): Promise<void> {
+    if (this.autoStopTimeout) clearTimeout(this.autoStopTimeout);
+    
+    await this.play(startTime);
+    
+    const duration = (endTime - startTime) * 1000;
+    this.autoStopTimeout = window.setTimeout(async () => {
+      await this.stopWithFade(fadeOutDuration);
+    }, duration - fadeOutDuration);
+  }
+
+  /**
+   * Clip mode 30s : démarre au CUE#1 et s'arrête à 30s
+   */
+  async playClip30s(fadeOutDuration: number = 300): Promise<void> {
+    if (!this.currentTrack || !this.currentTrack.cues[0]) {
+      console.warn('Pas de CUE#1 défini');
+      return;
+    }
+    const startTime = this.currentTrack.cues[0].time;
+    await this.playFromTo(startTime, startTime + 30, fadeOutDuration);
+  }
+
+  /**
+   * Jouer la solution (CUE#2) pendant X secondes
+   */
+  async playSolution(durationSeconds: number = 8, fadeInDuration: number = 300, fadeOutDuration: number = 300): Promise<void> {
+    if (!this.currentTrack || !this.currentTrack.cues[1]) {
+      console.warn('Pas de CUE#2 défini pour la solution');
+      return;
+    }
+    const startTime = this.currentTrack.cues[1].time;
+    await this.play(startTime);
+    await this.fadeIn(fadeInDuration);
+    
+    if (this.autoStopTimeout) clearTimeout(this.autoStopTimeout);
+    this.autoStopTimeout = window.setTimeout(async () => {
+      await this.stopWithFade(fadeOutDuration);
+    }, durationSeconds * 1000 - fadeOutDuration);
+  }
+
+  /**
+   * Obtenir la position actuelle
+   */
+  getPosition(): number {
+    return this.isPlaying 
+      ? this.audioContext.currentTime - this.startTime 
+      : this.pauseTime;
+  }
+
+  /**
    * Crossfade vers une nouvelle track
    */
   async crossfadeTo(newTrack: Track, duration: number = 2000): Promise<void> {
@@ -267,6 +342,7 @@ export class AudioEngine {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
     }
+    if (this.autoStopTimeout) clearTimeout(this.autoStopTimeout);
     this.stop();
     this.bufferCache.clear();
     this.gainNode.disconnect();

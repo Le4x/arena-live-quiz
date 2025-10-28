@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Music, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { SoundWithCues } from "@/pages/AdminSounds";
 
 interface QuestionCreatorProps {
   rounds: any[];
@@ -22,8 +23,22 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
   const [correctAnswer, setCorrectAnswer] = useState("");
   const [points, setPoints] = useState(10);
   const [audioUrl, setAudioUrl] = useState("");
+  const [selectedSoundId, setSelectedSoundId] = useState("");
+  const [availableSounds, setAvailableSounds] = useState<SoundWithCues[]>([]);
   const [options, setOptions] = useState({ A: "", B: "", C: "", D: "" });
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    // Charger les sons depuis localStorage
+    const stored = localStorage.getItem('arena_sounds');
+    if (stored) {
+      try {
+        setAvailableSounds(JSON.parse(stored));
+      } catch {
+        setAvailableSounds([]);
+      }
+    }
+  }, []);
 
   const createQuestion = async () => {
     if (!roundId || !questionText.trim()) {
@@ -31,13 +46,21 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
       return;
     }
 
+    // Récupérer les cue points si un son est sélectionné
+    const selectedSound = availableSounds.find(s => s.id === selectedSoundId);
+    const cuePoints = selectedSound ? {
+      search: { start: selectedSound.cue1_time, end: selectedSound.cue1_time + 30 },
+      solution: { start: selectedSound.cue2_time, end: selectedSound.cue2_time + selectedSound.solution_duration }
+    } : undefined;
+
     const questionData = {
       round_id: roundId,
       question_text: questionText,
       question_type: questionType,
       correct_answer: correctAnswer,
       points,
-      audio_url: audioUrl || null,
+      audio_url: selectedSound?.url || audioUrl || null,
+      cue_points: cuePoints ? JSON.stringify(cuePoints) : null,
       options: questionType === 'qcm' ? JSON.stringify(options) : null
     };
 
@@ -50,6 +73,7 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
       setQuestionText("");
       setCorrectAnswer("");
       setAudioUrl("");
+      setSelectedSoundId("");
       setOptions({ A: "", B: "", C: "", D: "" });
       onQuestionCreated();
     }
@@ -121,6 +145,29 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
             onChange={(e) => setCorrectAnswer(e.target.value)}
             className="mt-1"
           />
+        </div>
+
+        <div>
+          <Label>Son depuis la banque</Label>
+          <Select value={selectedSoundId} onValueChange={(id) => {
+            setSelectedSoundId(id);
+            const sound = availableSounds.find(s => s.id === id);
+            if (sound) setAudioUrl(sound.url);
+          }}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Choisir un son depuis la banque" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSounds.map((sound) => (
+                <SelectItem key={sound.id} value={sound.id}>
+                  {sound.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ou entrez une URL audio manuellement ci-dessous
+          </p>
         </div>
 
         <div>
