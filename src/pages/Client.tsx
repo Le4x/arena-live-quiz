@@ -14,7 +14,7 @@ const Client = () => {
   const { toast } = useToast();
   const [team, setTeam] = useState<any>(null);
   const [teamName, setTeamName] = useState("");
-  const [teamColor, setTeamColor] = useState("#FFD700");
+  const [teamColor, setTeamColor] = useState("#D4AF37");
   const [gameState, setGameState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [answer, setAnswer] = useState("");
@@ -104,10 +104,15 @@ const Client = () => {
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-    
-    checkIfBuzzed();
-    checkIfAnswered();
   }, [currentQuestion?.id, gameState?.current_question_instance_id]);
+
+  useEffect(() => {
+    // Vérifier le statut du buzzer après la mise à jour de l'instance ID
+    if (currentQuestionInstanceId) {
+      checkIfBuzzed();
+      checkIfAnswered();
+    }
+  }, [currentQuestionInstanceId]);
 
   const checkIfBuzzed = async () => {
     if (!team || !currentQuestion?.id || !currentQuestionInstanceId) return;
@@ -406,8 +411,8 @@ const Client = () => {
             
             <div>
               <label className="text-sm font-medium mb-2 block">Couleur de l'équipe</label>
-              <div className="flex gap-3">
-                {['#FFD700', '#3B82F6', '#A855F7', '#EF4444', '#10B981', '#F59E0B'].map((color) => (
+              <div className="flex gap-3 flex-wrap">
+                {['#D4AF37', '#1E3A8A', '#6B21A8', '#B91C1C', '#047857', '#B45309', '#0E7490', '#7C2D12'].map((color) => (
                   <button
                     key={color}
                     className={`w-12 h-12 rounded-full border-4 transition-all ${

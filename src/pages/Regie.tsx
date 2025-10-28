@@ -152,6 +152,76 @@ const Regie = () => {
     setTimeout(async () => { await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); toast({ title: '✅ Correcte' }); }, 3000);
   };
 
+  const showRoundIntro = async () => {
+    const round = rounds.find(r => r.id === currentRoundId);
+    if (!round) return;
+    await supabase.from('game_state').update({ show_round_intro: true, current_round_intro: round.id }).eq('game_session_id', sessionId);
+    setTimeout(async () => { await supabase.from('game_state').update({ show_round_intro: false }).eq('game_session_id', sessionId); }, 10000);
+    toast({ title: '🎬 Intro manche lancée' });
+  };
+
+  const showReveal = async (result: 'correct' | 'incorrect') => {
+    await supabase.from('game_state').update({ answer_result: result }).eq('game_session_id', sessionId);
+    setTimeout(async () => { await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); }, 3000);
+    toast({ title: result === 'correct' ? '✅ Reveal bonne réponse' : '❌ Reveal mauvaise réponse' });
+  };
+
+  const toggleAmbientScreen = async () => {
+    const newValue = !gameState?.show_ambient_screen;
+    await supabase.from('game_state').update({ show_ambient_screen: newValue }).eq('game_session_id', sessionId);
+    toast({ title: newValue ? '🌟 Écran d\'attente activé' : '🎮 Écran d\'attente désactivé' });
+  };
+
+  const showLeaderboard = async () => {
+    await supabase.from('game_state').update({ show_leaderboard: true }).eq('game_session_id', sessionId);
+    toast({ title: '🏆 Classement affiché' });
+  };
+
+  const hideLeaderboard = async () => {
+    await supabase.from('game_state').update({ show_leaderboard: false }).eq('game_session_id', sessionId);
+  };
+
+  const resetSession = async () => {
+    if (!sessionId || !confirm('Réinitialiser toute la session ? Cela supprimera tous les buzzers, réponses et réinitialisera les scores.')) return;
+    await supabase.from('buzzer_attempts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('team_answers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('teams').update({ score: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('game_state').update({ 
+      current_question_id: null, 
+      current_question_instance_id: null, 
+      current_round_id: null, 
+      is_buzzer_active: false, 
+      timer_active: false, 
+      show_leaderboard: false, 
+      answer_result: null,
+      excluded_teams: [],
+      show_ambient_screen: true
+    }).eq('game_session_id', sessionId);
+    setCurrentQuestionId(null);
+    setCurrentQuestionInstanceId(null);
+    setCurrentRoundId(null);
+    setBuzzerLocked(false);
+    setTimerActive(false);
+    setTimerRemaining(30);
+    loadTeams();
+    toast({ title: '🔄 Session réinitialisée' });
+  };
+
+  const adjustTeamScore = async (teamId: string, delta: number) => {
+    const team = connectedTeams.find(t => t.id === teamId);
+    if (!team) return;
+    const newScore = Math.max(0, (team.score || 0) + delta);
+    await supabase.from('teams').update({ score: newScore }).eq('id', teamId);
+    toast({ title: `${delta > 0 ? '+' : ''}${delta} pts pour ${team.name}` });
+  };
+
+  const resetAllScores = async () => {
+    if (!confirm('Réinitialiser tous les scores des équipes ?')) return;
+    await supabase.from('teams').update({ score: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+    loadTeams();
+    toast({ title: '🔄 Scores réinitialisés' });
+  };
+
   const roundQuestions = currentRoundId ? questions.filter(q => q.round_id === currentRoundId) : [];
 
   return (
@@ -161,10 +231,13 @@ const Regie = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent">Régie TV</h1>
-              <Badge variant="outline" className="gap-2"><Users className="h-3 w-3" />{connectedTeams.length} équipes</Badge>
+              <Badge variant="outline" className="gap-2"><Users className="h-3 w-3" />{connectedTeams.filter(t => t.is_active).length}/{connectedTeams.length} équipes</Badge>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>📺 Écran</Button>
+              <Button size="sm" variant="outline" onClick={toggleAmbientScreen}>{gameState?.show_ambient_screen ? '🎮' : '🌟'} Attente</Button>
+              <Button size="sm" variant="outline" onClick={showLeaderboard}>🏆 Classement</Button>
+              <Button size="sm" variant="destructive" onClick={resetSession}>🔄 Reset</Button>
             </div>
           </div>
         </Card>
@@ -193,10 +266,11 @@ const Regie = () => {
         </Card>
 
         <Tabs defaultValue="questions">
-          <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="questions">Questions</TabsTrigger><TabsTrigger value="audio">Audio</TabsTrigger><TabsTrigger value="teams">Équipes</TabsTrigger></TabsList>
+          <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="questions">Questions</TabsTrigger><TabsTrigger value="audio">Audio</TabsTrigger><TabsTrigger value="teams">Équipes</TabsTrigger><TabsTrigger value="effects">Effets TV</TabsTrigger></TabsList>
           <TabsContent value="questions"><Card className="p-4"><div className="grid grid-cols-4 gap-2 mb-4">{rounds.map(r => <Button key={r.id} variant={currentRoundId === r.id ? 'default' : 'outline'} size="sm" onClick={() => setCurrentRoundId(r.id)}>{r.title}</Button>)}</div><div className="space-y-2 max-h-96 overflow-y-auto">{roundQuestions.map(q => <div key={q.id} className="flex justify-between p-3 border rounded"><div><div className="font-semibold">{q.question_text}</div><div className="text-xs text-muted-foreground">{q.points} pts</div></div><Button size="sm" onClick={() => startQuestion(q)}>Lancer</Button></div>)}</div></Card></TabsContent>
           <TabsContent value="audio"><AudioDeck tracks={audioTracks} /></TabsContent>
-          <TabsContent value="teams"><Card className="p-4"><div className="space-y-2">{connectedTeams.map(t => <div key={t.id} className="flex justify-between p-3 border rounded"><div className="flex gap-2 items-center"><div className="w-6 h-6 rounded-full" style={{backgroundColor: t.color}} /><div><div className="font-bold">{t.name}</div><div className="text-xs">{t.score} pts</div></div></div></div>)}</div></Card></TabsContent>
+          <TabsContent value="teams"><Card className="p-4"><div className="flex justify-between items-center mb-4"><h3 className="font-bold">Équipes ({connectedTeams.filter(t => t.is_active).length} connectées)</h3><Button size="sm" variant="outline" onClick={resetAllScores}>Reset scores</Button></div><div className="space-y-2">{connectedTeams.map(t => <div key={t.id} className="flex justify-between items-center p-3 border rounded"><div className="flex gap-2 items-center"><div className={`w-3 h-3 rounded-full ${t.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} title={t.is_active ? 'Connecté' : 'Déconnecté'} /><div className="w-6 h-6 rounded-full" style={{backgroundColor: t.color}} /><div><div className="font-bold">{t.name}</div><div className="text-xs">{t.score} pts</div></div></div><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, -5)}>-5</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 10)}>+10</Button></div></div>)}</div></Card></TabsContent>
+          <TabsContent value="effects"><Card className="p-4"><h3 className="font-bold mb-4">Effets TV & Jingles</h3><div className="space-y-3"><div className="space-y-2"><div className="text-sm font-semibold">Intro de manche</div><Button size="sm" className="w-full" onClick={showRoundIntro} disabled={!currentRoundId}>🎬 Lancer Intro Manche</Button></div><div className="space-y-2"><div className="text-sm font-semibold">Révélations</div><div className="flex gap-2"><Button size="sm" className="flex-1" onClick={() => showReveal('correct')}>✅ Bonne Réponse</Button><Button size="sm" className="flex-1" onClick={() => showReveal('incorrect')}>❌ Mauvaise Réponse</Button></div></div><div className="space-y-2"><div className="text-sm font-semibold">Classement</div><div className="flex gap-2"><Button size="sm" className="flex-1" onClick={showLeaderboard}>🏆 Afficher</Button><Button size="sm" className="flex-1" variant="outline" onClick={hideLeaderboard}>Masquer</Button></div></div></div></Card></TabsContent>
         </Tabs>
       </div>
     </div>
