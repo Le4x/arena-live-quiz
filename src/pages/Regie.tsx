@@ -139,7 +139,7 @@ const Regie = () => {
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('name');
+    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
       // Calculer présence (< 30s = connecté)
       const now = new Date();

@@ -6,8 +6,10 @@ import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
 import { JingleReveal } from "@/components/tv/JingleReveal";
 import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
 import { WaitingScreen } from "@/components/tv/WaitingScreen";
+import { getGameEvents } from "@/lib/runtime/GameEvents";
 
 const Screen = () => {
+  const gameEvents = getGameEvents();
   const [teams, setTeams] = useState<any[]>([]);
   const [gameState, setGameState] = useState<any>(null);
   const [currentSession, setCurrentSession] = useState<any>(null);
@@ -20,6 +22,8 @@ const Screen = () => {
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showBuzzerNotif, setShowBuzzerNotif] = useState(false);
+  const [showBuzzerResult, setShowBuzzerResult] = useState(false);
+  const [buzzerResultTeam, setBuzzerResultTeam] = useState<any>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
@@ -62,13 +66,27 @@ const Screen = () => {
       })
       .subscribe();
 
+    // Écouter les événements de révélation pour les buzzers
+    const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
+      console.log('🎭 Screen: Reveal reçu', event);
+      if (event.data?.teamId) {
+        const team = teams.find(t => t.id === event.data.teamId);
+        if (team) {
+          setBuzzerResultTeam({ ...team, isCorrect: event.data.isCorrect });
+          setShowBuzzerResult(true);
+          setTimeout(() => setShowBuzzerResult(false), 4000);
+        }
+      }
+    });
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
+      unsubReveal();
     };
-  }, []);
+  }, [teams]);
 
   useEffect(() => {
     console.log('📌 Question or session changed, loading buzzers');
@@ -366,7 +384,7 @@ const Screen = () => {
         )}
 
         {/* Premier buzzeur - DISCRET EN HAUT À DROITE */}
-        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
+        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && !showBuzzerResult && (
           <div 
             className="fixed top-8 right-8 z-40 animate-slide-in"
           >
@@ -385,6 +403,36 @@ const Screen = () => {
                 ></div>
                 <h4 className="text-xl font-bold mb-1">{buzzers[0].teams?.name}</h4>
                 <p className="text-sm text-muted-foreground">A buzzé en premier !</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Résultat validation buzzer */}
+        {showBuzzerResult && buzzerResultTeam && !gameState?.show_leaderboard && (
+          <div className="fixed top-8 right-8 z-50 animate-scale-in">
+            <div 
+              className={`bg-card/95 backdrop-blur-xl rounded-2xl p-6 border-4 shadow-glow-gold max-w-xs ${
+                buzzerResultTeam.isCorrect ? 'border-green-500' : 'border-red-500'
+              }`}
+            >
+              <div className="text-center">
+                {buzzerResultTeam.isCorrect ? (
+                  <>
+                    <Check className="w-16 h-16 mx-auto mb-3 text-green-500 animate-bounce" />
+                    <h3 className="text-2xl font-bold text-green-500 mb-2">BONNE RÉPONSE !</h3>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-16 h-16 mx-auto mb-3 text-red-500 animate-bounce" />
+                    <h3 className="text-2xl font-bold text-red-500 mb-2">MAUVAISE RÉPONSE</h3>
+                  </>
+                )}
+                <div
+                  className="w-12 h-12 rounded-full mx-auto mb-2"
+                  style={{ backgroundColor: buzzerResultTeam.color }}
+                ></div>
+                <h4 className="text-lg font-bold">{buzzerResultTeam.name}</h4>
               </div>
             </div>
           </div>
