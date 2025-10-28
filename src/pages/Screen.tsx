@@ -100,9 +100,15 @@ const Screen = () => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
+    console.log('⏱️ Screen: Timer state changed', { 
+      timer_active: gameState?.timer_active, 
+      timer_remaining: gameState?.timer_remaining 
+    });
+    
     if (gameState?.timer_active) {
       // Initialiser le timer avec la valeur de la DB
       if (gameState.timer_remaining !== null && gameState.timer_remaining !== undefined) {
+        console.log('⏱️ Screen: Setting timer to', gameState.timer_remaining);
         setTimer(gameState.timer_remaining);
       }
       
@@ -112,16 +118,22 @@ const Screen = () => {
           if (prev === null || prev <= 0) {
             return 0;
           }
-          return prev - 1;
+          const next = prev - 1;
+          console.log('⏱️ Screen: Timer tick', next);
+          return next;
         });
       }, 1000);
     } else {
-      // Arrêter et cacher le timer quand timer_active est false
+      // Arrêter et cacher le timer IMMÉDIATEMENT quand timer_active est false
+      console.log('⏱️ Screen: Timer stopped by timer_active=false');
       setTimer(null);
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) {
+        console.log('⏱️ Screen: Clearing timer interval');
+        clearInterval(interval);
+      }
     };
   }, [gameState?.timer_active, gameState?.timer_remaining]);
 

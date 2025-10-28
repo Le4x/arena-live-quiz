@@ -38,6 +38,7 @@ const Regie = () => {
   const [audioTracks, setAudioTracks] = useState<Track[]>([]);
   const [buzzerLocked, setBuzzerLocked] = useState(false);
   const [buzzers, setBuzzers] = useState<any[]>([]);
+  const [timerWhenBuzzed, setTimerWhenBuzzed] = useState<number>(0);
 
   useEffect(() => {
     loadActiveSession();
@@ -143,6 +144,11 @@ const Regie = () => {
       // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
       if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
+        console.log('🛑 Arrêt timer et musique, timer était à', timerRemaining);
+        
+        // Sauvegarder le timer avant de l'arrêter
+        setTimerWhenBuzzed(timerRemaining);
+        
         setBuzzerLocked(true);
         setTimerActive(false);
         audioEngine.stopWithFade(300);
@@ -291,16 +297,25 @@ const Regie = () => {
         if (currentPos < 30) { 
           if (currentQ?.audio_url) { 
             const s = audioTracks.find(t => t.url === currentQ.audio_url); 
-            if (s) await audioEngine.loadAndPlay(s, currentPos); 
+            if (s) {
+              await audioEngine.loadAndPlay(s, currentPos);
+              console.log('🎵 Reprise musique à', currentPos);
+            }
           } 
+          
+          // Reprendre avec le timer sauvegardé au moment du buzz
+          setTimerRemaining(timerWhenBuzzed);
           setTimerActive(true);
           
-          // Mettre à jour le timer dans la DB
+          // Mettre à jour le timer dans la DB avec le temps restant sauvegardé
           await supabase.from('game_state').update({ 
             is_buzzer_active: true, 
             answer_result: null,
-            timer_active: true 
+            timer_active: true,
+            timer_remaining: timerWhenBuzzed // Reprendre avec le temps sauvegardé
           }).eq('game_session_id', sessionId);
+          
+          console.log('⏱️ Reprise timer à', timerWhenBuzzed);
         }
       } else {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
