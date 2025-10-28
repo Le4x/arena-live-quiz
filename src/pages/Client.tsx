@@ -24,6 +24,7 @@ const Client = () => {
   const [showReveal, setShowReveal] = useState(false);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
+  const [isTimerActive, setIsTimerActive] = useState(false);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
 
@@ -269,6 +270,7 @@ const Client = () => {
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
+      setIsTimerActive(data.timer_active || false);
     }
   };
 
@@ -383,6 +385,17 @@ const Client = () => {
 
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
+    
+    // Bloquer l'envoi si le timer est terminé
+    if (!isTimerActive) {
+      toast({
+        title: "Temps écoulé",
+        description: "Les réponses ne sont plus acceptées",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
     // Stocker la réponse sélectionnée localement pour l'afficher lors du reveal
@@ -557,13 +570,13 @@ const Client = () => {
                         <Button
                           key={key}
                           variant="outline"
-                          disabled={hasAnswered}
+                          disabled={hasAnswered || !isTimerActive}
                           className={`w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-100 transition-all ${
                             showReveal && isCorrectOption 
                               ? 'bg-green-500/20 border-green-500 border-2' 
                               : showReveal && isSelectedOption && answerResult === 'incorrect'
                               ? 'bg-red-500/20 border-red-500 border-2'
-                              : hasAnswered 
+                              : hasAnswered || !isTimerActive
                               ? 'opacity-50' 
                               : ''
                           }`}
@@ -592,6 +605,11 @@ const Client = () => {
                     ✓ Réponse enregistrée
                   </div>
                 )}
+                {!isTimerActive && !hasAnswered && (
+                  <div className="text-center text-destructive font-bold">
+                    ⏱️ Temps écoulé - Réponses fermées
+                  </div>
+                )}
               </div>
             )}
 
@@ -602,16 +620,16 @@ const Client = () => {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !hasAnswered) {
+                    if (e.key === 'Enter' && !hasAnswered && isTimerActive) {
                       submitAnswer();
                     }
                   }}
-                  disabled={hasAnswered}
+                  disabled={hasAnswered || !isTimerActive}
                   className="bg-input border-border"
                 />
                 <Button
                   onClick={() => submitAnswer()}
-                  disabled={hasAnswered}
+                  disabled={hasAnswered || !isTimerActive}
                   className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue disabled:opacity-50"
                 >
                   <Send className="mr-2 h-5 w-5" />
@@ -620,6 +638,11 @@ const Client = () => {
                 {hasAnswered && (
                   <div className="text-center text-green-500 font-bold">
                     ✓ Réponse envoyée
+                  </div>
+                )}
+                {!isTimerActive && !hasAnswered && (
+                  <div className="text-center text-destructive font-bold">
+                    ⏱️ Temps écoulé - Réponses fermées
                   </div>
                 )}
               </div>

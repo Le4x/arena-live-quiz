@@ -367,45 +367,42 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Chronomètre élégant */}
+        {/* Chronomètre discret en haut à droite */}
         {timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 animate-scale-in">
+          <div className="fixed top-6 right-6 z-30 animate-slide-in">
             <div className="relative">
               {/* Cercle extérieur animé */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-xl animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-lg animate-pulse" />
               
               {/* Cercle principal */}
-              <div className="relative bg-card/95 backdrop-blur-xl rounded-full w-48 h-48 flex items-center justify-center shadow-glow-gold border-4 border-primary/50">
+              <div className="relative bg-card/95 backdrop-blur-xl rounded-full w-28 h-28 flex items-center justify-center shadow-glow-gold border-2 border-primary/40">
                 <div className="text-center">
-                  <div className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+                  <div className="text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent">
                     {timer}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-2 font-semibold uppercase tracking-wider">
-                    secondes
                   </div>
                 </div>
               </div>
               
               {/* Cercle de progression */}
-              <svg className="absolute inset-0 w-48 h-48 -rotate-90">
+              <svg className="absolute inset-0 w-28 h-28 -rotate-90">
                 <circle
-                  cx="96"
-                  cy="96"
-                  r="90"
+                  cx="56"
+                  cy="56"
+                  r="52"
                   stroke="currentColor"
-                  strokeWidth="4"
+                  strokeWidth="3"
                   fill="none"
                   className="text-primary/20"
                 />
                 <circle
-                  cx="96"
-                  cy="96"
-                  r="90"
+                  cx="56"
+                  cy="56"
+                  r="52"
                   stroke="currentColor"
-                  strokeWidth="4"
+                  strokeWidth="3"
                   fill="none"
-                  strokeDasharray={`${2 * Math.PI * 90}`}
-                  strokeDashoffset={`${2 * Math.PI * 90 * (1 - timer / 30)}`}
+                  strokeDasharray={`${2 * Math.PI * 52}`}
+                  strokeDashoffset={`${2 * Math.PI * 52 * (1 - timer / 30)}`}
                   className="text-primary transition-all duration-1000"
                   strokeLinecap="round"
                 />
