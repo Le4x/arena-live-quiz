@@ -116,6 +116,9 @@ const Screen = () => {
           return prev - 1;
         });
       }, 1000);
+    } else if (!gameState?.timer_active) {
+      // Arrêter le timer quand timer_active passe à false
+      setTimer(null);
     }
     return () => clearInterval(interval);
   }, [gameState?.timer_active, gameState?.timer_remaining]);
@@ -364,11 +367,49 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Timer */}
-        {timer !== null && timer > 0 && (
-          <div className="fixed top-8 right-8 animate-slide-in">
-            <div className="bg-accent/90 backdrop-blur-xl rounded-full w-32 h-32 flex items-center justify-center shadow-glow-purple">
-              <span className="text-6xl font-bold text-accent-foreground">{timer}</span>
+        {/* Chronomètre élégant */}
+        {timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 animate-scale-in">
+            <div className="relative">
+              {/* Cercle extérieur animé */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-xl animate-pulse" />
+              
+              {/* Cercle principal */}
+              <div className="relative bg-card/95 backdrop-blur-xl rounded-full w-48 h-48 flex items-center justify-center shadow-glow-gold border-4 border-primary/50">
+                <div className="text-center">
+                  <div className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+                    {timer}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2 font-semibold uppercase tracking-wider">
+                    secondes
+                  </div>
+                </div>
+              </div>
+              
+              {/* Cercle de progression */}
+              <svg className="absolute inset-0 w-48 h-48 -rotate-90">
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="90"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                  className="text-primary/20"
+                />
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="90"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 90}`}
+                  strokeDashoffset={`${2 * Math.PI * 90 * (1 - timer / 30)}`}
+                  className="text-primary transition-all duration-1000"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
           </div>
         )}

@@ -18,6 +18,7 @@ import type { SoundWithCues } from "@/pages/AdminSounds";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
+import { AudioDeck } from "@/components/audio/AudioDeck";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -76,19 +77,34 @@ const Regie = () => {
 
   useEffect(() => {
     if (!timerActive || timerRemaining <= 0) return;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setTimerRemaining(prev => {
         const next = prev - 1;
         if (next <= 0) { 
           setTimerActive(false); 
           audioEngine.stopWithFade(300); 
-          toast({ title: '⏱️ Temps écoulé' }); 
+          toast({ title: '⏱️ Temps écoulé' });
+          
+          // Mettre à jour la DB pour arrêter le timer
+          if (sessionId) {
+            supabase.from('game_state').update({ 
+              timer_active: false,
+              timer_remaining: 0
+            }).eq('game_session_id', sessionId);
+          }
+        } else {
+          // Mettre à jour le timer restant dans la DB
+          if (sessionId) {
+            supabase.from('game_state').update({ 
+              timer_remaining: next
+            }).eq('game_session_id', sessionId);
+          }
         }
         return Math.max(0, next);
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [timerActive, timerRemaining]);
+  }, [timerActive, timerRemaining, sessionId]);
 
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
@@ -105,17 +121,23 @@ const Regie = () => {
         });
       }
       
-      // Lock au premier buzzer
-      if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active) {
+      // Lock au premier buzzer + ARRÊTER LE TIMER pour blind test
+      const currentQ = questions.find(q => q.id === currentQuestionId);
+      if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
         setBuzzerLocked(true);
         setTimerActive(false);
         audioEngine.stopWithFade(300);
+        
+        // Mettre à jour le timer dans la DB
+        supabase.from('game_state').update({ 
+          timer_active: false 
+        }).eq('game_session_id', sessionId);
       }
     }
     
     // Mettre à jour le compteur
     previousBuzzersCount.current = buzzers.length;
-  }, [buzzers]);
+  }, [buzzers, currentQuestionId, questions]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
@@ -198,12 +220,16 @@ const Regie = () => {
       started_at: new Date().toISOString()
     });
     
+    const round = rounds.find(r => r.id === question.round_id);
+    const timerDuration = round?.timer_duration || 30;
+    
     await supabase.from('game_state').update({ 
       current_question_id: question.id, 
       current_question_instance_id: instanceId, 
       current_round_id: question.round_id, 
-      is_buzzer_active: true, 
-      timer_active: false, 
+      is_buzzer_active: question.question_type === 'blind_test', // Buzzer actif uniquement pour blind test
+      timer_active: true, // Timer démarre automatiquement
+      timer_remaining: timerDuration,
       show_leaderboard: false,
       show_waiting_screen: false,
       answer_result: null 
@@ -211,18 +237,10 @@ const Regie = () => {
     
     setBuzzerLocked(false);
     setBuzzers([]);
-    await gameEvents.startQuestion(question.id, instanceId, sessionId!);
+    setTimerRemaining(timerDuration);
+    setTimerActive(true);
     
-    if (question.audio_url) {
-      const sound = audioTracks.find(t => t.url === question.audio_url);
-      if (sound) { 
-        await audioEngine.loadAndPlay(sound); 
-        await audioEngine.playClip30s(300); 
-        const round = rounds.find(r => r.id === question.round_id); 
-        setTimerRemaining(round?.timer_duration || 30); 
-        setTimerActive(true); 
-      }
-    }
+    await gameEvents.startQuestion(question.id, instanceId, sessionId!);
     toast({ title: '🎬 Question lancée' });
   };
 
@@ -231,24 +249,39 @@ const Regie = () => {
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
       setBuzzerLocked(false);
-      await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
-      const currentPos = audioEngine.getPosition();
-      if (currentPos < 30) { 
-        const q = questions.find(x => x.id === currentQuestionId); 
-        if (q?.audio_url) { 
-          const s = audioTracks.find(t => t.url === q.audio_url); 
-          if (s) await audioEngine.loadAndPlay(s, currentPos); 
-        } 
-        setTimerActive(true); 
+      
+      const currentQ = questions.find(x => x.id === currentQuestionId);
+      
+      // Relancer la musique et le timer pour blind test
+      if (currentQ?.question_type === 'blind_test') {
+        const currentPos = audioEngine.getPosition();
+        if (currentPos < 30) { 
+          if (currentQ?.audio_url) { 
+            const s = audioTracks.find(t => t.url === currentQ.audio_url); 
+            if (s) await audioEngine.loadAndPlay(s, currentPos); 
+          } 
+          setTimerActive(true);
+          
+          // Mettre à jour le timer dans la DB
+          await supabase.from('game_state').update({ 
+            is_buzzer_active: true, 
+            answer_result: null,
+            timer_active: true 
+          }).eq('game_session_id', sessionId);
+        }
+      } else {
+        await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
+      
       toast({ title: '❌ Mauvaise - Reprise' });
-    }, 10000);
+    }, 3000);
   };
 
   const handleCorrectAnswer = async () => {
     await supabase.from('game_state').update({ answer_result: 'correct', is_buzzer_active: false, timer_active: false }).eq('game_session_id', sessionId);
+    setTimerActive(false);
     const q = questions.find(x => x.id === currentQuestionId);
-    if (q?.audio_url) { 
+    if (q?.audio_url && q.question_type === 'blind_test') { 
       const s = audioTracks.find(t => t.url === q.audio_url); 
       if (s) { 
         await audioEngine.loadAndPlay(s); 
@@ -258,7 +291,7 @@ const Regie = () => {
     setTimeout(async () => { 
       await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
       toast({ title: '✅ Correcte' }); 
-    }, 10000);
+    }, 3000);
   };
 
   const toggleBuzzer = async () => {
@@ -500,6 +533,18 @@ const Regie = () => {
           </div>
         </div>
       </div>
+
+      {/* Audio Deck - Lecteur pro avec cue points */}
+      {audioTracks.length > 0 && (
+        <div className="p-3 flex-shrink-0">
+          <AudioDeck 
+            tracks={audioTracks}
+            onTrackChange={(track) => {
+              console.log('📻 Track changed:', track.name);
+            }}
+          />
+        </div>
+      )}
 
       {/* Control Bar */}
       <div className="p-3 flex-shrink-0">
