@@ -113,6 +113,7 @@ export type Database = {
           is_buzzer_active: boolean | null
           leaderboard_page: number | null
           show_ambient_screen: boolean | null
+          show_answer: boolean | null
           show_leaderboard: boolean | null
           show_pause_screen: boolean | null
           show_round_intro: boolean | null
@@ -134,6 +135,7 @@ export type Database = {
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
+          show_answer?: boolean | null
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
@@ -155,6 +157,7 @@ export type Database = {
           is_buzzer_active?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
+          show_answer?: boolean | null
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null

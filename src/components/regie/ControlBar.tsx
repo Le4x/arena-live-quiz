@@ -79,24 +79,15 @@ export const ControlBar = ({ timer, audio, buzzer, reveal }: ControlBarProps) =>
           </Button>
         </div>
 
-        {/* Reveal (pour toutes questions) */}
+        {/* Reveal (révèle juste la réponse à l'écran) */}
         <div className="col-span-4 flex items-center gap-2 border-l border-accent/30 pl-3">
           <span className="text-xs font-bold text-muted-foreground uppercase">Reveal</span>
           <Button 
             size="sm" 
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={reveal.onCorrect}
+            className="bg-primary hover:bg-primary/90"
+            onClick={reveal.onReveal}
           >
-            <Check className="h-4 w-4 mr-1" />
-            Correct
-          </Button>
-          <Button 
-            size="sm" 
-            className="bg-red-600 hover:bg-red-700 text-white"
-            onClick={reveal.onIncorrect}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Incorrect
+            👁️ Révéler réponse
           </Button>
         </div>
       </div>
