@@ -4,7 +4,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Play, Pause, RotateCcw, Radio, Music, Timer as TimerIcon } from "lucide-react";
+import { Play, Pause, RotateCcw, Radio, Music, Timer as TimerIcon, Check, X } from "lucide-react";
 
 interface ControlBarProps {
   timer: {
@@ -21,21 +21,23 @@ interface ControlBarProps {
     locked: boolean;
     active: boolean;
     onToggle: () => void;
-    onWrong: () => void;
-    onCorrect: () => void;
     onReset: () => void;
+  };
+  reveal: {
+    onCorrect: () => void;
+    onIncorrect: () => void;
   };
 }
 
-export const ControlBar = ({ timer, audio, buzzer }: ControlBarProps) => {
+export const ControlBar = ({ timer, audio, buzzer, reveal }: ControlBarProps) => {
   return (
     <div className="bg-card/95 backdrop-blur border-accent/30 border rounded-lg p-3">
       <div className="grid grid-cols-12 gap-3 items-center">
         {/* Audio */}
-        <div className="col-span-3 flex items-center gap-2">
+        <div className="col-span-2 flex items-center gap-2">
           <Music className="h-4 w-4 text-muted-foreground" />
           <Button size="sm" variant="outline" onClick={audio.onPlayExtrait}>
-            Extrait 30s
+            Extrait
           </Button>
           <Button size="sm" variant="outline" onClick={audio.onPlaySolution}>
             Solution
@@ -57,7 +59,7 @@ export const ControlBar = ({ timer, audio, buzzer }: ControlBarProps) => {
         </div>
 
         {/* Buzzers */}
-        <div className="col-span-6 flex items-center gap-2">
+        <div className="col-span-3 flex items-center gap-2">
           <Radio className="h-4 w-4 text-muted-foreground" />
           <Button 
             size="sm" 
@@ -68,19 +70,34 @@ export const ControlBar = ({ timer, audio, buzzer }: ControlBarProps) => {
           </Button>
           <Button 
             size="sm" 
-            onClick={() => {/* Lock buzz */}}
-            disabled={buzzer.locked || !buzzer.active}
+            variant={buzzer.locked ? "default" : "outline"}
+            disabled={!buzzer.active}
           >
-            {buzzer.locked ? 'BUZZÉ' : 'Lock'}
-          </Button>
-          <Button size="sm" onClick={buzzer.onWrong} disabled={!buzzer.locked}>
-            ❌
-          </Button>
-          <Button size="sm" onClick={buzzer.onCorrect} disabled={!buzzer.locked}>
-            ✅
+            {buzzer.locked ? '🔒 Lock' : 'Libre'}
           </Button>
           <Button size="sm" variant="ghost" onClick={buzzer.onReset}>
             Reset
+          </Button>
+        </div>
+
+        {/* Reveal (pour toutes questions) */}
+        <div className="col-span-4 flex items-center gap-2 border-l border-accent/30 pl-3">
+          <span className="text-xs font-bold text-muted-foreground uppercase">Reveal</span>
+          <Button 
+            size="sm" 
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={reveal.onCorrect}
+          >
+            <Check className="h-4 w-4 mr-1" />
+            Correct
+          </Button>
+          <Button 
+            size="sm" 
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={reveal.onIncorrect}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Incorrect
           </Button>
         </div>
       </div>

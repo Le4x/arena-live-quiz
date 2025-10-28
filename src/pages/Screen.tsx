@@ -352,27 +352,26 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Premier buzzeur en grand - FIXE AU CENTRE */}
+        {/* Premier buzzeur - DISCRET EN HAUT À DROITE */}
         {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
           <div 
-            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center"
-            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            className="fixed top-8 right-8 z-40 animate-slide-in"
           >
             <div 
-              className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold pointer-events-auto"
+              className="bg-card/95 backdrop-blur-xl rounded-2xl p-6 border-2 shadow-glow-gold max-w-xs"
               style={{ borderColor: buzzers[0].teams?.color }}
             >
               <div className="text-center">
-                <div className="flex items-center justify-center gap-4 mb-6">
-                  <Zap className="w-16 h-16 text-primary animate-pulse" />
-                  <h2 className="text-6xl font-bold text-primary">BUZZER !</h2>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Zap className="w-6 h-6 text-primary" />
+                  <h3 className="text-2xl font-bold text-primary">BUZZER !</h3>
                 </div>
                 <div
-                  className="w-32 h-32 rounded-full mx-auto mb-6 animate-pulse"
+                  className="w-16 h-16 rounded-full mx-auto mb-3"
                   style={{ backgroundColor: buzzers[0].teams?.color }}
                 ></div>
-                <h3 className="text-5xl font-bold mb-2">{buzzers[0].teams?.name}</h3>
-                <p className="text-3xl text-muted-foreground">A buzzé en premier !</p>
+                <h4 className="text-xl font-bold mb-1">{buzzers[0].teams?.name}</h4>
+                <p className="text-sm text-muted-foreground">A buzzé en premier !</p>
               </div>
             </div>
           </div>

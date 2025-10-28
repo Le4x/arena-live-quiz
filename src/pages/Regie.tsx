@@ -417,8 +417,6 @@ const Regie = () => {
             locked: buzzerLocked,
             active: gameState?.is_buzzer_active || false,
             onToggle: toggleBuzzer,
-            onWrong: handleWrongAnswer,
-            onCorrect: handleCorrectAnswer,
             onReset: async () => {
               if (!currentQuestionInstanceId) {
                 toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
@@ -448,6 +446,10 @@ const Regie = () => {
               previousBuzzersCount.current = 0;
               toast({ title: '🔄 Buzzers réinitialisés' });
             }
+          }}
+          reveal={{
+            onCorrect: () => showReveal('correct'),
+            onIncorrect: () => showReveal('incorrect'),
           }}
         />
       </div>
@@ -535,12 +537,6 @@ const Regie = () => {
               <Button size="sm" variant="outline" onClick={showRoundIntro}>
                 <Sparkles className="h-3 w-3 mr-1" />
                 Intro
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => showReveal('correct')}>
-                ✅
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => showReveal('incorrect')}>
-                ❌
               </Button>
               <Button size="sm" variant="outline" onClick={hideLeaderboard}>
                 Masquer
