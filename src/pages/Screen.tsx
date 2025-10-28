@@ -141,8 +141,80 @@ const Screen = () => {
 
   const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
 
-  // Écran d'attente / ambiance
-  if (gameState?.show_ambient_screen) {
+  // Affichage du classement (priorité haute)
+  if (gameState?.show_leaderboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-4 sm:p-8 md:p-12">
+        <SupabaseNetworkStatus />
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8 sm:mb-12 animate-scale-in">
+            <Trophy className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 text-yellow-400 animate-bounce" />
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold mb-2 sm:mb-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              🏆 CLASSEMENT 🏆
+            </h1>
+          </div>
+          
+          <div className="space-y-3 sm:space-y-6 animate-fade-in">
+            {sortedTeams.map((team, index) => (
+              <div 
+                key={team.id}
+                className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex items-center gap-4 sm:gap-8 transform transition-all hover:scale-105 border-l-4 sm:border-l-8 shadow-2xl"
+                style={{ borderLeftColor: team.color, boxShadow: `0 8px 40px ${team.color}30` }}
+              >
+                <div className="text-4xl sm:text-6xl md:text-8xl font-bold w-16 sm:w-32 text-center flex-shrink-0">
+                  {index === 0 && <span className="drop-shadow-2xl">🥇</span>}
+                  {index === 1 && <span className="drop-shadow-2xl">🥈</span>}
+                  {index === 2 && <span className="drop-shadow-2xl">🥉</span>}
+                  {index > 2 && <span className="text-yellow-400">#{index + 1}</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-yellow-50 truncate">{team.name}</div>
+                </div>
+                <div className="text-4xl sm:text-6xl md:text-8xl font-bold tabular-nums text-yellow-400 flex-shrink-0">{team.score}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Intro de manche
+  if (gameState?.show_round_intro && currentRound) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
+        <SupabaseNetworkStatus />
+        <audio ref={audioRef} autoPlay />
+        
+        {/* Effet de lumière */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-yellow-500/20 to-transparent blur-3xl animate-pulse" />
+        </div>
+
+        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
+          <div className="text-center space-y-6 sm:space-y-12 animate-scale-in">
+            <Play className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-bounce" />
+            <div>
+              <div className="text-2xl sm:text-3xl md:text-4xl text-yellow-400 font-semibold mb-2 sm:mb-4 uppercase tracking-wider">
+                Nouvelle Manche
+              </div>
+              <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl px-4">
+                {currentRound.title}
+              </h1>
+            </div>
+            <div className="flex items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl md:text-3xl text-yellow-200">
+              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
+              <span className="uppercase tracking-wider">{currentRound.type}</span>
+              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Écran d'attente / ambiance (quand aucune question active)
+  if (!currentQuestion) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
         <SupabaseNetworkStatus />
@@ -188,77 +260,6 @@ const Screen = () => {
     );
   }
 
-  // Intro de manche
-  if (gameState?.show_round_intro && currentRound) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white p-4 sm:p-8 md:p-12 relative overflow-hidden">
-        <SupabaseNetworkStatus />
-        <audio ref={audioRef} autoPlay />
-        
-        {/* Effet de lumière */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-yellow-500/20 to-transparent blur-3xl animate-pulse" />
-        </div>
-
-        <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
-          <div className="text-center space-y-6 sm:space-y-12 animate-scale-in">
-            <Play className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-bounce" />
-            <div>
-              <div className="text-2xl sm:text-3xl md:text-4xl text-yellow-400 font-semibold mb-2 sm:mb-4 uppercase tracking-wider">
-                Manche {(gameState?.current_round_id || '').split('-')[0]}
-              </div>
-              <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl px-4">
-                {currentRound.title}
-              </h1>
-            </div>
-            <div className="flex items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl md:text-3xl text-yellow-200">
-              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
-              <span className="uppercase tracking-wider">{currentRound.type}</span>
-              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Affichage du classement
-  if (gameState?.show_leaderboard) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-4 sm:p-8 md:p-12">
-        <SupabaseNetworkStatus />
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12 animate-scale-in">
-            <Trophy className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 text-yellow-400 animate-bounce" />
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold mb-2 sm:mb-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              🏆 CLASSEMENT 🏆
-            </h1>
-          </div>
-          
-          <div className="space-y-3 sm:space-y-6 animate-fade-in">
-            {sortedTeams.map((team, index) => (
-              <div 
-                key={team.id}
-                className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex items-center gap-4 sm:gap-8 transform transition-all hover:scale-105 border-l-4 sm:border-l-8 shadow-2xl"
-                style={{ borderLeftColor: team.color, boxShadow: `0 8px 40px ${team.color}30` }}
-              >
-                <div className="text-4xl sm:text-6xl md:text-8xl font-bold w-16 sm:w-32 text-center flex-shrink-0">
-                  {index === 0 && <span className="drop-shadow-2xl">🥇</span>}
-                  {index === 1 && <span className="drop-shadow-2xl">🥈</span>}
-                  {index === 2 && <span className="drop-shadow-2xl">🥉</span>}
-                  {index > 2 && <span className="text-yellow-400">#{index + 1}</span>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-yellow-50 truncate">{team.name}</div>
-                </div>
-                <div className="text-4xl sm:text-6xl md:text-8xl font-bold tabular-nums text-yellow-400 flex-shrink-0">{team.score}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Écran de jeu principal
   return (
@@ -304,7 +305,7 @@ const Screen = () => {
             {/* Options QCM */}
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8">
-                {(currentQuestion.options as string[]).map((option: string, idx: number) => (
+                {(Array.isArray(currentQuestion.options) ? currentQuestion.options : []).map((option: string, idx: number) => (
                   <div 
                     key={idx} 
                     className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-xl p-4 sm:p-6 text-lg sm:text-xl md:text-2xl font-semibold border border-yellow-500/20 hover-scale transition-all"
