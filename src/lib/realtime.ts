@@ -48,19 +48,32 @@ const listeners: {
   disconnected: []
 };
 
-export function connectRealtime(baseUrl: string) {
+export function connectRealtime(
+  baseUrl: string, 
+  role: 'regie' | 'client' = 'client',
+  teamId?: string
+) {
   if (socket?.connected) {
     console.log('✅ Déjà connecté');
     return socket;
   }
 
-  console.log(`🔌 Connexion au serveur WebSocket: ${baseUrl}`);
+  console.log(`🔌 Connexion au serveur WebSocket: ${baseUrl} (role: ${role})`);
+  
+  // Get authentication tokens from environment
+  const regieToken = import.meta.env.VITE_REGIE_TOKEN || 'regie-secret-token';
+  const clientToken = import.meta.env.VITE_CLIENT_TOKEN || 'client-secret-token';
   
   socket = io(baseUrl, {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    reconnectionAttempts: Infinity
+    reconnectionAttempts: Infinity,
+    auth: {
+      token: role === 'regie' ? regieToken : clientToken,
+      role: role,
+      teamId: teamId
+    }
   });
 
   socket.on('connect', () => {
@@ -195,16 +208,31 @@ export function disconnect() {
   socket = null;
 }
 
-// Export/Import via API REST
+// Export/Import via API REST (requires regie token)
 export async function exportState(baseUrl: string): Promise<GameState> {
-  const response = await fetch(`${baseUrl}/api/export`);
+  const regieToken = import.meta.env.VITE_REGIE_TOKEN || 'regie-secret-token';
+  const response = await fetch(`${baseUrl}/api/export`, {
+    headers: {
+      'X-Regie-Token': regieToken
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to export state: ' + response.statusText);
+  }
   return response.json();
 }
 
 export async function importState(baseUrl: string, state: GameState): Promise<void> {
-  await fetch(`${baseUrl}/api/import`, {
+  const regieToken = import.meta.env.VITE_REGIE_TOKEN || 'regie-secret-token';
+  const response = await fetch(`${baseUrl}/api/import`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-Regie-Token': regieToken
+    },
     body: JSON.stringify(state)
   });
+  if (!response.ok) {
+    throw new Error('Failed to import state: ' + response.statusText);
+  }
 }

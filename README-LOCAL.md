@@ -26,11 +26,27 @@ npm install socket.io-client
 
 ```bash
 VITE_WS_URL=http://VOTRE_IP:3001
+VITE_REGIE_TOKEN=your-secure-regie-token
+VITE_CLIENT_TOKEN=your-secure-client-token
 ```
+
+⚠️ **IMPORTANT - Sécurité** : Changez les tokens par défaut pour sécuriser votre serveur local !
 
 Pour trouver votre IP locale :
 - **Windows** : `ipconfig` (cherchez "Adresse IPv4")
 - **Mac/Linux** : `ifconfig` ou `ip addr`
+
+### 4. Configuration serveur
+
+Créez un fichier `server/.env` :
+
+```bash
+REGIE_TOKEN=your-secure-regie-token
+CLIENT_TOKEN=your-secure-client-token
+PORT=3001
+```
+
+Les tokens doivent correspondre à ceux du `.env.local` du frontend.
 
 ## 🚀 Démarrage
 
@@ -159,7 +175,12 @@ Le serveur expose également une API REST :
 
 ## 🔒 Sécurité
 
-⚠️ **Aucune authentification** n'est implémentée.  
-Ce système est conçu pour un **réseau local fermé** uniquement.
+✅ **Authentification par tokens** implémentée :
+- Deux rôles séparés : `regie` (contrôle total) et `client` (buzz/réponses uniquement)
+- Les tokens doivent être configurés dans `.env.local` (frontend) et `server/.env` (serveur)
+- Chaque client ne peut buzzer/répondre que pour son équipe assignée
+- Rate limiting automatique pour prévenir les abus
+- API REST protégée par token pour export/import
 
-Ne pas exposer le serveur sur Internet !
+⚠️ **Ce système reste conçu pour un réseau local fermé uniquement.**  
+Ne pas exposer le serveur sur Internet sans sécurité additionnelle (HTTPS, tokens forts, etc.)!

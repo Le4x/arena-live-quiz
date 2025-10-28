@@ -17,6 +17,48 @@ const io = new Server(httpServer, {
   }
 });
 
+// Authentication tokens from environment
+const REGIE_TOKEN = process.env.REGIE_TOKEN || 'regie-secret-token';
+const CLIENT_TOKEN = process.env.CLIENT_TOKEN || 'client-secret-token';
+
+// Rate limiting storage
+const rateLimits = new Map();
+
+// Authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  const role = socket.handshake.auth.role;
+  
+  if (!token || !role) {
+    return next(new Error('Authentication required'));
+  }
+  
+  if (role === 'regie' && token === REGIE_TOKEN) {
+    socket.data.role = 'regie';
+    next();
+  } else if (role === 'client' && token === CLIENT_TOKEN) {
+    socket.data.role = 'client';
+    socket.data.teamId = socket.handshake.auth.teamId;
+    next();
+  } else {
+    next(new Error('Invalid credentials'));
+  }
+});
+
+// Rate limiting helper
+function checkRateLimit(socketId, eventType, limitMs = 1000) {
+  const key = `${socketId}-${eventType}`;
+  const now = Date.now();
+  const lastCall = rateLimits.get(key);
+  
+  if (lastCall && now - lastCall < limitMs) {
+    return false; // Rate limit exceeded
+  }
+  
+  rateLimits.set(key, now);
+  return true;
+}
+
 // État du jeu en mémoire
 let gameState = {
   sessionId: null,
@@ -62,19 +104,38 @@ io.on('connection', (socket) => {
   // Envoyer l'état complet au nouveau client
   socket.emit('state:full', gameState);
 
-  // === ÉVÉNEMENTS RÉGIE ===
+  // === ÉVÉNEMENTS RÉGIE (REGIE ROLE ONLY) ===
   socket.on('regie:update', (partial) => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized regie:update attempt from ${socket.id}`);
+      return;
+    }
+    
+    if (!checkRateLimit(socket.id, 'regie:update', 100)) {
+      return;
+    }
+    
     gameState = { ...gameState, ...partial };
     io.emit('state:update', partial);
   });
 
   socket.on('regie:lock', () => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized regie:lock attempt from ${socket.id}`);
+      return;
+    }
+    
     gameState.buzzerLocked = true;
     gameState.phase = 'locked';
     io.emit('regie:locked');
   });
 
   socket.on('regie:unlock', () => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized regie:unlock attempt from ${socket.id}`);
+      return;
+    }
+    
     gameState.buzzerLocked = false;
     gameState.phase = 'playing';
     gameState.firstBuzz = null;
@@ -82,6 +143,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('regie:score', ({ teamId, delta }) => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized regie:score attempt from ${socket.id}`);
+      return;
+    }
+    
+    // Validate delta is within reasonable range
+    if (typeof delta !== 'number' || Math.abs(delta) > 50) {
+      console.warn(`Invalid score delta: ${delta}`);
+      return;
+    }
+    
     const team = gameState.teams.find(t => t.id === teamId);
     if (team) {
       team.score = Math.max(0, team.score + delta);
@@ -91,6 +163,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('regie:timer', ({ action, seconds }) => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized regie:timer attempt from ${socket.id}`);
+      return;
+    }
+    
     if (action === 'start') {
       gameState.timer.running = true;
       gameState.timer.seconds = seconds || gameState.timer.seconds;
@@ -103,8 +180,25 @@ io.on('connection', (socket) => {
     io.emit('state:update', { timer: gameState.timer });
   });
 
-  // === ÉVÉNEMENTS CLIENT ===
+  // === ÉVÉNEMENTS CLIENT (CLIENT ROLE ONLY) ===
   socket.on('client:buzz', ({ teamId, ts }) => {
+    // Verify client role and team ownership
+    if (socket.data.role !== 'client') {
+      console.warn(`Unauthorized client:buzz attempt from ${socket.id}`);
+      return;
+    }
+    
+    if (socket.data.teamId !== teamId) {
+      console.warn(`Team ID mismatch: socket ${socket.data.teamId} vs buzz ${teamId}`);
+      return;
+    }
+    
+    // Rate limiting: 1 buzz per second
+    if (!checkRateLimit(socket.id, 'buzz', 1000)) {
+      console.warn(`Rate limit exceeded for buzz from ${socket.id}`);
+      return;
+    }
+    
     // Si pas de question ou déjà locked, ignorer
     if (!gameState.question || gameState.buzzerLocked) {
       socket.emit('buzz:late', { teamId, ts });
@@ -125,6 +219,22 @@ io.on('connection', (socket) => {
   });
 
   socket.on('client:answer', ({ teamId, payload }) => {
+    // Verify client role and team ownership
+    if (socket.data.role !== 'client') {
+      console.warn(`Unauthorized client:answer attempt from ${socket.id}`);
+      return;
+    }
+    
+    if (socket.data.teamId !== teamId) {
+      console.warn(`Team ID mismatch for answer from ${socket.id}`);
+      return;
+    }
+    
+    // Rate limiting: 1 answer per 2 seconds
+    if (!checkRateLimit(socket.id, 'answer', 2000)) {
+      return;
+    }
+    
     const answer = {
       id: Date.now().toString(),
       teamId,
@@ -136,8 +246,13 @@ io.on('connection', (socket) => {
     io.emit('state:update', { answers: gameState.answers });
   });
 
-  // === GESTION ÉQUIPES ===
+  // === GESTION ÉQUIPES (REGIE ROLE ONLY) ===
   socket.on('team:create', ({ team }) => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized team:create attempt from ${socket.id}`);
+      return;
+    }
+    
     const existingTeam = gameState.teams.find(t => t.id === team.id);
     if (!existingTeam) {
       gameState.teams.push(team);
@@ -146,6 +261,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('team:update', ({ teamId, updates }) => {
+    if (socket.data.role !== 'regie') {
+      console.warn(`Unauthorized team:update attempt from ${socket.id}`);
+      return;
+    }
+    
     const team = gameState.teams.find(t => t.id === teamId);
     if (team) {
       Object.assign(team, updates);
@@ -158,14 +278,24 @@ io.on('connection', (socket) => {
   });
 });
 
-// API REST pour export/import
+// API REST pour export/import (requires regie token)
 app.use(express.json({ limit: '10mb' }));
 
-app.get('/api/export', (req, res) => {
+// Simple token authentication middleware for REST API
+function authenticateRegie(req, res, next) {
+  const token = req.headers['x-regie-token'];
+  if (token === REGIE_TOKEN) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
+app.get('/api/export', authenticateRegie, (req, res) => {
   res.json(gameState);
 });
 
-app.post('/api/import', (req, res) => {
+app.post('/api/import', authenticateRegie, (req, res) => {
   gameState = req.body;
   io.emit('state:full', gameState);
   saveState();

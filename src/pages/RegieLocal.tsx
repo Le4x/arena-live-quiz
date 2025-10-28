@@ -8,6 +8,7 @@ import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { ExportImport } from "@/components/ExportImport";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import {
+  connectRealtime,
   onFullState,
   onPartial,
   onBuzzFirst,
@@ -37,6 +38,12 @@ export default function RegieLocal() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Connect as regie role
+    const wsUrl = import.meta.env.VITE_WS_URL;
+    if (wsUrl) {
+      connectRealtime(wsUrl, 'regie');
+    }
+
     onFullState((state) => {
       setGameState(state);
     });
