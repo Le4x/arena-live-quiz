@@ -328,41 +328,53 @@ const Regie = () => {
         }
         toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
       }
-    } else if (currentQ.question_type === 'text') {
-      // Pour les textes libres : vérification IA avec tolérance aux fautes
-      toast({ title: '⏳ Vérification IA en cours...' });
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('check-text-answers', {
-          body: { 
-            questionId: currentQuestionId,
-            correctAnswer: currentQ.correct_answer,
-            sessionId: sessionId
-          }
-        });
+    } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text') {
+      // Pour les textes libres : utiliser les validations de la régie
+      const { data: answers } = await supabase
+        .from('team_answers')
+        .select('*, teams(score)')
+        .eq('question_id', currentQuestionId)
+        .eq('game_session_id', sessionId);
 
-        if (error) throw error;
+      if (answers) {
+        let correctCount = 0;
+        let pendingCount = 0;
         
-        const correctCount = data.results?.filter((r: any) => r.isCorrect).length || 0;
-        
-        // Envoyer les résultats à chaque équipe
-        if (data.results) {
-          for (const result of data.results) {
-            await gameEvents.revealAnswer(result.teamId, result.isCorrect, currentQ.correct_answer);
+        for (const answer of answers) {
+          // Si la régie a déjà validé (is_correct n'est pas null)
+          if (answer.is_correct !== null) {
+            const isCorrect = answer.is_correct;
+            const points = answer.points_awarded || 0;
+            
+            // Mettre à jour le score de l'équipe
+            if (points !== 0 && answer.teams) {
+              await supabase
+                .from('teams')
+                .update({ score: (answer.teams.score || 0) + points })
+                .eq('id', answer.team_id);
+            }
+
+            // Envoyer l'événement de reveal à chaque équipe
+            await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
+            
+            if (isCorrect) correctCount++;
+          } else {
+            pendingCount++;
           }
         }
         
-        toast({ 
-          title: '👁️ Réponse révélée et vérifiée', 
-          description: `${correctCount} réponse(s) acceptée(s) (vous pouvez ajuster manuellement)` 
-        });
-      } catch (error) {
-        console.error('Erreur vérification IA:', error);
-        toast({ 
-          title: '⚠️ Réponse révélée', 
-          description: 'Erreur lors de la vérification automatique, veuillez corriger manuellement',
-          variant: 'destructive'
-        });
+        if (pendingCount > 0) {
+          toast({ 
+            title: '⚠️ Réponses non validées', 
+            description: `${pendingCount} réponse(s) non validée(s). Validez-les avant de révéler.`,
+            variant: 'destructive'
+          });
+        } else {
+          toast({ 
+            title: '👁️ Réponse révélée et points attribués', 
+            description: `${correctCount} bonne(s) réponse(s)`
+          });
+        }
       }
     } else {
       toast({ title: '👁️ Réponse révélée' });
