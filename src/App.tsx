@@ -6,11 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import Regie from "./pages/Regie";
-import RegieHub from "./pages/RegieHub";
 import RegieVideo from "./pages/RegieVideo";
 import RegieSound from "./pages/RegieSound";
-import RegieLocal from "./pages/RegieLocal";
-import AdminLocal from "./pages/AdminLocal";
 import Screen from "./pages/Screen";
 import Client from "./pages/Client";
 import AdminSetup from "./pages/AdminSetup";
@@ -29,11 +26,9 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="/regie" element={<RegieHub />} />
+          <Route path="/regie" element={<Regie />} />
           <Route path="/regie/video" element={<RegieVideo />} />
           <Route path="/regie/sound" element={<RegieSound />} />
-          <Route path="/regie/local" element={<RegieLocal />} />
-          <Route path="/admin/local" element={<AdminLocal />} />
           <Route path="/screen" element={<Screen />} />
           <Route path="/client" element={<Client />} />
           <Route path="/client/:teamId" element={<Client />} />

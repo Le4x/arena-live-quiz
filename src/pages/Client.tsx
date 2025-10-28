@@ -1,117 +1,166 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Trophy, Zap, Check, X, Send } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Check, X, Zap, Trophy, Send } from "lucide-react";
+import { SupabaseNetworkStatus } from "@/components/SupabaseNetworkStatus";
+import { useSupabaseResilience } from "@/hooks/useSupabaseResilience";
 import { playSound } from "@/lib/sounds";
-import { NetworkStatus } from "@/components/NetworkStatus";
-import {
-  connectRealtime,
-  onFullState,
-  onPartial,
-  onBuzzFirst,
-  onBuzzLate,
-  onScoreUpdate,
-  clientBuzz,
-  clientAnswer,
-  createTeam,
-  type GameState
-} from "@/lib/realtime";
 
 const Client = () => {
   const { teamId } = useParams();
   const { toast } = useToast();
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const { saveToCache, loadFromCache } = useSupabaseResilience();
+  
+  const [gameState, setGameState] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [team, setTeam] = useState<any>(null);
   const [teamName, setTeamName] = useState("");
-  const [teamColor, setTeamColor] = useState("#FFD700");
+  const [teamColor, setTeamColor] = useState("#3B82F6");
   const [answer, setAnswer] = useState("");
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
 
+  // Charger l'équipe depuis Supabase
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
-    
-    // Se connecter en tant que client pour cette équipe
-    connectRealtime(baseUrl, 'client', teamId);
-
-    // Écouter l'état complet
-    onFullState((state: GameState) => {
-      console.log('📦 Client: État complet reçu', state);
-      setGameState(state);
-      
-      // Trouver notre équipe dans l'état
-      if (teamId) {
-        const myTeam = state.teams.find((t: any) => t.id === teamId);
-        if (myTeam) {
-          setTeam(myTeam);
-        }
-      }
-      
-      // Réinitialiser l'état de la réponse si la question change
-      if (state.question?.id !== gameState?.question?.id) {
-        setHasBuzzed(false);
-        setHasAnswered(false);
-        setAnswer("");
-        setAnswerResult(null);
-      }
-    });
-
-    // Écouter les mises à jour partielles
-    onPartial((partial: Partial<GameState>) => {
-      console.log('🔄 Client: Mise à jour partielle', partial);
-      setGameState((prev) => prev ? { ...prev, ...partial } : null);
-      
-      if (partial.teams && teamId) {
-        const myTeam = partial.teams.find((t: any) => t.id === teamId);
-        if (myTeam) {
-          setTeam(myTeam);
-        }
-      }
-    });
-
-    // Écouter les premiers buzz
-    onBuzzFirst((data: { teamId: string; ts: number }) => {
-      if (data.teamId === teamId) {
-        console.log('✅ Client: Vous avez buzzé en premier !');
-        setHasBuzzed(true);
-        playSound('buzz');
-        toast({
-          title: "Buzzé en premier !",
-          description: "Vous avez le droit de répondre",
-        });
-      }
-    });
-
-    // Écouter les buzz tardifs
-    onBuzzLate((data: { teamId: string; ts: number }) => {
-      if (data.teamId === teamId) {
-        console.log('⏱️ Client: Buzz trop tard');
-        toast({
-          title: "Trop tard",
-          description: "Une autre équipe a déjà buzzé",
-          variant: "destructive"
-        });
-      }
-    });
-
-    // Écouter les mises à jour de score
-    onScoreUpdate((data: { teamId: string; score: number }) => {
-      if (data.teamId === teamId) {
-        setTeam((prev: any) => prev ? { ...prev, score: data.score } : null);
-      }
-    });
+    if (teamId) {
+      loadTeam();
+      loadGameState();
+    }
   }, [teamId]);
 
+  // Écouter les changements en temps réel
   useEffect(() => {
-    // Vérifier si cette équipe a buzzé pour cette question
-    if (gameState?.firstBuzz === teamId) {
-      setHasBuzzed(true);
+    if (!teamId) return;
+
+    const gameStateChannel = supabase
+      .channel('client-game-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        loadGameState();
+      })
+      .subscribe();
+
+    const teamsChannel = supabase
+      .channel('client-teams')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        loadTeam();
+      })
+      .subscribe();
+
+    const buzzerChannel = supabase
+      .channel('client-buzzers')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'buzzer_attempts' }, (payload) => {
+        if (payload.new.team_id === teamId && payload.new.is_first) {
+          setHasBuzzed(true);
+          playSound('buzz');
+          toast({
+            title: "🔔 Buzz enregistré !",
+            description: "Vous avez buzzé en premier !",
+          });
+        }
+      })
+      .subscribe();
+
+    // Track team presence
+    const presenceChannel = supabase.channel('team-presence');
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Presence synced');
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({ team_id: teamId, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(gameStateChannel);
+      supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(buzzerChannel);
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [teamId, toast]);
+
+  const loadTeam = async () => {
+    if (!teamId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('id', teamId)
+        .maybeSingle();
+
+      if (data) {
+        setTeam(data);
+        saveToCache('team', { team: data });
+      } else if (error) {
+        // Tenter de charger depuis le cache
+        const cached = loadFromCache('team');
+        if (cached?.team) {
+          setTeam(cached.team);
+          toast({
+            title: "Mode dégradé",
+            description: "Données chargées depuis le cache local",
+            variant: "default"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading team:', error);
+      const cached = loadFromCache('team');
+      if (cached?.team) {
+        setTeam(cached.team);
+      }
     }
-  }, [gameState?.firstBuzz, teamId]);
+  };
+
+  const loadGameState = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('game_state')
+        .select('*, questions(*)')
+        .maybeSingle();
+
+      if (data) {
+        setGameState(data);
+        setCurrentQuestion(data.questions);
+        saveToCache('gameState', { gameState: data, currentQuestion: data.questions });
+        
+        // Réinitialiser les états si nouvelle question
+        if (data.questions?.id !== currentQuestion?.id) {
+          setHasBuzzed(false);
+          setHasAnswered(false);
+          setAnswerResult(null);
+          setAnswer("");
+        }
+        
+        // Afficher le résultat de la réponse si disponible
+        if (data.answer_result && (data.answer_result === 'correct' || data.answer_result === 'incorrect')) {
+          setAnswerResult(data.answer_result);
+          setTimeout(() => setAnswerResult(null), 3000);
+        }
+      } else if (error) {
+        // Tenter de charger depuis le cache
+        const cached = loadFromCache('gameState');
+        if (cached?.gameState) {
+          setGameState(cached.gameState);
+          setCurrentQuestion(cached.currentQuestion);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading game state:', error);
+      const cached = loadFromCache('gameState');
+      if (cached?.gameState) {
+        setGameState(cached.gameState);
+        setCurrentQuestion(cached.currentQuestion);
+      }
+    }
+  };
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
@@ -123,62 +172,114 @@ const Client = () => {
       return;
     }
 
-    const newTeam = {
-      id: crypto.randomUUID(),
-      name: teamName,
-      color: teamColor,
-      score: 0
-    };
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .insert({
+          name: teamName,
+          color: teamColor,
+          score: 0,
+          is_active: true
+        })
+        .select()
+        .single();
 
-    createTeam(newTeam);
-    setTeam(newTeam);
-    window.history.replaceState(null, '', `/client/${newTeam.id}`);
-    
-    toast({
-      title: "Équipe créée !",
-      description: `Bienvenue ${newTeam.name} !`,
-    });
+      if (error) throw error;
+
+      setTeam(data);
+      window.history.replaceState(null, '', `/client/${data.id}`);
+      
+      toast({
+        title: "Équipe créée !",
+        description: `Bienvenue ${data.name} !`,
+      });
+    } catch (error) {
+      console.error('Error creating team:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer l'équipe. Vérifiez votre connexion.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleBuzzer = () => {
-    if (!team || !gameState?.question || gameState.phase !== 'playing') {
-      console.log('❌ Buzzer bloqué - conditions non remplies');
+  const handleBuzzer = async () => {
+    if (!team || !currentQuestion || !gameState?.is_buzzer_active || hasBuzzed) {
       return;
     }
 
-    if (hasBuzzed) {
-      console.log('❌ Buzzer bloqué - déjà buzzé');
+    // Vérifier si l'équipe est exclue
+    const excludedTeams = (gameState.excluded_teams || []) as string[];
+    if (excludedTeams.includes(team.id)) {
+      toast({
+        title: "Vous êtes exclu",
+        description: "Vous ne pouvez plus répondre à cette question",
+        variant: "destructive"
+      });
       return;
     }
 
-    console.log('✅ Client: Envoi du buzzer');
-    clientBuzz(team.id);
+    try {
+      const { error } = await supabase
+        .from('buzzer_attempts')
+        .insert({
+          team_id: team.id,
+          question_id: currentQuestion.id,
+          game_session_id: gameState.game_session_id,
+          is_first: false
+        });
+
+      if (error) throw error;
+
+      setHasBuzzed(true);
+    } catch (error) {
+      console.error('Error buzzing:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer le buzz",
+        variant: "destructive"
+      });
+    }
   };
 
-  const submitAnswer = (answerValue?: string) => {
+  const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
-    if (!team || !gameState?.question || !finalAnswer.trim() || hasAnswered) return;
+    if (!team || !currentQuestion || !finalAnswer.trim() || hasAnswered) return;
 
-    console.log('✅ Client: Envoi de la réponse', finalAnswer);
-    clientAnswer(team.id, {
-      questionId: gameState.question.id,
-      answer: finalAnswer,
-      type: gameState.question.type
-    });
-    
-    setAnswer("");
-    setHasAnswered(true);
-    
-    toast({
-      title: "Réponse envoyée !",
-      description: "Votre réponse a été enregistrée",
-    });
+    try {
+      const { error } = await supabase
+        .from('team_answers')
+        .insert({
+          team_id: team.id,
+          question_id: currentQuestion.id,
+          game_session_id: gameState?.game_session_id,
+          answer: finalAnswer,
+          is_correct: null
+        });
+
+      if (error) throw error;
+
+      setAnswer("");
+      setHasAnswered(true);
+      
+      toast({
+        title: "Réponse envoyée !",
+        description: "Votre réponse a été enregistrée",
+      });
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la réponse",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!team) {
     return (
       <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
-        <NetworkStatus />
+        <SupabaseNetworkStatus />
         <Card className="w-full max-w-md p-8 bg-card/90 backdrop-blur-sm border-primary/20">
           <h1 className="text-4xl font-bold text-center bg-gradient-arena bg-clip-text text-transparent mb-8">
             ARENA
@@ -224,11 +325,9 @@ const Client = () => {
     );
   }
 
-  const currentQuestion = gameState?.question;
-
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
-      <NetworkStatus />
+      <SupabaseNetworkStatus />
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header équipe */}
         <Card className="p-6 bg-card/90 backdrop-blur-sm border-2" style={{ borderColor: team.color }}>
@@ -245,15 +344,15 @@ const Client = () => {
         </Card>
 
         {/* Buzzer - Pour les questions type buzzer */}
-        {gameState?.phase === 'playing' && currentQuestion && currentQuestion.type === 'buzzer' && (
+        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'buzzer' && (
           <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
             <Button
               onClick={handleBuzzer}
-              disabled={hasBuzzed || gameState.buzzerLocked}
+              disabled={hasBuzzed}
               className="w-full h-32 text-3xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold disabled:opacity-50"
             >
               <Zap className="mr-4 h-12 w-12" />
-              {hasBuzzed ? "BUZZÉ !" : gameState.buzzerLocked ? "BLOQUÉ" : "BUZZER"}
+              {hasBuzzed ? "BUZZÉ !" : "BUZZER"}
             </Button>
           </Card>
         )}
@@ -283,12 +382,12 @@ const Client = () => {
               </div>
             )}
 
-            <h3 className="text-2xl font-bold mb-4">{currentQuestion.text}</h3>
+            <h3 className="text-2xl font-bold mb-4">{currentQuestion.question_text}</h3>
             
             {/* Options QCM */}
-            {currentQuestion.type === 'qcm' && currentQuestion.options && (
+            {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="space-y-3">
-                {currentQuestion.options.map((option: string, index: number) => (
+                {(currentQuestion.options as string[]).map((option: string, index: number) => (
                   <Button
                     key={index}
                     onClick={() => submitAnswer(option)}
@@ -302,7 +401,7 @@ const Client = () => {
             )}
 
             {/* Réponse texte libre */}
-            {currentQuestion.type === 'texte' && (
+            {currentQuestion.question_type === 'texte' && (
               <div className="space-y-3">
                 <Input
                   placeholder="Votre réponse..."
