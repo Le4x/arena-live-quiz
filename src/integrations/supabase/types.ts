@@ -191,6 +191,33 @@ export type Database = {
           },
         ]
       }
+      question_instances: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          game_session_id: string
+          id: string
+          question_id: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          game_session_id: string
+          id?: string
+          question_id: string
+          started_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          game_session_id?: string
+          id?: string
+          question_id?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
       questions: {
         Row: {
           audio_url: string | null

@@ -98,12 +98,37 @@ const Regie = () => {
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
-    await supabase.from('game_state').update({ current_question_id: question.id, current_question_instance_id: instanceId, current_round_id: question.round_id, is_buzzer_active: true, timer_active: false, show_leaderboard: false, answer_result: null }).eq('game_session_id', sessionId);
+    
+    // Créer l'instance dans la BD
+    await supabase.from('question_instances').insert({
+      id: instanceId,
+      question_id: question.id,
+      game_session_id: sessionId,
+      started_at: new Date().toISOString()
+    });
+    
+    await supabase.from('game_state').update({ 
+      current_question_id: question.id, 
+      current_question_instance_id: instanceId, 
+      current_round_id: question.round_id, 
+      is_buzzer_active: true, 
+      timer_active: false, 
+      show_leaderboard: false, 
+      answer_result: null 
+    }).eq('game_session_id', sessionId);
+    
     setBuzzerLocked(false);
     await gameEvents.startQuestion(question.id, instanceId, sessionId!);
+    
     if (question.audio_url) {
       const sound = audioTracks.find(t => t.url === question.audio_url);
-      if (sound) { await audioEngine.loadAndPlay(sound); await audioEngine.playClip30s(300); const round = rounds.find(r => r.id === question.round_id); setTimerRemaining(round?.timer_duration || 30); setTimerActive(true); }
+      if (sound) { 
+        await audioEngine.loadAndPlay(sound); 
+        await audioEngine.playClip30s(300); 
+        const round = rounds.find(r => r.id === question.round_id); 
+        setTimerRemaining(round?.timer_duration || 30); 
+        setTimerActive(true); 
+      }
     }
     toast({ title: '🎬 Question lancée' });
   };
