@@ -123,7 +123,7 @@ const AdminLocal = () => {
         question: quiz.rounds[0]?.questions[0] ? {
           id: quiz.rounds[0].questions[0].id,
           text: quiz.rounds[0].questions[0].text,
-          type: quiz.rounds[0].questions[0].type
+          type: quiz.rounds[0].questions[0].type as 'buzzer' | 'qcm' | 'texte'
         } : null,
         phase: 'idle'
       });

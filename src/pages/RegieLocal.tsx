@@ -130,7 +130,7 @@ export default function RegieLocal() {
         question: quiz.rounds[0]?.questions[0] ? {
           id: quiz.rounds[0].questions[0].id,
           text: quiz.rounds[0].questions[0].text,
-          type: quiz.rounds[0].questions[0].type
+          type: quiz.rounds[0].questions[0].type as 'buzzer' | 'qcm' | 'texte'
         } : null,
         phase: 'idle'
       });
@@ -159,7 +159,7 @@ export default function RegieLocal() {
       question: round.questions[0] ? {
         id: round.questions[0].id,
         text: round.questions[0].text,
-        type: round.questions[0].type
+        type: round.questions[0].type as 'buzzer' | 'qcm' | 'texte'
       } : null,
       phase: 'idle',
       firstBuzz: null,
@@ -178,7 +178,7 @@ export default function RegieLocal() {
       question: round.questions[0] ? {
         id: round.questions[0].id,
         text: round.questions[0].text,
-        type: round.questions[0].type
+        type: round.questions[0].type as 'buzzer' | 'qcm' | 'texte'
       } : null,
       phase: 'idle',
       firstBuzz: null,
@@ -201,7 +201,7 @@ export default function RegieLocal() {
     const q = round.questions[newQuestion];
     regieUpdate({ 
       quiz: newQuiz,
-      question: { id: q.id, text: q.text, type: q.type },
+      question: { id: q.id, text: q.text, type: q.type as 'buzzer' | 'qcm' | 'texte' },
       phase: 'playing',
       firstBuzz: null,
       buzzerLocked: false
@@ -217,7 +217,7 @@ export default function RegieLocal() {
     const q = round.questions[newQuestion];
     regieUpdate({ 
       quiz: newQuiz,
-      question: { id: q.id, text: q.text, type: q.type },
+      question: { id: q.id, text: q.text, type: q.type as 'buzzer' | 'qcm' | 'texte' },
       phase: 'playing',
       firstBuzz: null,
       buzzerLocked: false
