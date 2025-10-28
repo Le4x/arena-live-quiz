@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Play, Pause, SkipForward, Lock, Unlock, Trophy, CheckCircle, XCircle, Users } from "lucide-react";
+import { Play, Pause, SkipForward, Lock, Unlock, Trophy, CheckCircle, XCircle, Users, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { ExportImport } from "@/components/ExportImport";
@@ -20,6 +20,7 @@ import {
   regieTimer,
   type GameState
 } from "@/lib/realtime";
+import { loadQuizFromSupabase, type Quiz } from "@/lib/quizAdapter";
 
 export default function RegieLocal() {
   const { toast } = useToast();
@@ -38,6 +39,7 @@ export default function RegieLocal() {
     answers: []
   });
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
 
   useEffect(() => {
     // Connect as regie role
@@ -119,10 +121,114 @@ export default function RegieLocal() {
     regieUpdate({ showLeaderboard: !gameState.showLeaderboard });
   };
 
+  const loadQuiz = async () => {
+    setLoadingQuiz(true);
+    try {
+      const quiz = await loadQuizFromSupabase();
+      regieUpdate({ 
+        quiz,
+        question: quiz.rounds[0]?.questions[0] ? {
+          id: quiz.rounds[0].questions[0].id,
+          text: quiz.rounds[0].questions[0].text,
+          type: quiz.rounds[0].questions[0].type
+        } : null,
+        phase: 'idle'
+      });
+      toast({ 
+        title: "✅ Quiz chargé", 
+        description: `${quiz.rounds.length} manches, ${quiz.rounds.reduce((sum, r) => sum + r.questions.length, 0)} questions`
+      });
+    } catch (error: any) {
+      toast({ 
+        title: "❌ Erreur de chargement", 
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingQuiz(false);
+    }
+  };
+
+  const nextRound = () => {
+    if (!gameState.quiz || gameState.quiz.currentRound >= gameState.quiz.rounds.length - 1) return;
+    const newRound = gameState.quiz.currentRound + 1;
+    const newQuiz = { ...gameState.quiz, currentRound: newRound, currentQuestion: 0 };
+    const round = newQuiz.rounds[newRound];
+    regieUpdate({ 
+      quiz: newQuiz,
+      question: round.questions[0] ? {
+        id: round.questions[0].id,
+        text: round.questions[0].text,
+        type: round.questions[0].type
+      } : null,
+      phase: 'idle',
+      firstBuzz: null,
+      buzzerLocked: false
+    });
+    toast({ title: `Manche ${newRound + 1}: ${round.name}` });
+  };
+
+  const prevRound = () => {
+    if (!gameState.quiz || gameState.quiz.currentRound <= 0) return;
+    const newRound = gameState.quiz.currentRound - 1;
+    const newQuiz = { ...gameState.quiz, currentRound: newRound, currentQuestion: 0 };
+    const round = newQuiz.rounds[newRound];
+    regieUpdate({ 
+      quiz: newQuiz,
+      question: round.questions[0] ? {
+        id: round.questions[0].id,
+        text: round.questions[0].text,
+        type: round.questions[0].type
+      } : null,
+      phase: 'idle',
+      firstBuzz: null,
+      buzzerLocked: false
+    });
+    toast({ title: `Manche ${newRound + 1}: ${round.name}` });
+  };
+
+  const nextQuestionInRound = () => {
+    if (!gameState.quiz) return;
+    const round = gameState.quiz.rounds[gameState.quiz.currentRound];
+    const newQuestion = gameState.quiz.currentQuestion + 1;
+    
+    if (newQuestion >= round.questions.length) {
+      toast({ title: "Dernière question de cette manche", variant: "destructive" });
+      return;
+    }
+    
+    const newQuiz = { ...gameState.quiz, currentQuestion: newQuestion };
+    const q = round.questions[newQuestion];
+    regieUpdate({ 
+      quiz: newQuiz,
+      question: { id: q.id, text: q.text, type: q.type },
+      phase: 'playing',
+      firstBuzz: null,
+      buzzerLocked: false
+    });
+    toast({ title: `Question ${newQuestion + 1}/${round.questions.length}` });
+  };
+
+  const prevQuestionInRound = () => {
+    if (!gameState.quiz || gameState.quiz.currentQuestion <= 0) return;
+    const round = gameState.quiz.rounds[gameState.quiz.currentRound];
+    const newQuestion = gameState.quiz.currentQuestion - 1;
+    const newQuiz = { ...gameState.quiz, currentQuestion: newQuestion };
+    const q = round.questions[newQuestion];
+    regieUpdate({ 
+      quiz: newQuiz,
+      question: { id: q.id, text: q.text, type: q.type },
+      phase: 'playing',
+      firstBuzz: null,
+      buzzerLocked: false
+    });
+    toast({ title: `Question ${newQuestion + 1}/${round.questions.length}` });
+  };
+
   // Raccourcis clavier
   useKeyboardShortcuts({
     onSpace: toggleTimer,
-    onN: nextQuestion,
+    onN: nextQuestionInRound,
     onB: toggleBuzzerLock,
     onC: markCorrect,
     onI: markIncorrect,
@@ -153,27 +259,68 @@ export default function RegieLocal() {
           </div>
         </div>
 
-        {/* Question actuelle */}
-        <Card className="p-6 bg-gradient-to-r from-primary/10 to-primary/5">
-          <h2 className="text-2xl font-bold mb-2">Question en cours</h2>
-          {gameState.question ? (
-            <div>
-              <p className="text-lg mb-2">{gameState.question.text}</p>
+        {/* Chargement du quiz */}
+        {!gameState.quiz && (
+          <Card className="p-6 border-2 border-primary">
+            <h2 className="text-xl font-bold mb-4">📚 Chargement du Quiz</h2>
+            <p className="text-muted-foreground mb-4">
+              Chargez le quiz depuis Supabase pour commencer. Vous pourrez ensuite jouer hors-ligne.
+            </p>
+            <Button onClick={loadQuiz} disabled={loadingQuiz} size="lg" className="w-full">
+              <Download className="h-5 w-5 mr-2" />
+              {loadingQuiz ? 'Chargement...' : 'Charger depuis Supabase'}
+            </Button>
+          </Card>
+        )}
+
+        {/* Quiz en cours */}
+        {gameState.quiz && (
+          <Card className="p-6 bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {gameState.quiz.rounds[gameState.quiz.currentRound]?.name}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Manche {gameState.quiz.currentRound + 1}/{gameState.quiz.rounds.length} · 
+                  Question {gameState.quiz.currentQuestion + 1}/{gameState.quiz.rounds[gameState.quiz.currentRound]?.questions.length}
+                </p>
+              </div>
               <div className="flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  gameState.phase === 'locked' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
-                }`}>
-                  {gameState.phase === 'locked' ? '🔒 Verrouillé' : '🔓 Ouvert'}
-                </span>
-                <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-500 text-white">
-                  {gameState.question.type}
-                </span>
+                <Button onClick={prevRound} size="sm" variant="outline" disabled={gameState.quiz.currentRound === 0}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button onClick={nextRound} size="sm" variant="outline" disabled={gameState.quiz.currentRound === gameState.quiz.rounds.length - 1}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-          ) : (
-            <p className="text-muted-foreground">Aucune question active</p>
-          )}
-        </Card>
+            
+            {gameState.question ? (
+              <div>
+                <p className="text-lg mb-3">{gameState.question.text}</p>
+                <div className="flex gap-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    gameState.phase === 'locked' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                  }`}>
+                    {gameState.phase === 'locked' ? '🔒 Verrouillé' : '🔓 Ouvert'}
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-500 text-white">
+                    {gameState.question.type}
+                  </span>
+                  <Button onClick={prevQuestionInRound} size="sm" variant="ghost" disabled={gameState.quiz.currentQuestion === 0}>
+                    ← Précédente
+                  </Button>
+                  <Button onClick={nextQuestionInRound} size="sm" variant="ghost">
+                    Suivante →
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">Aucune question active</p>
+            )}
+          </Card>
+        )}
 
         {/* Contrôles principaux */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -185,7 +332,7 @@ export default function RegieLocal() {
             </div>
           </Button>
 
-          <Button onClick={nextQuestion} size="lg" className="h-20" variant="outline">
+          <Button onClick={nextQuestionInRound} size="lg" className="h-20" variant="outline" disabled={!gameState.quiz}>
             <SkipForward className="h-6 w-6 mr-2" />
             <div className="text-xs">Question suivante</div>
           </Button>

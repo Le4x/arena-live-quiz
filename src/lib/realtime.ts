@@ -19,6 +19,27 @@ export interface GameState {
   showRoundIntro: boolean;
   currentRound: any;
   answers: any[];
+  quiz?: {
+    rounds: Array<{
+      id: string;
+      name: string;
+      type: string;
+      jingleUrl?: string;
+      questions: Array<{
+        id: string;
+        type: string;
+        text: string;
+        options?: string[];
+        answer?: number | string;
+        points?: number;
+        media?: any;
+        cuePoints?: any;
+      }>;
+    }>;
+    currentRound: number;
+    currentQuestion: number;
+    points: { correct: number; incorrect: number };
+  };
 }
 
 type StateCallback = (state: GameState) => void;

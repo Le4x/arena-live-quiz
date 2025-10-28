@@ -71,7 +71,8 @@ let gameState = {
   showLeaderboard: false,
   showRoundIntro: false,
   currentRound: null,
-  answers: []
+  answers: [],
+  quiz: null // Structure: { rounds, currentRound, currentQuestion, points }
 };
 
 // Charger l'état au démarrage

@@ -13,8 +13,10 @@ import {
   onPartial,
   createTeam,
   updateTeam,
+  regieUpdate,
   type GameState
 } from "@/lib/realtime";
+import { loadQuizFromSupabase } from "@/lib/quizAdapter";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,7 @@ const AdminLocal = () => {
   const [selectedTeamQR, setSelectedTeamQR] = useState<any>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
 
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
@@ -86,7 +89,8 @@ const AdminLocal = () => {
   };
 
   const generateQRCode = async (team: any) => {
-    const baseUrl = window.location.origin;
+    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
+    const baseUrl = wsUrl.replace(':3001', ':5173'); // Frontend URL
     const url = `${baseUrl}/client/${team.id}`;
     
     try {
@@ -107,6 +111,34 @@ const AdminLocal = () => {
         description: "Impossible de générer le QR code",
         variant: "destructive"
       });
+    }
+  };
+
+  const loadQuiz = async () => {
+    setLoadingQuiz(true);
+    try {
+      const quiz = await loadQuizFromSupabase();
+      regieUpdate({ 
+        quiz,
+        question: quiz.rounds[0]?.questions[0] ? {
+          id: quiz.rounds[0].questions[0].id,
+          text: quiz.rounds[0].questions[0].text,
+          type: quiz.rounds[0].questions[0].type
+        } : null,
+        phase: 'idle'
+      });
+      toast({ 
+        title: "✅ Quiz chargé", 
+        description: `${quiz.rounds.length} manches, ${quiz.rounds.reduce((sum, r) => sum + r.questions.length, 0)} questions`
+      });
+    } catch (error: any) {
+      toast({ 
+        title: "❌ Erreur de chargement", 
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingQuiz(false);
     }
   };
 
@@ -145,9 +177,15 @@ const AdminLocal = () => {
               Gérez les équipes en mode local
             </p>
           </div>
-          <Button onClick={() => navigate('/regie/local')} variant="outline" size="lg">
-            Retour à la régie
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={loadQuiz} disabled={loadingQuiz} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              {loadingQuiz ? 'Chargement...' : 'Charger Quiz'}
+            </Button>
+            <Button onClick={() => navigate('/regie/local')} variant="outline" size="lg">
+              Retour à la régie
+            </Button>
+          </div>
         </header>
 
         {/* Gestion des équipes */}
