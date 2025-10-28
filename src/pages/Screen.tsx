@@ -95,32 +95,34 @@ const Screen = () => {
     loadTextAnswers();
   }, [currentQuestion?.id, gameState?.game_session_id]);
 
-  useEffect(() => {
-    // Vérifier les buzzers toutes les 2 secondes sur Screen aussi
-    const interval = setInterval(() => {
-      if (currentQuestion?.id && gameState?.game_session_id && gameState?.is_buzzer_active) {
-        loadBuzzers();
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [currentQuestion?.id, gameState?.game_session_id, gameState?.is_buzzer_active]);
+  // Pas de polling - on utilise uniquement le realtime pour les buzzers
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (gameState?.timer_active && gameState?.timer_remaining !== null) {
-      setTimer(gameState.timer_remaining);
+    
+    if (gameState?.timer_active) {
+      // Initialiser le timer avec la valeur de la DB
+      if (gameState.timer_remaining !== null && gameState.timer_remaining !== undefined) {
+        setTimer(gameState.timer_remaining);
+      }
+      
+      // Démarrer le compte à rebours local
       interval = setInterval(() => {
         setTimer((prev) => {
-          if (prev === null || prev <= 0) return 0;
+          if (prev === null || prev <= 0) {
+            return 0;
+          }
           return prev - 1;
         });
       }, 1000);
-    } else if (!gameState?.timer_active) {
-      // Arrêter le timer quand timer_active passe à false
+    } else {
+      // Arrêter et cacher le timer quand timer_active est false
       setTimer(null);
     }
-    return () => clearInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [gameState?.timer_active, gameState?.timer_remaining]);
 
   // Jouer les sons ET afficher l'animation quand le résultat change

@@ -51,16 +51,46 @@ const Regie = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadTeams)
       .subscribe();
 
-    // Abonnement buzzers
-    const buzzersChannel = supabase.channel('regie-buzzers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, loadBuzzers)
+    return () => {
+      supabase.removeChannel(teamsChannel);
+    };
+  }, []);
+
+  // Abonnement buzzers spécifique à la question courante
+  useEffect(() => {
+    if (!currentQuestionId || !sessionId) {
+      console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
+      setBuzzers([]);
+      return;
+    }
+
+    console.log('🔔 Regie: Abonnement buzzers pour question', currentQuestionId);
+    
+    // Charger immédiatement les buzzers existants
+    loadBuzzers();
+
+    const buzzersChannel = supabase
+      .channel(`regie-buzzers-${currentQuestionId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'buzzer_attempts',
+          filter: `question_id=eq.${currentQuestionId}`
+        },
+        (payload) => {
+          console.log('🔔 Regie: Buzzer realtime détecté', payload);
+          loadBuzzers();
+        }
+      )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(teamsChannel);
+      console.log('🔕 Regie: Désabonnement buzzers pour question', currentQuestionId);
       supabase.removeChannel(buzzersChannel);
     };
-  }, []);
+  }, [currentQuestionId, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -70,10 +100,6 @@ const Regie = () => {
     loadGameState();
     return () => { supabase.removeChannel(stateChannel); };
   }, [sessionId]);
-
-  useEffect(() => {
-    loadBuzzers();
-  }, [currentQuestionId, sessionId]);
 
   useEffect(() => {
     if (!timerActive || timerRemaining <= 0) return;
@@ -90,13 +116,6 @@ const Regie = () => {
             supabase.from('game_state').update({ 
               timer_active: false,
               timer_remaining: 0
-            }).eq('game_session_id', sessionId);
-          }
-        } else {
-          // Mettre à jour le timer restant dans la DB
-          if (sessionId) {
-            supabase.from('game_state').update({ 
-              timer_remaining: next
             }).eq('game_session_id', sessionId);
           }
         }
@@ -121,23 +140,26 @@ const Regie = () => {
         });
       }
       
-      // Lock au premier buzzer + ARRÊTER LE TIMER pour blind test
+      // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
       if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
         setBuzzerLocked(true);
         setTimerActive(false);
         audioEngine.stopWithFade(300);
         
-        // Mettre à jour le timer dans la DB
-        supabase.from('game_state').update({ 
-          timer_active: false 
-        }).eq('game_session_id', sessionId);
+        // Mettre à jour le timer dans la DB IMMÉDIATEMENT
+        if (sessionId) {
+          supabase.from('game_state').update({ 
+            timer_active: false,
+            timer_remaining: timerRemaining
+          }).eq('game_session_id', sessionId);
+        }
       }
     }
     
     // Mettre à jour le compteur
     previousBuzzersCount.current = buzzers.length;
-  }, [buzzers, currentQuestionId, questions]);
+  }, [buzzers, currentQuestionId, questions, sessionId, timerRemaining]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
@@ -174,15 +196,26 @@ const Regie = () => {
   };
 
   const loadBuzzers = async () => {
+    console.log('🔍 Regie: loadBuzzers appelé', { currentQuestionId, sessionId });
+    
     if (!currentQuestionId || !sessionId) {
+      console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
       setBuzzers([]);
       return;
     }
-    const { data } = await supabase.from('buzzer_attempts')
+    
+    const { data, error } = await supabase.from('buzzer_attempts')
       .select('*, teams(*)')
       .eq('question_id', currentQuestionId)
       .eq('game_session_id', sessionId)
       .order('buzzed_at', { ascending: true });
+    
+    if (error) {
+      console.error('❌ Regie: Erreur chargement buzzers', error);
+      return;
+    }
+    
+    console.log('📥 Regie: Buzzers chargés', data?.length || 0);
     if (data) setBuzzers(data);
   };
 

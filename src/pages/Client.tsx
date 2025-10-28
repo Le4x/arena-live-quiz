@@ -177,11 +177,16 @@ const Client = () => {
     setAnswerResult(null);
     setShowReveal(false);
     
+    // Réinitialiser le timer actif depuis gameState
+    if (gameState?.timer_active !== undefined) {
+      setIsTimerActive(gameState.timer_active);
+    }
+    
     // Charger l'instance ID depuis game_state
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, gameState?.timer_active]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
