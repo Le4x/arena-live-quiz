@@ -24,8 +24,7 @@ interface ControlBarProps {
     onReset: () => void;
   };
   reveal: {
-    onCorrect: () => void;
-    onIncorrect: () => void;
+    onReveal: () => void;
   };
 }
 

@@ -295,7 +295,7 @@ const Screen = () => {
                       ? JSON.parse(currentQuestion.options as string) 
                       : currentQuestion.options;
                     const correctAnswer = currentQuestion.correct_answer;
-                    const showReveal = gameState?.answer_result !== null;
+                    const showReveal = gameState?.show_answer === true;
                     
                     return (
                       <div className="grid grid-cols-2 gap-4 mt-6">
@@ -328,6 +328,19 @@ const Screen = () => {
                     return null;
                   }
                 })()}
+
+                {/* Réponse pour free_text - révélée quand show_answer = true */}
+                {currentQuestion.question_type === 'free_text' && gameState?.show_answer && currentQuestion.correct_answer && (
+                  <div className="mt-6 p-6 rounded-xl bg-green-500/30 border-2 border-green-400 shadow-glow-gold animate-pulse">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Check className="w-8 h-8 text-green-400" />
+                        <span className="text-2xl font-bold text-green-400">RÉPONSE</span>
+                      </div>
+                      <p className="text-3xl font-bold">{currentQuestion.correct_answer}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

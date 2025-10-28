@@ -15,6 +15,8 @@ import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
 import { gameEvents } from "@/lib/runtime/GameEvents";
 import { ControlBar } from "@/components/regie/ControlBar";
 import type { SoundWithCues } from "@/pages/AdminSounds";
+import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
+import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -278,13 +280,12 @@ const Regie = () => {
     toast({ title: '🎬 Intro manche lancée' });
   };
 
-  const showReveal = async (result: 'correct' | 'incorrect') => {
-    await supabase.from('game_state').update({ answer_result: result }).eq('game_session_id', sessionId);
-    const q = questions.find(x => x.id === currentQuestionId);
-    await gameEvents.revealAnswer(q?.correct_answer || '', result === 'correct');
+  const showReveal = async () => {
+    await supabase.from('game_state').update({ show_answer: true }).eq('game_session_id', sessionId);
+    toast({ title: '👁️ Réponse révélée' });
     setTimeout(async () => { 
-      await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
-    }, 10000);
+      await supabase.from('game_state').update({ show_answer: false }).eq('game_session_id', sessionId); 
+    }, 15000);
   };
 
   const showLeaderboard = async () => {
@@ -448,16 +449,17 @@ const Regie = () => {
             }
           }}
           reveal={{
-            onCorrect: () => showReveal('correct'),
-            onIncorrect: () => showReveal('incorrect'),
+            onReveal: showReveal
           }}
         />
       </div>
 
       {/* Main content */}
       <div className="flex-1 overflow-hidden flex gap-3 px-3 pb-3">
-        {/* Left: Questions */}
-        <Card className="flex-1 overflow-hidden flex flex-col">
+        {/* Left: Questions + Answers */}
+        <div className="flex-1 overflow-hidden flex flex-col gap-3">
+          {/* Questions */}
+          <Card className="flex-1 overflow-hidden flex flex-col">
           <div className="p-3 border-b flex gap-2 overflow-x-auto flex-shrink-0">
             {rounds.map(r => (
               <Button 
@@ -482,6 +484,13 @@ const Regie = () => {
             ))}
           </div>
         </Card>
+
+          {/* Réponses QCM et Freetext */}
+          <div className="flex-shrink-0 max-h-64 overflow-y-auto">
+            <QCMAnswersDisplay currentQuestion={questions.find(q => q.id === currentQuestionId)} gameState={gameState} />
+            <TextAnswersDisplay currentQuestionId={currentQuestionId} gameState={gameState} />
+          </div>
+        </div>
 
         {/* Right: Buzzers + Teams */}
         <div className="w-96 flex flex-col gap-3 overflow-hidden">
