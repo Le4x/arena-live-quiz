@@ -241,26 +241,34 @@ const Screen = () => {
         <SupabaseNetworkStatus />
         <audio ref={audioRef} autoPlay />
         
-        {/* Effet de lumière */}
+        {/* Effet de lumière animé */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-yellow-500/20 to-transparent blur-3xl animate-pulse" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-yellow-500/30 to-transparent blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-purple-500/20 blur-3xl animate-pulse" />
+          <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-indigo-500/20 blur-3xl animate-pulse" />
         </div>
 
         <div className="max-w-7xl mx-auto h-screen flex flex-col items-center justify-center relative z-10">
           <div className="text-center space-y-6 sm:space-y-12 animate-scale-in">
-            <Play className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-bounce" />
+            {/* Icône animée */}
+            <div className="relative">
+              <Play className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto text-yellow-400 animate-bounce" />
+              <div className="absolute inset-0 w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto bg-yellow-400/20 rounded-full blur-2xl animate-pulse" />
+            </div>
+            
             <div>
-              <div className="text-2xl sm:text-3xl md:text-4xl text-yellow-400 font-semibold mb-2 sm:mb-4 uppercase tracking-wider">
+              <div className="text-2xl sm:text-3xl md:text-4xl text-yellow-400 font-semibold mb-2 sm:mb-4 uppercase tracking-wider animate-pulse">
                 Nouvelle Manche
               </div>
-              <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl px-4">
+              <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent drop-shadow-2xl px-4 animate-pulse">
                 {currentRound.title}
               </h1>
             </div>
-            <div className="flex items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl md:text-3xl text-yellow-200">
-              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
-              <span className="uppercase tracking-wider">{currentRound.type}</span>
-              <Music className="w-6 h-6 sm:w-8 sm:h-8" />
+            
+            <div className="flex items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl md:text-3xl text-yellow-200 animate-pulse">
+              <Music className="w-6 h-6 sm:w-8 sm:h-8 animate-bounce" />
+              <span className="uppercase tracking-wider font-bold">{currentRound.type}</span>
+              <Music className="w-6 h-6 sm:w-8 sm:h-8 animate-bounce" />
             </div>
           </div>
         </div>

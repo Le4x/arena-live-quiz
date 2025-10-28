@@ -673,23 +673,37 @@ const Regie = () => {
                   onClick={async () => {
                     if (!gameState) return;
                     setSelectedRound(round.id);
+                    
+                    // Précharger les questions de la manche en arrière-plan
+                    const { data: roundQuestions } = await supabase
+                      .from('questions')
+                      .select('*')
+                      .eq('round_id', round.id)
+                      .order('display_order', { ascending: true });
+                    
+                    console.log(`✅ Questions préchargées pour ${round.title}:`, roundQuestions?.length || 0);
+                    
+                    // Lancer l'animation sans question
                     await supabase
                       .from('game_state')
                       .update({ 
                         show_round_intro: true,
-                        current_round_intro: round.id 
+                        current_round_intro: round.id,
+                        current_question_id: null, // NE PAS afficher de question pendant le jingle
+                        timer_active: false,
+                        is_buzzer_active: false
                       })
                       .eq('id', gameState.id);
                     
-                    // Désactiver après 5 secondes
+                    // Désactiver après 10 secondes
                     setTimeout(async () => {
                       await supabase
                         .from('game_state')
                         .update({ show_round_intro: false })
                         .eq('id', gameState.id);
-                    }, 5000);
+                    }, 10000);
                     
-                    toast({ title: `🎬 Intro: ${round.title}` });
+                    toast({ title: `🎬 Intro: ${round.title} (${roundQuestions?.length || 0} questions)` });
                   }}
                 >
                   🎬 {round.title}
