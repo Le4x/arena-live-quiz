@@ -168,13 +168,16 @@ const Screen = () => {
     return () => clearInterval(interval);
   }, [gameState?.timer_active]);
 
-  // Jouer le jingle de la manche
+  // Jouer le jingle de la manche quand on affiche l'intro
   useEffect(() => {
-    if (currentRound?.jingle_url && audioRef.current) {
+    if (gameState?.show_round_intro && currentRound?.jingle_url && audioRef.current) {
+      console.log('🎵 Playing round jingle:', currentRound.jingle_url);
       audioRef.current.src = currentRound.jingle_url;
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch((error) => {
+        console.error('❌ Error playing jingle:', error);
+      });
     }
-  }, [currentRound?.id]);
+  }, [gameState?.show_round_intro, currentRound?.id]);
 
   const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
 
@@ -386,35 +389,44 @@ const Screen = () => {
             {/* Options QCM */}
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8">
-                {(Array.isArray(currentQuestion.options) ? currentQuestion.options : []).map((option: string, idx: number) => (
-                  <div 
-                    key={idx} 
-                    className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-xl p-4 sm:p-6 text-lg sm:text-xl md:text-2xl font-semibold border border-yellow-500/20 hover-scale transition-all"
-                  >
-                    <span className="text-yellow-400 text-xl sm:text-2xl md:text-3xl font-bold mr-2 sm:mr-3">
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="text-yellow-50">{option}</span>
-                  </div>
-                ))}
+                {(() => {
+                  console.log('🎯 Options QCM:', currentQuestion.options);
+                  const options = Array.isArray(currentQuestion.options) 
+                    ? currentQuestion.options 
+                    : typeof currentQuestion.options === 'string'
+                    ? JSON.parse(currentQuestion.options)
+                    : [];
+                  
+                  return options.map((option: string, idx: number) => (
+                    <div 
+                      key={idx} 
+                      className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-xl p-4 sm:p-6 text-lg sm:text-xl md:text-2xl font-semibold border border-yellow-500/20 hover-scale transition-all"
+                    >
+                      <span className="text-yellow-400 text-xl sm:text-2xl md:text-3xl font-bold mr-2 sm:mr-3">
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className="text-yellow-50">{option}</span>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
         )}
 
-        {/* Timer XXL */}
+        {/* Timer plus discret */}
         {gameState?.timer_active && (
           <div className="text-center animate-scale-in">
-            <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-full px-12 sm:px-16 md:px-20 py-8 sm:py-10 md:py-12 shadow-2xl border-4 border-yellow-500/40">
-              <div className={`text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tabular-nums transition-all duration-300 ${
+            <div className="inline-block bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-full px-8 sm:px-12 py-4 sm:py-6 shadow-2xl border-2 border-yellow-500/40">
+              <div className={`text-4xl sm:text-5xl md:text-6xl font-bold tabular-nums transition-all duration-300 ${
                 timer <= 10 ? 'text-red-500 animate-pulse scale-110' : 'text-yellow-400'
               }`}>
                 {timer}
               </div>
-              <div className="text-xl sm:text-2xl md:text-3xl opacity-80 mt-2 text-yellow-200">secondes</div>
+              <div className="text-sm sm:text-base opacity-80 mt-1 text-yellow-200">secondes</div>
             </div>
             {/* Barre de progression */}
-            <div className="w-full max-w-3xl mx-auto mt-4 sm:mt-6 md:mt-8 h-4 sm:h-5 md:h-6 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/20">
+            <div className="w-full max-w-3xl mx-auto mt-4 h-3 sm:h-4 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/20">
               <div 
                 className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 transition-all duration-1000 shadow-lg"
                 style={{ width: `${(timer / 30) * 100}%` }}
