@@ -91,9 +91,18 @@ const Regie = () => {
 
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
-    if (buzzers.length > 0 && buzzers.length > previousBuzzersCount.current) {
-      // Nouveau buzzer détecté
-      const latestBuzzer = buzzers[buzzers.length - 1];
+    if (buzzers.length > previousBuzzersCount.current) {
+      // Nouveau buzzer détecté - notifier pour chaque nouveau
+      for (let i = previousBuzzersCount.current; i < buzzers.length; i++) {
+        const buzzer = buzzers[i];
+        console.log('🔔 Nouveau buzzer détecté:', buzzer);
+        
+        toast({ 
+          title: `🔔 ${buzzer.teams?.name || 'Équipe inconnue'} a buzzé !`, 
+          description: `Position #${i + 1}`,
+          duration: 5000 
+        });
+      }
       
       // Lock au premier buzzer
       if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active) {
@@ -101,18 +110,11 @@ const Regie = () => {
         setTimerActive(false);
         audioEngine.stopWithFade(300);
       }
-      
-      // Notification pour chaque nouveau buzzer
-      toast({ 
-        title: `🔔 ${latestBuzzer.teams?.name} a buzzé !`, 
-        description: `Position #${buzzers.length}`,
-        duration: 3000 
-      });
     }
     
     // Mettre à jour le compteur
     previousBuzzersCount.current = buzzers.length;
-  }, [buzzers.length, gameState?.is_buzzer_active]);
+  }, [buzzers]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
