@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Zap, Check, X } from "lucide-react";
 import { playSound } from "@/lib/sounds";
+import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
+import { JingleReveal } from "@/components/tv/JingleReveal";
+import { LeaderboardTransition } from "@/components/tv/LeaderboardTransition";
 
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
@@ -13,6 +16,8 @@ const Screen = () => {
   const [qcmAnswers, setQcmAnswers] = useState<any[]>([]);
   const [textAnswers, setTextAnswers] = useState<any[]>([]);
   const [currentRound, setCurrentRound] = useState<any>(null);
+  const [showRevealAnimation, setShowRevealAnimation] = useState(false);
+  const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
 
   useEffect(() => {
     loadData();
@@ -94,12 +99,18 @@ const Screen = () => {
     return () => clearInterval(interval);
   }, [gameState?.timer_active, gameState?.timer_remaining]);
 
-  // Jouer les sons quand le résultat change
+  // Jouer les sons ET afficher l'animation quand le résultat change
   useEffect(() => {
     if (gameState?.answer_result === 'correct') {
       playSound('correct');
+      setRevealResult('correct');
+      setShowRevealAnimation(true);
+      setTimeout(() => setShowRevealAnimation(false), 3000);
     } else if (gameState?.answer_result === 'incorrect') {
       playSound('incorrect');
+      setRevealResult('incorrect');
+      setShowRevealAnimation(true);
+      setTimeout(() => setShowRevealAnimation(false), 2000);
     }
   }, [gameState?.answer_result]);
 
@@ -180,6 +191,14 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Animation de révélation bonne/mauvaise réponse */}
+      {showRevealAnimation && revealResult && (
+        <JingleReveal
+          result={revealResult}
+          onComplete={() => setShowRevealAnimation(false)}
+        />
+      )}
+
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
@@ -197,30 +216,17 @@ const Screen = () => {
           </p>
         </header>
 
-        {/* Intro de manche (PRIORITAIRE) */}
+        {/* Intro de manche avec composant TV pro */}
         {gameState?.show_round_intro && currentRound && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-glow animate-fade-in">
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
-              <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-secondary/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-accent/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-            </div>
-            
-            <div className="relative z-10 text-center animate-scale-in">
-              <div className="mb-8 animate-pulse-glow">
-                <div className="text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent mb-4">
-                  {currentRound.title}
-                </div>
-                <div className="text-4xl text-primary font-bold uppercase tracking-wider animate-bounce">
-                  Préparez-vous !
-                </div>
-              </div>
-              
-              {currentRound.jingle_url && (
-                <audio src={currentRound.jingle_url} autoPlay />
-              )}
-            </div>
-          </div>
+          <JingleRoundIntro
+            roundTitle={currentRound.title}
+            roundNumber={currentSession?.current_round_index ? currentSession.current_round_index + 1 : undefined}
+            duration={10000}
+            onComplete={() => {
+              // L'intro se désactive automatiquement après 10s via Regie
+              console.log('🎬 Intro terminée');
+            }}
+          />
         )}
 
         {/* Question actuelle */}
@@ -335,8 +341,21 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Classement - Mode podium visuel plein écran avec pagination */}
+        {/* Classement avec composant TV pro */}
         {gameState?.show_leaderboard && (
+          <LeaderboardTransition
+            teams={teams.map(t => ({
+              id: t.id,
+              name: t.name,
+              score: t.score,
+              color: t.color,
+            }))}
+            topCount={20}
+          />
+        )}
+
+        {/* Classement original (caché quand le composant TV est actif) */}
+        {gameState?.show_leaderboard && false && (
           <div className="w-full h-screen flex items-center justify-center animate-slide-in px-4">
             <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-6 border-2 border-accent shadow-glow-purple w-full max-w-[95vw] h-[90vh] flex flex-col">
               <div className="flex items-center justify-center gap-3 mb-6">

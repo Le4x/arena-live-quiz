@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Trophy, Zap, Check, X, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
+import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -21,6 +22,9 @@ const Client = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
+  const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
+  const buzzerButtonRef = useRef<HTMLButtonElement>(null);
+  const gameEvents = getGameEvents();
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -59,12 +63,35 @@ const Client = () => {
       })
       .subscribe();
 
+    // S'abonner aux événements de jeu
+    const unsubBuzzerReset = gameEvents.on<BuzzerResetEvent>('BUZZER_RESET', (event) => {
+      console.log('🔔 Événement BUZZER_RESET reçu', event);
+      if (event.data.questionInstanceId === currentQuestionInstanceId) {
+        setHasBuzzed(false);
+        // Auto-focus sur le bouton buzzer
+        setTimeout(() => {
+          buzzerButtonRef.current?.focus();
+        }, 100);
+        toast({
+          title: "🔔 Buzzer réactivé !",
+          description: "Vous pouvez buzzer à nouveau",
+        });
+      }
+    });
+
+    const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
+      console.log('🎯 Nouvelle question', event);
+      setCurrentQuestionInstanceId(event.data.questionInstanceId);
+    });
+
     return () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
+      unsubBuzzerReset();
+      unsubStartQuestion();
     };
-  }, [teamId]);
+  }, [teamId, currentQuestionInstanceId]);
 
   useEffect(() => {
     // Reset buzzer state when question changes
@@ -72,19 +99,24 @@ const Client = () => {
     setAnswer("");
     setHasAnswered(false);
     setAnswerResult(null);
+    
+    // Charger l'instance ID depuis game_state
+    if (gameState?.current_question_instance_id) {
+      setCurrentQuestionInstanceId(gameState.current_question_instance_id);
+    }
+    
     checkIfBuzzed();
     checkIfAnswered();
-  }, [currentQuestion?.id]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id]);
 
   const checkIfBuzzed = async () => {
-    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    if (!team || !currentQuestion?.id || !currentQuestionInstanceId) return;
     
     const { data } = await supabase
       .from('buzzer_attempts')
       .select('id')
       .eq('team_id', team.id)
-      .eq('question_id', currentQuestion.id)
-      .eq('game_session_id', gameState.game_session_id)
+      .eq('question_instance_id', currentQuestionInstanceId)
       .maybeSingle();
     
     if (data) setHasBuzzed(true);
@@ -215,13 +247,14 @@ const Client = () => {
       team: team?.name,
       teamId: team?.id,
       question: currentQuestion?.id,
+      instanceId: currentQuestionInstanceId,
       session: gameState?.game_session_id,
       buzzerActive: gameState?.is_buzzer_active,
       hasBuzzed,
       excludedTeams: gameState?.excluded_teams
     });
 
-    if (!team || !currentQuestion || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
+    if (!team || !currentQuestion || !currentQuestionInstanceId || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
       console.log('❌ Buzzer bloqué - conditions non remplies');
       return;
     }
@@ -250,6 +283,7 @@ const Client = () => {
         { 
           team_id: team.id, 
           question_id: currentQuestion.id,
+          question_instance_id: currentQuestionInstanceId,
           game_session_id: gameState.game_session_id,
           is_first: true
         }
@@ -283,7 +317,7 @@ const Client = () => {
 
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
-    if (!team || !currentQuestion || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
+    if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
     // Pour les QCM, valider automatiquement la réponse
     let isCorrect = null;
@@ -301,6 +335,7 @@ const Client = () => {
         { 
           team_id: team.id, 
           question_id: currentQuestion.id,
+          question_instance_id: currentQuestionInstanceId,
           answer: finalAnswer,
           is_correct: isCorrect,
           points_awarded: pointsAwarded,
@@ -418,9 +453,10 @@ const Client = () => {
         {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
           <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
             <Button
+              ref={buzzerButtonRef}
               onClick={handleBuzzer}
               disabled={hasBuzzed}
-              className="w-full h-32 text-3xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold disabled:opacity-50"
+              className="w-full h-32 text-3xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold disabled:opacity-50 transition-all"
             >
               <Zap className="mr-4 h-12 w-12" />
               {hasBuzzed ? "BUZZÉ !" : "BUZZER"}

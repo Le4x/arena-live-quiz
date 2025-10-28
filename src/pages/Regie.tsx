@@ -2,13 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, SkipForward, Trophy, Zap, Clock, Music, List } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Play, Pause, SkipForward, Trophy, Zap, Clock, Music, List, Users, Settings, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { useNavigate } from "react-router-dom";
 import { playSound } from "@/lib/sounds";
+import { AudioDeck } from "@/components/audio/AudioDeck";
+import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
+import { gameEvents } from "@/lib/runtime/GameEvents";
 
 const Regie = () => {
   const navigate = useNavigate();
@@ -22,12 +26,16 @@ const Regie = () => {
   const [selectedRound, setSelectedRound] = useState<string | null>(null);
   const [buzzers, setBuzzers] = useState<any[]>([]);
   const [hasStoppedForBuzzer, setHasStoppedForBuzzer] = useState(false);
+  const [audioTracks, setAudioTracks] = useState<Track[]>([]);
+  const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
+  const audioEngine = getAudioEngine();
 
   useEffect(() => {
     loadTeams();
     loadGameState();
     loadRounds();
     loadQuestions();
+    loadAudioTracks();
     
     // Realtime subscriptions
     const teamsChannel = supabase
@@ -202,6 +210,10 @@ const Regie = () => {
   const setQuestion = async (questionId: string) => {
     if (!gameState) return;
     
+    // Générer une nouvelle instance de question
+    const questionInstanceId = crypto.randomUUID();
+    setCurrentQuestionInstanceId(questionInstanceId);
+    
     // Supprimer les anciens buzzers de cette question
     await supabase
       .from('buzzer_attempts')
@@ -215,13 +227,35 @@ const Regie = () => {
     
     await supabase.from('game_state').update({ 
       current_question_id: questionId,
+      current_question_instance_id: questionInstanceId,
       timer_active: true,
       timer_remaining: round?.timer_duration || 30,
-      excluded_teams: [], // Réinitialiser les équipes exclues pour la nouvelle question
-      answer_result: null // Réinitialiser le résultat de réponse
+      excluded_teams: [],
+      answer_result: null
     }).eq('id', gameState.id);
     
+    // Émettre l'événement START_QUESTION
+    await gameEvents.startQuestion(questionId, questionInstanceId, gameState.game_session_id);
+    
     toast({ title: "Question chargée et chrono lancé" });
+  };
+
+  const loadAudioTracks = () => {
+    const stored = localStorage.getItem('arena_sounds');
+    if (!stored) return;
+    
+    try {
+      const sounds = JSON.parse(stored);
+      const tracks: Track[] = sounds.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        url: s.url,
+        cues: [], // Les cue points seront ajoutés via AdminSounds
+      }));
+      setAudioTracks(tracks);
+    } catch (err) {
+      console.error('Erreur chargement tracks:', err);
+    }
   };
 
   const nextQuestion = async () => {
@@ -384,7 +418,7 @@ const Regie = () => {
   };
 
   const resetBuzzerForQuestion = async () => {
-    if (!gameState) return;
+    if (!gameState || !currentQuestionInstanceId) return;
     
     // Réinitialiser la liste des équipes exclues
     await supabase
@@ -394,9 +428,12 @@ const Regie = () => {
     
     await clearBuzzers();
     
+    // Émettre l'événement BUZZER_RESET pour tous les clients
+    await gameEvents.resetBuzzer(currentQuestionInstanceId);
+    
     toast({
-      title: "Buzzer réinitialisé",
-      description: "Toutes les équipes peuvent à nouveau buzzer",
+      title: "🔔 Buzzer réinitialisé",
+      description: "Tous les clients ont été réactivés",
     });
   };
 
@@ -433,7 +470,33 @@ const Regie = () => {
           </div>
         </header>
 
-        {/* Contrôles principaux */}
+        {/* Tabs de navigation */}
+        <Tabs defaultValue="controls" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 h-14">
+            <TabsTrigger value="controls" className="text-lg">
+              <Zap className="mr-2 h-5 w-5" />
+              Contrôles
+            </TabsTrigger>
+            <TabsTrigger value="audio" className="text-lg">
+              <Music className="mr-2 h-5 w-5" />
+              Audio
+            </TabsTrigger>
+            <TabsTrigger value="questions" className="text-lg">
+              <List className="mr-2 h-5 w-5" />
+              Questions
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="text-lg">
+              <Users className="mr-2 h-5 w-5" />
+              Équipes
+            </TabsTrigger>
+            <TabsTrigger value="screen" className="text-lg">
+              <Monitor className="mr-2 h-5 w-5" />
+              Écran
+            </TabsTrigger>
+          </TabsList>
+
+          {/* TAB: Contrôles */}
+          <TabsContent value="controls" className="space-y-6 mt-6">
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
           <h2 className="text-2xl font-bold text-primary mb-4">Contrôles du jeu</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -592,6 +655,17 @@ const Regie = () => {
         
         <TextAnswersDisplay currentQuestionId={currentQuestion?.id} gameState={gameState} />
 
+          </TabsContent>
+
+          {/* TAB: Audio */}
+          <TabsContent value="audio" className="space-y-6 mt-6">
+            <AudioDeck 
+              tracks={audioTracks}
+              onTrackChange={(track) => {
+                console.log('🎵 Track changée:', track.name);
+              }}
+            />
+
         {/* Jingles des manches */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
           <h2 className="text-2xl font-bold text-accent mb-4 flex items-center gap-2">
@@ -648,7 +722,10 @@ const Regie = () => {
             ))}
           </div>
         </Card>
+          </TabsContent>
 
+          {/* TAB: Questions */}
+          <TabsContent value="questions" className="space-y-6 mt-6">
         {/* Sélection de la manche et questions */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
           <h2 className="text-2xl font-bold text-secondary mb-4 flex items-center gap-2">
@@ -722,7 +799,10 @@ const Regie = () => {
             )}
           </div>
         </Card>
+          </TabsContent>
 
+          {/* TAB: Écran */}
+          <TabsContent value="screen" className="space-y-6 mt-6">
         {/* Question actuelle */}
         {currentQuestion && (
           <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
@@ -730,9 +810,36 @@ const Regie = () => {
             <p className="text-xl">{currentQuestion.question_text}</p>
             <div className="mt-4 text-sm text-muted-foreground">
               Type: {currentQuestion.question_type} • Points: {currentQuestion.points}
+              {currentQuestionInstanceId && (
+                <span className="ml-4 text-xs font-mono">Instance: {currentQuestionInstanceId.slice(0, 8)}...</span>
+              )}
             </div>
           </Card>
         )}
+
+            <Card className="p-6 bg-card/80 backdrop-blur-sm">
+              <h2 className="text-2xl font-bold mb-4">Statistiques</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-black text-primary">{teams.length}</div>
+                  <div className="text-sm text-muted-foreground">Équipes connectées</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-black text-secondary">{questions.length}</div>
+                  <div className="text-sm text-muted-foreground">Questions</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-black text-accent">{rounds.length}</div>
+                  <div className="text-sm text-muted-foreground">Manches</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-black text-primary">{buzzers.length}</div>
+                  <div className="text-sm text-muted-foreground">Buzzers actifs</div>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
