@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, SkipForward, Lock, Unlock, Trophy, CheckCircle, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Play, Pause, SkipForward, Lock, Unlock, Trophy, CheckCircle, XCircle, Users } from "lucide-react";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { ExportImport } from "@/components/ExportImport";
@@ -22,6 +23,7 @@ import {
 
 export default function RegieLocal() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [gameState, setGameState] = useState<GameState>({
     sessionId: null,
     teams: [],
@@ -142,7 +144,13 @@ export default function RegieLocal() {
             <h1 className="text-4xl font-bold text-primary">🎮 Régie Locale</h1>
             <p className="text-muted-foreground">Mode offline - Serveur WebSocket</p>
           </div>
-          <ExportImport />
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/admin/local')} variant="outline" size="sm">
+              <Users className="h-4 w-4 mr-2" />
+              Gérer les équipes
+            </Button>
+            <ExportImport />
+          </div>
         </div>
 
         {/* Question actuelle */}
