@@ -220,8 +220,14 @@ const Screen = () => {
       {gameState?.show_waiting_screen && (
         <WaitingScreen
           sessionName={currentSession?.name}
-          connectedTeams={connectedTeamsCount}
-          totalTeams={teams.length}
+          connectedTeams={teams
+            .filter(t => {
+              if (!t.last_seen_at) return false;
+              const now = new Date();
+              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000;
+            })
+            .map(t => ({ id: t.id, name: t.name, color: t.color }))
+          }
         />
       )}
 

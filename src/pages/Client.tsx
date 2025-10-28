@@ -64,12 +64,27 @@ const Client = () => {
       })
       .subscribe();
 
-    // Heartbeat présence (toutes les 15s)
+    // Heartbeat présence (toutes les 10s)
     const heartbeatInterval = setInterval(async () => {
       if (teamId) {
-        await supabase.from('teams').update({ last_seen_at: new Date().toISOString() }).eq('id', teamId);
+        await supabase.from('teams').update({ 
+          last_seen_at: new Date().toISOString(),
+          is_active: true 
+        }).eq('id', teamId);
       }
-    }, 15000);
+    }, 10000);
+
+    // Cleanup quand la page se ferme
+    const handleBeforeUnload = async () => {
+      if (teamId) {
+        await supabase.from('teams').update({ 
+          is_active: false,
+          connected_device_id: null 
+        }).eq('id', teamId);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     // S'abonner aux événements de jeu
     const unsubBuzzerReset = gameEvents.on<BuzzerResetEvent>('BUZZER_RESET', (event) => {
@@ -118,6 +133,15 @@ const Client = () => {
 
     return () => {
       clearInterval(heartbeatInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Déconnecter proprement
+      if (teamId) {
+        supabase.from('teams').update({ 
+          is_active: false 
+        }).eq('id', teamId);
+      }
+      
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
