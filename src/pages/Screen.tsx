@@ -352,11 +352,16 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Premier buzzeur en grand */}
+        {/* Premier buzzeur en grand - FIXE AU CENTRE */}
         {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-slide-in z-50">
-            <div className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold"
-                 style={{ borderColor: buzzers[0].teams?.color }}>
+          <div 
+            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+          >
+            <div 
+              className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold pointer-events-auto"
+              style={{ borderColor: buzzers[0].teams?.color }}
+            >
               <div className="text-center">
                 <div className="flex items-center justify-center gap-4 mb-6">
                   <Zap className="w-16 h-16 text-primary animate-pulse" />

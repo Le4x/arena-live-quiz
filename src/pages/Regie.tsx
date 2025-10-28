@@ -3,13 +3,14 @@
  * Layout optimisé 1366×768 sans scroll vertical
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
 import { gameEvents } from "@/lib/runtime/GameEvents";
 import { ControlBar } from "@/components/regie/ControlBar";
@@ -18,6 +19,7 @@ import type { SoundWithCues } from "@/pages/AdminSounds";
 const Regie = () => {
   const { toast } = useToast();
   const audioEngine = getAudioEngine();
+  const previousBuzzersCount = useRef(0);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [gameState, setGameState] = useState<any>(null);
@@ -85,25 +87,29 @@ const Regie = () => {
     return () => clearInterval(interval);
   }, [timerActive, timerRemaining]);
 
-  // Auto-lock buzzer quand premier arrive + notification pour tous
+  // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
-    if (buzzers.length > 0) {
+    if (buzzers.length > 0 && buzzers.length > previousBuzzersCount.current) {
+      // Nouveau buzzer détecté
       const latestBuzzer = buzzers[buzzers.length - 1];
       
       // Lock au premier buzzer
-      if (!buzzerLocked && gameState?.is_buzzer_active) {
+      if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active) {
         setBuzzerLocked(true);
         setTimerActive(false);
         audioEngine.stopWithFade(300);
       }
       
-      // Notification pour chaque buzzer
+      // Notification pour chaque nouveau buzzer
       toast({ 
         title: `🔔 ${latestBuzzer.teams?.name} a buzzé !`, 
         description: `Position #${buzzers.length}`,
         duration: 3000 
       });
     }
+    
+    // Mettre à jour le compteur
+    previousBuzzersCount.current = buzzers.length;
   }, [buzzers.length, gameState?.is_buzzer_active]);
 
   const loadActiveSession = async () => {
@@ -176,6 +182,9 @@ const Regie = () => {
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
+    
+    // Réinitialiser le compteur de buzzers
+    previousBuzzersCount.current = 0;
     
     await supabase.from('question_instances').insert({
       id: instanceId,
@@ -436,6 +445,7 @@ const Regie = () => {
               await gameEvents.resetBuzzer(currentQuestionInstanceId);
               setBuzzerLocked(false);
               setBuzzers([]);
+              previousBuzzersCount.current = 0;
               toast({ title: '🔄 Buzzers réinitialisés' });
             }
           }}
@@ -539,6 +549,7 @@ const Regie = () => {
           </Card>
         </div>
       </div>
+      <Toaster />
     </div>
   );
 };
