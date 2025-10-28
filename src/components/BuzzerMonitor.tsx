@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Zap, Trophy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { gameEvents } from "@/lib/runtime/GameEvents";
 
 export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestionId: string | null; gameState: any | null }) => {
   const { toast } = useToast();
@@ -39,7 +40,7 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestio
     if (data) setBuzzers(data);
   };
 
-  const awardPoints = async (teamId: string, points: number) => {
+  const awardPoints = async (teamId: string, points: number, isCorrect: boolean) => {
     const { data: team } = await supabase
       .from('teams')
       .select('score')
@@ -52,7 +53,10 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestio
         .update({ score: team.score + points })
         .eq('id', teamId);
       
-      toast({ title: "Points attribués !", description: `+${points} points` });
+      // Envoyer l'événement au client
+      await gameEvents.revealAnswer(teamId, isCorrect);
+      
+      toast({ title: "Points attribués !", description: `${points > 0 ? '+' : ''}${points} points` });
     }
   };
 
@@ -99,7 +103,7 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestio
               <Button
                 size="sm"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => awardPoints(buzzer.team_id, 10)}
+                onClick={() => awardPoints(buzzer.team_id, 10, true)}
               >
                 <Trophy className="h-4 w-4 mr-1" />
                 +10
@@ -107,14 +111,14 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestio
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => awardPoints(buzzer.team_id, 5)}
+                onClick={() => awardPoints(buzzer.team_id, 5, true)}
               >
                 +5
               </Button>
               <Button
                 size="sm"
                 variant="destructive"
-                onClick={() => awardPoints(buzzer.team_id, -5)}
+                onClick={() => awardPoints(buzzer.team_id, -5, false)}
               >
                 -5
               </Button>

@@ -13,6 +13,7 @@ export type GameEventType =
   | 'HIDE_LEADERBOARD'
   | 'PLAY_JINGLE'
   | 'SYNC_STATE'
+  | 'RESET_ALL'
   | 'KICK_ALL'
   | 'KICK_TEAM'
   | 'WAITING_SHOW'
@@ -157,6 +158,12 @@ export const gameEvents = {
     });
   },
 
+  resetAll: async () => {
+    await getGameEvents().emit({
+      type: 'RESET_ALL',
+    });
+  },
+
   kickAll: async () => {
     await getGameEvents().emit({
       type: 'KICK_ALL',
@@ -189,10 +196,10 @@ export const gameEvents = {
     });
   },
 
-  revealAnswer: async (correctAnswer: string, isCorrect: boolean) => {
+  revealAnswer: async (teamId: string, isCorrect: boolean, correctAnswer?: string) => {
     await getGameEvents().emit({
       type: 'REVEAL_ANSWER',
-      data: { correctAnswer, isCorrect },
+      data: { teamId, isCorrect, correctAnswer },
     });
   },
 };

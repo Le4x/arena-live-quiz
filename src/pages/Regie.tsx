@@ -17,6 +17,7 @@ import { ControlBar } from "@/components/regie/ControlBar";
 import type { SoundWithCues } from "@/pages/AdminSounds";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
+import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -321,6 +322,9 @@ const Regie = () => {
               .update({ score: (answer.teams.score || 0) + points })
               .eq('id', answer.team_id);
           }
+
+          // Envoyer l'événement de reveal à chaque équipe
+          await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
         }
         toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
       }
@@ -340,6 +344,14 @@ const Regie = () => {
         if (error) throw error;
         
         const correctCount = data.results?.filter((r: any) => r.isCorrect).length || 0;
+        
+        // Envoyer les résultats à chaque équipe
+        if (data.results) {
+          for (const result of data.results) {
+            await gameEvents.revealAnswer(result.teamId, result.isCorrect, currentQ.correct_answer);
+          }
+        }
+        
         toast({ 
           title: '👁️ Réponse révélée et vérifiée', 
           description: `${correctCount} réponse(s) acceptée(s) (vous pouvez ajuster manuellement)` 
@@ -379,9 +391,17 @@ const Regie = () => {
 
   const resetSession = async () => {
     if (!sessionId || !confirm('Réinitialiser toute la session ? Cela supprimera tous les buzzers, réponses et réinitialisera les scores.')) return;
+    
+    // Supprimer tous les buzzers
     await supabase.from('buzzer_attempts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    // Supprimer toutes les réponses
     await supabase.from('team_answers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    // Réinitialiser les scores
     await supabase.from('teams').update({ score: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    // Réinitialiser le game_state et forcer le changement de question
     await supabase.from('game_state').update({ 
       current_question_id: null, 
       current_question_instance_id: null, 
@@ -390,15 +410,21 @@ const Regie = () => {
       timer_active: false, 
       show_leaderboard: false,
       show_waiting_screen: false,
+      show_answer: false,
       answer_result: null,
       excluded_teams: []
     }).eq('game_session_id', sessionId);
+    
     setCurrentQuestionId(null);
     setCurrentQuestionInstanceId(null);
     setCurrentRoundId(null);
     setBuzzerLocked(false);
     setTimerActive(false);
     setTimerRemaining(30);
+    
+    // Notifier tous les clients pour qu'ils réinitialisent leur état
+    await gameEvents.resetAll();
+    
     loadTeams();
     toast({ title: '🔄 Session réinitialisée' });
   };
@@ -571,20 +597,7 @@ const Regie = () => {
         {/* Right: Buzzers + Teams */}
         <div className="w-96 flex flex-col gap-3 overflow-hidden">
           {/* Buzzers */}
-          {buzzers.length > 0 && (
-            <Card className="p-3 flex-shrink-0">
-              <h3 className="font-bold mb-2 text-sm">Buzzers ({buzzers.length})</h3>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {buzzers.map((b, i) => (
-                  <div key={b.id} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50 border" style={{ borderColor: b.teams?.color }}>
-                    <div className="font-bold w-6">#{i + 1}</div>
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.teams?.color }} />
-                    <div className="flex-1 truncate font-medium">{b.teams?.name}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+          <BuzzerMonitor currentQuestionId={currentQuestionId} gameState={gameState} />
 
           {/* Teams */}
           <Card className="flex-1 overflow-hidden flex flex-col">

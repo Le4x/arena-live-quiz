@@ -125,10 +125,24 @@ const Client = () => {
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
       console.log('🎭 Reveal reçu', event);
-      setShowReveal(true);
-      const isCorrect = event.data?.isCorrect;
-      setAnswerResult(isCorrect ? 'correct' : 'incorrect');
-      playSound(isCorrect ? 'correct' : 'incorrect');
+      
+      // Vérifier si ce reveal est pour cette équipe
+      if (event.data?.teamId === teamId) {
+        setShowReveal(true);
+        const isCorrect = event.data?.isCorrect;
+        setAnswerResult(isCorrect ? 'correct' : 'incorrect');
+        playSound(isCorrect ? 'correct' : 'incorrect');
+      }
+    });
+
+    const unsubResetAll = gameEvents.on('RESET_ALL', () => {
+      console.log('🔄 Reset global reçu');
+      setHasBuzzed(false);
+      setHasAnswered(false);
+      setAnswerResult(null);
+      setShowReveal(false);
+      setAnswer('');
+      toast({ title: '🔄 Session réinitialisée' });
     });
 
     return () => {
@@ -148,6 +162,7 @@ const Client = () => {
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
+      unsubResetAll();
       unsubKick();
       unsubKickTeam();
     };
@@ -370,6 +385,9 @@ const Client = () => {
     const finalAnswer = answerValue || answer;
     if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
+    // Stocker la réponse sélectionnée localement pour l'afficher lors du reveal
+    setAnswer(finalAnswer);
+
     // Ne PAS calculer is_correct ici, sera fait au reveal
     const { error } = await supabase
       .from('team_answers')
@@ -392,7 +410,6 @@ const Client = () => {
         variant: "destructive"
       });
     } else {
-      setAnswer("");
       setHasAnswered(true);
       toast({
         title: "Réponse enregistrée !",
@@ -531,23 +548,46 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    return Object.entries(options || {}).map(([key, value]) => (
-                      <Button
-                        key={key}
-                        variant="outline"
-                        disabled={hasAnswered}
-                        className="w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-50"
-                        onClick={() => submitAnswer(value as string)}
-                      >
-                        <span className="text-primary font-bold mr-3">{key}.</span>
-                        <span>{value as string}</span>
-                      </Button>
-                    ));
+                    return Object.entries(options || {}).map(([key, value]) => {
+                      const optionValue = value as string;
+                      const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
+                      const isSelectedOption = showReveal && answer === optionValue;
+                      
+                      return (
+                        <Button
+                          key={key}
+                          variant="outline"
+                          disabled={hasAnswered}
+                          className={`w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-100 transition-all ${
+                            showReveal && isCorrectOption 
+                              ? 'bg-green-500/20 border-green-500 border-2' 
+                              : showReveal && isSelectedOption && answerResult === 'incorrect'
+                              ? 'bg-red-500/20 border-red-500 border-2'
+                              : hasAnswered 
+                              ? 'opacity-50' 
+                              : ''
+                          }`}
+                          onClick={() => {
+                            setAnswer(optionValue);
+                            submitAnswer(optionValue);
+                          }}
+                        >
+                          <span className="text-primary font-bold mr-3">{key}.</span>
+                          <span>{optionValue}</span>
+                          {showReveal && isCorrectOption && (
+                            <Check className="ml-auto h-6 w-6 text-green-500" />
+                          )}
+                          {showReveal && isSelectedOption && answerResult === 'incorrect' && (
+                            <X className="ml-auto h-6 w-6 text-red-500" />
+                          )}
+                        </Button>
+                      );
+                    });
                   } catch (e) {
                     return <p className="text-destructive">Erreur de chargement des options</p>;
                   }
                 })()}
-                {hasAnswered && (
+                {hasAnswered && !showReveal && (
                   <div className="text-center text-green-500 font-bold">
                     ✓ Réponse enregistrée
                   </div>
