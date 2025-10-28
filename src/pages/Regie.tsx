@@ -260,6 +260,8 @@ const Regie = () => {
 
   const showReveal = async (result: 'correct' | 'incorrect') => {
     await supabase.from('game_state').update({ answer_result: result }).eq('game_session_id', sessionId);
+    const q = questions.find(x => x.id === currentQuestionId);
+    await gameEvents.revealAnswer(q?.correct_answer || '', result === 'correct');
     setTimeout(async () => { 
       await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
     }, 10000);
@@ -398,8 +400,17 @@ const Regie = () => {
             onWrong: handleWrongAnswer,
             onCorrect: handleCorrectAnswer,
             onReset: async () => {
+              // Supprimer les tentatives de buzzer pour cette question
+              if (currentQuestionInstanceId && sessionId) {
+                await supabase.from('buzzer_attempts')
+                  .delete()
+                  .eq('question_instance_id', currentQuestionInstanceId)
+                  .eq('game_session_id', sessionId);
+              }
               await gameEvents.resetBuzzer(currentQuestionInstanceId || '');
               setBuzzerLocked(false);
+              setBuzzers([]);
+              toast({ title: '🔄 Buzzers réinitialisés' });
             }
           }}
         />

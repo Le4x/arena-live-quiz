@@ -19,6 +19,8 @@ const Screen = () => {
   const [currentRound, setCurrentRound] = useState<any>(null);
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [showBuzzerNotif, setShowBuzzerNotif] = useState(false);
+  const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -121,7 +123,16 @@ const Screen = () => {
       supabase.from('game_state').select('*, questions(*), game_sessions(*)').maybeSingle()
     ]);
 
-    if (teamsRes.data) setTeams(teamsRes.data);
+    if (teamsRes.data) {
+      setTeams(teamsRes.data);
+      // Calculer les équipes connectées (last_seen < 30s)
+      const now = new Date();
+      const connected = teamsRes.data.filter(t => 
+        t.last_seen_at && (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000
+      );
+      setConnectedTeamsCount(connected.length);
+    }
+    
     if (gameStateRes.data) {
       setGameState(gameStateRes.data);
       
@@ -157,7 +168,14 @@ const Screen = () => {
       .eq('game_session_id', gameState.game_session_id)
       .order('buzzed_at', { ascending: true });
     
-    if (data) setBuzzers(data);
+    if (data) {
+      setBuzzers(data);
+      // Auto-dismiss notification après 5s si nouveau buzzer
+      if (data.length > 0) {
+        setShowBuzzerNotif(true);
+        setTimeout(() => setShowBuzzerNotif(false), 5000);
+      }
+    }
   };
 
   const loadQcmAnswers = async () => {
@@ -196,7 +214,7 @@ const Screen = () => {
       {gameState?.show_waiting_screen && (
         <WaitingScreen
           sessionName={currentSession?.name}
-          connectedTeams={teams.filter(t => t.is_active).length}
+          connectedTeams={connectedTeamsCount}
           totalTeams={teams.length}
         />
       )}
@@ -222,9 +240,11 @@ const Screen = () => {
           <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
             {currentSession?.name || 'ARENA'}
           </h1>
-          <p className="text-accent text-xl mt-2 font-bold">
-            {teams.length} équipe{teams.length > 1 ? 's' : ''} connectée{teams.length > 1 ? 's' : ''}
-          </p>
+          {connectedTeamsCount > 0 && (
+            <p className="text-accent text-xl mt-2 font-bold">
+              {connectedTeamsCount} équipe{connectedTeamsCount > 1 ? 's' : ''} connectée{connectedTeamsCount > 1 ? 's' : ''}
+            </p>
+          )}
         </header>
 
         {/* Intro de manche avec composant TV pro */}
@@ -262,17 +282,34 @@ const Screen = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options as string) 
                       : currentQuestion.options;
+                    const correctAnswer = currentQuestion.correct_answer;
+                    const showReveal = gameState?.answer_result !== null;
+                    
                     return (
                       <div className="grid grid-cols-2 gap-4 mt-6">
-                        {Object.entries(options || {}).map(([key, value]) => (
-                          <div
-                            key={key}
-                            className="bg-muted/50 rounded-xl p-4 border-2 border-secondary/50 hover:border-secondary transition-all"
-                          >
-                            <span className="text-secondary font-bold text-xl">{key}.</span>
-                            <span className="ml-3 text-xl">{value as string}</span>
-                          </div>
-                        ))}
+                        {Object.entries(options || {}).map(([key, value]) => {
+                          const isCorrect = showReveal && value === correctAnswer;
+                          return (
+                            <div
+                              key={key}
+                              className={`
+                                rounded-xl p-4 border-2 transition-all duration-500
+                                ${isCorrect 
+                                  ? 'bg-green-500/30 border-green-400 shadow-glow-gold animate-pulse' 
+                                  : 'bg-muted/50 border-secondary/50 hover:border-secondary'
+                                }
+                              `}
+                            >
+                              {isCorrect && (
+                                <div className="flex items-center justify-center mb-2">
+                                  <Check className="w-8 h-8 text-green-400" />
+                                </div>
+                              )}
+                              <span className="text-secondary font-bold text-xl">{key}.</span>
+                              <span className="ml-3 text-xl">{value as string}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   } catch (e) {
@@ -304,7 +341,7 @@ const Screen = () => {
         )}
 
         {/* Premier buzzeur en grand */}
-        {buzzers.length > 0 && !gameState?.show_leaderboard && (
+        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
           <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-slide-in z-50">
             <div className="bg-card/95 backdrop-blur-xl rounded-3xl p-12 border-4 shadow-glow-gold"
                  style={{ borderColor: buzzers[0].teams?.color }}>

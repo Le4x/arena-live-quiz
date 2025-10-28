@@ -17,7 +17,8 @@ export type GameEventType =
   | 'KICK_TEAM'
   | 'WAITING_SHOW'
   | 'WAITING_HIDE'
-  | 'TOGGLE_BUZZER';
+  | 'TOGGLE_BUZZER'
+  | 'REVEAL_ANSWER';
 
 export interface GameEvent {
   type: GameEventType;
@@ -185,6 +186,13 @@ export const gameEvents = {
     await getGameEvents().emit({
       type: 'TOGGLE_BUZZER',
       data: { isActive },
+    });
+  },
+
+  revealAnswer: async (correctAnswer: string, isCorrect: boolean) => {
+    await getGameEvents().emit({
+      type: 'REVEAL_ANSWER',
+      data: { correctAnswer, isCorrect },
     });
   },
 };

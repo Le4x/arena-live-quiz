@@ -21,6 +21,7 @@ const Client = () => {
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [showReveal, setShowReveal] = useState(false);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
@@ -102,6 +103,14 @@ const Client = () => {
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
     });
 
+    const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
+      console.log('🎭 Reveal reçu', event);
+      setShowReveal(true);
+      const isCorrect = event.data?.isCorrect;
+      setAnswerResult(isCorrect ? 'correct' : 'incorrect');
+      playSound(isCorrect ? 'correct' : 'incorrect');
+    });
+
     return () => {
       clearInterval(heartbeatInterval);
       supabase.removeChannel(gameStateChannel);
@@ -109,6 +118,7 @@ const Client = () => {
       supabase.removeChannel(answersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
+      unsubReveal();
       unsubKick();
       unsubKickTeam();
     };
@@ -120,6 +130,7 @@ const Client = () => {
     setAnswer("");
     setHasAnswered(false);
     setAnswerResult(null);
+    setShowReveal(false);
     
     // Charger l'instance ID depuis game_state
     if (gameState?.current_question_instance_id) {
@@ -168,23 +179,8 @@ const Client = () => {
   };
 
   const checkAnswerResult = async () => {
-    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
-    
-    const { data } = await supabase
-      .from('team_answers')
-      .select('is_correct')
-      .eq('team_id', team.id)
-      .eq('question_id', currentQuestion.id)
-      .eq('game_session_id', gameState.game_session_id)
-      .maybeSingle();
-    
-    if (data && data.is_correct !== null) {
-      const result = data.is_correct ? 'correct' : 'incorrect';
-      if (result !== answerResult) {
-        setAnswerResult(result);
-        playSound(result);
-      }
-    }
+    // Ne rien faire ici - le reveal se fera via l'événement REVEAL_ANSWER
+    return;
   };
 
   const loadTeam = async () => {
@@ -345,16 +341,7 @@ const Client = () => {
     const finalAnswer = answerValue || answer;
     if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
-    // Pour les QCM, valider automatiquement la réponse
-    let isCorrect = null;
-    let pointsAwarded = 0;
-    const isQCM = currentQuestion.question_type === 'qcm';
-    
-    if (isQCM && currentQuestion.correct_answer) {
-      isCorrect = finalAnswer.toLowerCase().trim() === currentQuestion.correct_answer.toLowerCase().trim();
-      pointsAwarded = isCorrect ? (currentQuestion.points || 0) : 0;
-    }
-
+    // Ne PAS calculer is_correct ici, sera fait au reveal
     const { error } = await supabase
       .from('team_answers')
       .insert([
@@ -363,8 +350,8 @@ const Client = () => {
           question_id: currentQuestion.id,
           question_instance_id: currentQuestionInstanceId,
           answer: finalAnswer,
-          is_correct: isCorrect,
-          points_awarded: pointsAwarded,
+          is_correct: null,
+          points_awarded: 0,
           game_session_id: gameState.game_session_id
         }
       ]);
@@ -378,18 +365,9 @@ const Client = () => {
     } else {
       setAnswer("");
       setHasAnswered(true);
-      
-      // Mettre à jour le score de l'équipe pour les QCM
-      if (isQCM && isCorrect) {
-        await supabase
-          .from('teams')
-          .update({ score: (team.score || 0) + pointsAwarded })
-          .eq('id', team.id);
-      }
-      
       toast({
-        title: isQCM ? "Réponse enregistrée !" : "Réponse envoyée !",
-        description: isQCM ? (isCorrect ? `Bonne réponse ! +${pointsAwarded} pts` : "Réponse enregistrée") : "Votre réponse a été enregistrée",
+        title: "Réponse enregistrée !",
+        description: "En attente de la révélation...",
       });
     }
   };
@@ -493,7 +471,7 @@ const Client = () => {
         {/* Question et réponse */}
         {currentQuestion && (
           <Card className="p-6 bg-card/90 backdrop-blur-sm border-secondary/20 relative">
-            {answerResult && (
+            {showReveal && answerResult && (
               <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
                 answerResult === 'correct' 
                   ? 'from-green-500/90 to-emerald-500/90' 
