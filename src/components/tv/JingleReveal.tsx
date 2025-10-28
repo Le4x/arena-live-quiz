@@ -1,8 +1,9 @@
 /**
  * JingleReveal - Animation de révélation bonne/mauvaise réponse
- * Style TV show avec effets dramatiques
+ * Style TV show avec effets dramatiques (10s fixes, pas de countdown)
  */
 
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 
@@ -12,8 +13,16 @@ interface JingleRevealProps {
   duration?: number;
 }
 
-export const JingleReveal = ({ result, onComplete, duration = 3000 }: JingleRevealProps) => {
+export const JingleReveal = ({ result, onComplete, duration = 10000 }: JingleRevealProps) => {
   const isCorrect = result === 'correct';
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete?.();
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [duration, onComplete]);
 
   return (
     <AnimatePresence onExitComplete={onComplete}>
@@ -136,6 +145,24 @@ export const JingleReveal = ({ result, onComplete, duration = 3000 }: JingleReve
             />
           ))}
         </div>
+
+        {/* Effet lumineux pulsé */}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          animate={{
+            opacity: [0.3, 0.6, 0.3],
+            scale: [1, 1.05, 1],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <div className={`w-96 h-96 rounded-full blur-3xl ${
+            isCorrect ? 'bg-yellow-400/50' : 'bg-orange-400/50'
+          }`} />
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );

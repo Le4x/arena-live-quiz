@@ -19,20 +19,13 @@ export const JingleRoundIntro = ({
   onComplete, 
   duration = 10000 
 }: JingleRoundIntroProps) => {
-  const [countdown, setCountdown] = useState(Math.floor(duration / 1000));
-
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete?.();
     }, duration);
 
-    const interval = setInterval(() => {
-      setCountdown(prev => Math.max(0, prev - 1));
-    }, 1000);
-
     return () => {
       clearTimeout(timer);
-      clearInterval(interval);
     };
   }, [duration, onComplete]);
 
@@ -111,52 +104,21 @@ export const JingleRoundIntro = ({
             </h2>
           </motion.div>
 
-          {/* Countdown circle */}
+          {/* Effet lumineux pulsé */}
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 1.2, type: "spring" }}
-            className="relative mx-auto w-32 h-32"
-          >
-            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-                className="text-muted opacity-20"
-              />
-              <motion.circle
-                cx="50"
-                cy="50"
-                r="45"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-                strokeLinecap="round"
-                className="text-primary"
-                initial={{ pathLength: 1 }}
-                animate={{ pathLength: 0 }}
-                transition={{ duration: duration / 1000, ease: "linear" }}
-                style={{
-                  strokeDasharray: "283",
-                  strokeDashoffset: 0,
-                }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <motion.span 
-                key={countdown}
-                initial={{ scale: 1.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-5xl font-black text-primary"
-              >
-                {countdown}
-              </motion.span>
-            </div>
-          </motion.div>
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 0.8, 0.5]
+            }}
+            transition={{ 
+              delay: 1.2,
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="relative mx-auto w-48 h-48 bg-gradient-arena rounded-full blur-2xl"
+          />
 
           {/* Subtitle */}
           <motion.p

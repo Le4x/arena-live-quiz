@@ -4,7 +4,8 @@ import { Trophy, Zap, Check, X } from "lucide-react";
 import { playSound } from "@/lib/sounds";
 import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
 import { JingleReveal } from "@/components/tv/JingleReveal";
-import { LeaderboardTransition } from "@/components/tv/LeaderboardTransition";
+import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
+import { WaitingScreen } from "@/components/tv/WaitingScreen";
 
 const Screen = () => {
   const [teams, setTeams] = useState<any[]>([]);
@@ -191,10 +192,20 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Écran d'attente */}
+      {gameState?.show_waiting_screen && (
+        <WaitingScreen
+          sessionName={currentSession?.name}
+          connectedTeams={teams.filter(t => t.is_active).length}
+          totalTeams={teams.length}
+        />
+      )}
+
       {/* Animation de révélation bonne/mauvaise réponse */}
       {showRevealAnimation && revealResult && (
         <JingleReveal
           result={revealResult}
+          duration={10000}
           onComplete={() => setShowRevealAnimation(false)}
         />
       )}
@@ -341,16 +352,17 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Classement avec composant TV pro */}
+        {/* Classement paginé pour 30+ équipes */}
         {gameState?.show_leaderboard && (
-          <LeaderboardTransition
+          <LeaderboardPaginated
             teams={teams.map(t => ({
               id: t.id,
               name: t.name,
               score: t.score,
               color: t.color,
             }))}
-            topCount={20}
+            itemsPerPage={15}
+            rotationInterval={6000}
           />
         )}
 

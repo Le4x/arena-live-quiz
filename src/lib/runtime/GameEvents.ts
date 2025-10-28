@@ -12,7 +12,12 @@ export type GameEventType =
   | 'SHOW_LEADERBOARD'
   | 'HIDE_LEADERBOARD'
   | 'PLAY_JINGLE'
-  | 'SYNC_STATE';
+  | 'SYNC_STATE'
+  | 'KICK_ALL'
+  | 'KICK_TEAM'
+  | 'WAITING_SHOW'
+  | 'WAITING_HIDE'
+  | 'TOGGLE_BUZZER';
 
 export interface GameEvent {
   type: GameEventType;
@@ -33,6 +38,13 @@ export interface BuzzerResetEvent extends GameEvent {
   type: 'BUZZER_RESET';
   data: {
     questionInstanceId: string;
+  };
+}
+
+export interface KickTeamEvent extends GameEvent {
+  type: 'KICK_TEAM';
+  data: {
+    teamId: string;
   };
 }
 
@@ -141,6 +153,38 @@ export const gameEvents = {
   stopQuestion: async () => {
     await getGameEvents().emit({
       type: 'STOP_QUESTION',
+    });
+  },
+
+  kickAll: async () => {
+    await getGameEvents().emit({
+      type: 'KICK_ALL',
+    });
+  },
+
+  kickTeam: async (teamId: string) => {
+    await getGameEvents().emit<KickTeamEvent>({
+      type: 'KICK_TEAM',
+      data: { teamId },
+    });
+  },
+
+  showWaiting: async () => {
+    await getGameEvents().emit({
+      type: 'WAITING_SHOW',
+    });
+  },
+
+  hideWaiting: async () => {
+    await getGameEvents().emit({
+      type: 'WAITING_HIDE',
+    });
+  },
+
+  toggleBuzzer: async (isActive: boolean) => {
+    await getGameEvents().emit({
+      type: 'TOGGLE_BUZZER',
+      data: { isActive },
     });
   },
 };

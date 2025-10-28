@@ -1,14 +1,18 @@
+/**
+ * Régie TV - Interface de contrôle pro
+ * Layout optimisé 1366×768 sans scroll vertical
+ */
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, RotateCcw, Users, Timer, Radio, Music } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AudioDeck } from "@/components/audio/AudioDeck";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
 import { gameEvents } from "@/lib/runtime/GameEvents";
+import { ControlBar } from "@/components/regie/ControlBar";
 import type { SoundWithCues } from "@/pages/AdminSounds";
 
 const Regie = () => {
@@ -27,6 +31,7 @@ const Regie = () => {
   const [timerRemaining, setTimerRemaining] = useState(30);
   const [audioTracks, setAudioTracks] = useState<Track[]>([]);
   const [buzzerLocked, setBuzzerLocked] = useState(false);
+  const [buzzers, setBuzzers] = useState<any[]>([]);
 
   useEffect(() => {
     loadActiveSession();
@@ -34,6 +39,21 @@ const Regie = () => {
     loadQuestions();
     loadTeams();
     loadAudioTracks();
+
+    // Abonnement présence temps réel
+    const teamsChannel = supabase.channel('regie-teams')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadTeams)
+      .subscribe();
+
+    // Abonnement buzzers
+    const buzzersChannel = supabase.channel('regie-buzzers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, loadBuzzers)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(buzzersChannel);
+    };
   }, []);
 
   useEffect(() => {
@@ -46,16 +66,34 @@ const Regie = () => {
   }, [sessionId]);
 
   useEffect(() => {
+    loadBuzzers();
+  }, [currentQuestionId, sessionId]);
+
+  useEffect(() => {
     if (!timerActive || timerRemaining <= 0) return;
     const interval = setInterval(() => {
       setTimerRemaining(prev => {
         const next = prev - 1;
-        if (next <= 0) { setTimerActive(false); audioEngine.stopWithFade(300); toast({ title: '⏱️ Temps écoulé' }); }
+        if (next <= 0) { 
+          setTimerActive(false); 
+          audioEngine.stopWithFade(300); 
+          toast({ title: '⏱️ Temps écoulé' }); 
+        }
         return Math.max(0, next);
       });
     }, 1000);
     return () => clearInterval(interval);
   }, [timerActive, timerRemaining]);
+
+  // Auto-lock buzzer quand premier arrive
+  useEffect(() => {
+    if (buzzers.length > 0 && !buzzerLocked && gameState?.is_buzzer_active) {
+      setBuzzerLocked(true);
+      setTimerActive(false);
+      audioEngine.stopWithFade(300);
+      toast({ title: `🔔 ${buzzers[0].teams?.name} a buzzé !`, duration: 2000 });
+    }
+  }, [buzzers.length]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
@@ -79,8 +117,29 @@ const Regie = () => {
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').eq('is_active', true).order('name');
-    if (data) setConnectedTeams(data);
+    const { data } = await supabase.from('teams').select('*').order('name');
+    if (data) {
+      // Calculer présence (< 30s = connecté)
+      const now = new Date();
+      const withPresence = data.map(t => ({
+        ...t,
+        is_connected: t.last_seen_at ? (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000 : false
+      }));
+      setConnectedTeams(withPresence);
+    }
+  };
+
+  const loadBuzzers = async () => {
+    if (!currentQuestionId || !sessionId) {
+      setBuzzers([]);
+      return;
+    }
+    const { data } = await supabase.from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_id', currentQuestionId)
+      .eq('game_session_id', sessionId)
+      .order('buzzed_at', { ascending: true });
+    if (data) setBuzzers(data);
   };
 
   const loadAudioTracks = () => {
@@ -88,7 +147,15 @@ const Regie = () => {
     if (stored) {
       try {
         const sounds: SoundWithCues[] = JSON.parse(stored);
-        setAudioTracks(sounds.map(s => ({ id: s.id, name: s.name, url: s.url, cues: [{ label: 'Extrait', time: s.cue1_time }, { label: 'Solution', time: s.cue2_time }] })));
+        setAudioTracks(sounds.map(s => ({ 
+          id: s.id, 
+          name: s.name, 
+          url: s.url, 
+          cues: [
+            { label: 'Extrait', time: s.cue1_time }, 
+            { label: 'Solution', time: s.cue2_time }
+          ] 
+        })));
       } catch { setAudioTracks([]); }
     }
   };
@@ -99,7 +166,6 @@ const Regie = () => {
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
     
-    // Créer l'instance dans la BD
     await supabase.from('question_instances').insert({
       id: instanceId,
       question_id: question.id,
@@ -113,11 +179,13 @@ const Regie = () => {
       current_round_id: question.round_id, 
       is_buzzer_active: true, 
       timer_active: false, 
-      show_leaderboard: false, 
+      show_leaderboard: false,
+      show_waiting_screen: false,
       answer_result: null 
     }).eq('game_session_id', sessionId);
     
     setBuzzerLocked(false);
+    setBuzzers([]);
     await gameEvents.startQuestion(question.id, instanceId, sessionId!);
     
     if (question.audio_url) {
@@ -140,36 +208,61 @@ const Regie = () => {
       setBuzzerLocked(false);
       await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       const currentPos = audioEngine.getPosition();
-      if (currentPos < 30) { const q = questions.find(x => x.id === currentQuestionId); if (q?.audio_url) { const s = audioTracks.find(t => t.url === q.audio_url); if (s) await audioEngine.loadAndPlay(s, currentPos); } setTimerActive(true); }
+      if (currentPos < 30) { 
+        const q = questions.find(x => x.id === currentQuestionId); 
+        if (q?.audio_url) { 
+          const s = audioTracks.find(t => t.url === q.audio_url); 
+          if (s) await audioEngine.loadAndPlay(s, currentPos); 
+        } 
+        setTimerActive(true); 
+      }
       toast({ title: '❌ Mauvaise - Reprise' });
-    }, 2000);
+    }, 10000);
   };
 
   const handleCorrectAnswer = async () => {
     await supabase.from('game_state').update({ answer_result: 'correct', is_buzzer_active: false, timer_active: false }).eq('game_session_id', sessionId);
     const q = questions.find(x => x.id === currentQuestionId);
-    if (q?.audio_url) { const s = audioTracks.find(t => t.url === q.audio_url); if (s) { await audioEngine.loadAndPlay(s); await audioEngine.playSolution(8, 300, 300); } }
-    setTimeout(async () => { await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); toast({ title: '✅ Correcte' }); }, 3000);
+    if (q?.audio_url) { 
+      const s = audioTracks.find(t => t.url === q.audio_url); 
+      if (s) { 
+        await audioEngine.loadAndPlay(s); 
+        await audioEngine.playSolution(8, 300, 300); 
+      } 
+    }
+    setTimeout(async () => { 
+      await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
+      toast({ title: '✅ Correcte' }); 
+    }, 10000);
+  };
+
+  const toggleBuzzer = async () => {
+    const newState = !gameState?.is_buzzer_active;
+    await supabase.from('game_state').update({ is_buzzer_active: newState }).eq('game_session_id', sessionId);
+    await gameEvents.toggleBuzzer(newState);
+    if (newState) {
+      await gameEvents.resetBuzzer(currentQuestionInstanceId || '');
+      setBuzzerLocked(false);
+    }
+    toast({ title: newState ? '⚡ Buzzers activés' : '🚫 Buzzers désactivés' });
   };
 
   const showRoundIntro = async () => {
     const round = rounds.find(r => r.id === currentRoundId);
     if (!round) return;
     await supabase.from('game_state').update({ show_round_intro: true, current_round_intro: round.id }).eq('game_session_id', sessionId);
-    setTimeout(async () => { await supabase.from('game_state').update({ show_round_intro: false }).eq('game_session_id', sessionId); }, 10000);
+    if (round.jingle_url) await audioEngine.playJingle(round.jingle_url);
+    setTimeout(async () => { 
+      await supabase.from('game_state').update({ show_round_intro: false }).eq('game_session_id', sessionId); 
+    }, 10000);
     toast({ title: '🎬 Intro manche lancée' });
   };
 
   const showReveal = async (result: 'correct' | 'incorrect') => {
     await supabase.from('game_state').update({ answer_result: result }).eq('game_session_id', sessionId);
-    setTimeout(async () => { await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); }, 3000);
-    toast({ title: result === 'correct' ? '✅ Reveal bonne réponse' : '❌ Reveal mauvaise réponse' });
-  };
-
-  const toggleAmbientScreen = async () => {
-    const newValue = !gameState?.show_ambient_screen;
-    await supabase.from('game_state').update({ show_ambient_screen: newValue }).eq('game_session_id', sessionId);
-    toast({ title: newValue ? '🌟 Écran d\'attente activé' : '🎮 Écran d\'attente désactivé' });
+    setTimeout(async () => { 
+      await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
+    }, 10000);
   };
 
   const showLeaderboard = async () => {
@@ -179,6 +272,12 @@ const Regie = () => {
 
   const hideLeaderboard = async () => {
     await supabase.from('game_state').update({ show_leaderboard: false }).eq('game_session_id', sessionId);
+  };
+
+  const toggleWaitingScreen = async () => {
+    const newValue = !gameState?.show_waiting_screen;
+    await supabase.from('game_state').update({ show_waiting_screen: newValue }).eq('game_session_id', sessionId);
+    toast({ title: newValue ? '⏸️ Écran d\'attente activé' : '▶️ Retour au jeu' });
   };
 
   const resetSession = async () => {
@@ -192,10 +291,10 @@ const Regie = () => {
       current_round_id: null, 
       is_buzzer_active: false, 
       timer_active: false, 
-      show_leaderboard: false, 
+      show_leaderboard: false,
+      show_waiting_screen: false,
       answer_result: null,
-      excluded_teams: [],
-      show_ambient_screen: true
+      excluded_teams: []
     }).eq('game_session_id', sessionId);
     setCurrentQuestionId(null);
     setCurrentQuestionInstanceId(null);
@@ -212,6 +311,7 @@ const Regie = () => {
     if (!team) return;
     const newScore = Math.max(0, (team.score || 0) + delta);
     await supabase.from('teams').update({ score: newScore }).eq('id', teamId);
+    loadTeams();
     toast({ title: `${delta > 0 ? '+' : ''}${delta} pts pour ${team.name}` });
   };
 
@@ -222,56 +322,185 @@ const Regie = () => {
     toast({ title: '🔄 Scores réinitialisés' });
   };
 
+  const disconnectTeam = async (teamId: string) => {
+    await gameEvents.kickTeam(teamId);
+    toast({ title: '👋 Équipe déconnectée' });
+  };
+
+  const disconnectAll = async () => {
+    if (!confirm('Déconnecter toutes les équipes ?')) return;
+    await gameEvents.kickAll();
+    toast({ title: '👋 Toutes les équipes déconnectées' });
+  };
+
   const roundQuestions = currentRoundId ? questions.filter(q => q.round_id === currentRoundId) : [];
+  const connectedCount = connectedTeams.filter(t => t.is_connected).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background p-3">
-      <div className="max-w-[1400px] mx-auto space-y-3">
-        <Card className="p-3 bg-card/90 backdrop-blur border-primary/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent">Régie TV</h1>
-              <Badge variant="outline" className="gap-2"><Users className="h-3 w-3" />{connectedTeams.filter(t => t.is_active).length}/{connectedTeams.length} équipes</Badge>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>📺 Écran</Button>
-              <Button size="sm" variant="outline" onClick={toggleAmbientScreen}>{gameState?.show_ambient_screen ? '🎮' : '🌟'} Attente</Button>
-              <Button size="sm" variant="outline" onClick={showLeaderboard}>🏆 Classement</Button>
-              <Button size="sm" variant="destructive" onClick={resetSession}>🔄 Reset</Button>
-            </div>
+    <div className="h-screen bg-gradient-to-br from-background via-muted/30 to-background flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-3 border-b border-primary/20 bg-card/90 backdrop-blur flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent">Régie TV</h1>
+            <Badge variant="outline" className="gap-2">
+              <Users className="h-3 w-3" />
+              {connectedCount}/{connectedTeams.length}
+            </Badge>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>
+              <Monitor className="h-3 w-3 mr-1" />
+              Écran
+            </Button>
+            <Button size="sm" variant="outline" onClick={toggleWaitingScreen}>
+              {gameState?.show_waiting_screen ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            </Button>
+            <Button size="sm" variant="outline" onClick={showLeaderboard}>
+              <Trophy className="h-3 w-3" />
+            </Button>
+            <Button size="sm" variant="destructive" onClick={resetSession}>
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Control Bar */}
+      <div className="p-3 flex-shrink-0">
+        <ControlBar
+          timer={{
+            value: timerRemaining,
+            active: timerActive,
+            onToggle: () => setTimerActive(!timerActive),
+            onReset: () => { setTimerRemaining(30); setTimerActive(false); }
+          }}
+          audio={{
+            onPlayExtrait: () => {
+              const q = questions.find(x => x.id === currentQuestionId);
+              if (q?.audio_url) {
+                const t = audioTracks.find(x => x.url === q.audio_url);
+                if (t) { audioEngine.loadAndPlay(t); audioEngine.playClip30s(300); }
+              }
+            },
+            onPlaySolution: () => {
+              const q = questions.find(x => x.id === currentQuestionId);
+              if (q?.audio_url) {
+                const t = audioTracks.find(x => x.url === q.audio_url);
+                if (t) { audioEngine.loadAndPlay(t); audioEngine.playSolution(8, 300, 300); }
+              }
+            }
+          }}
+          buzzer={{
+            locked: buzzerLocked,
+            active: gameState?.is_buzzer_active || false,
+            onToggle: toggleBuzzer,
+            onWrong: handleWrongAnswer,
+            onCorrect: handleCorrectAnswer,
+            onReset: async () => {
+              await gameEvents.resetBuzzer(currentQuestionInstanceId || '');
+              setBuzzerLocked(false);
+            }
+          }}
+        />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-hidden flex gap-3 px-3 pb-3">
+        {/* Left: Questions */}
+        <Card className="flex-1 overflow-hidden flex flex-col">
+          <div className="p-3 border-b flex gap-2 overflow-x-auto flex-shrink-0">
+            {rounds.map(r => (
+              <Button 
+                key={r.id} 
+                variant={currentRoundId === r.id ? 'default' : 'outline'} 
+                size="sm" 
+                onClick={() => setCurrentRoundId(r.id)}
+              >
+                {r.title}
+              </Button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {roundQuestions.map(q => (
+              <div key={q.id} className="flex justify-between items-center p-3 border rounded bg-muted/30">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{q.question_text}</div>
+                  <div className="text-xs text-muted-foreground">{q.points} pts</div>
+                </div>
+                <Button size="sm" onClick={() => startQuestion(q)}>Lancer</Button>
+              </div>
+            ))}
           </div>
         </Card>
 
-        <Card className="p-4 bg-card/95 backdrop-blur border-accent/30">
-          <div className="grid grid-cols-12 gap-4 items-center">
-            <div className="col-span-4 flex items-center gap-2">
-              <Music className="h-4 w-4" />
-              <Button size="sm" variant="outline" onClick={() => { const q = questions.find(x => x.id === currentQuestionId); if (q?.audio_url) { const t = audioTracks.find(x => x.url === q.audio_url); if (t) { audioEngine.loadAndPlay(t); audioEngine.playClip30s(300); } } }}>Extrait 30s</Button>
-              <Button size="sm" variant="outline" onClick={() => { const q = questions.find(x => x.id === currentQuestionId); if (q?.audio_url) { const t = audioTracks.find(x => x.url === q.audio_url); if (t) { audioEngine.loadAndPlay(t); audioEngine.playSolution(8, 300, 300); } } }}>Solution</Button>
-            </div>
-            <div className="col-span-3 flex items-center gap-2">
-              <Timer className="h-4 w-4" />
-              <div className={`text-xl font-mono font-bold ${timerRemaining <= 5 ? 'text-destructive' : ''}`}>{timerRemaining}s</div>
-              <Button size="sm" onClick={() => setTimerActive(!timerActive)}>{timerActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setTimerRemaining(30); setTimerActive(false); }}><RotateCcw className="h-3 w-3" /></Button>
-            </div>
-            <div className="col-span-5 flex items-center gap-2">
-              <Radio className="h-4 w-4" />
-              <Button size="sm" onClick={() => { setBuzzerLocked(true); setTimerActive(false); audioEngine.stopWithFade(300); }} disabled={buzzerLocked}>{buzzerLocked ? 'BUZZÉ' : 'Buzz'}</Button>
-              <Button size="sm" onClick={handleWrongAnswer}>❌</Button>
-              <Button size="sm" onClick={handleCorrectAnswer}>✅</Button>
-              <Button size="sm" variant="ghost" onClick={async () => { await gameEvents.resetBuzzer(currentQuestionInstanceId || ''); setBuzzerLocked(false); }}>Reset</Button>
-            </div>
-          </div>
-        </Card>
+        {/* Right: Buzzers + Teams */}
+        <div className="w-96 flex flex-col gap-3 overflow-hidden">
+          {/* Buzzers */}
+          {buzzers.length > 0 && (
+            <Card className="p-3 flex-shrink-0">
+              <h3 className="font-bold mb-2 text-sm">Buzzers ({buzzers.length})</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {buzzers.map((b, i) => (
+                  <div key={b.id} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50 border" style={{ borderColor: b.teams?.color }}>
+                    <div className="font-bold w-6">#{i + 1}</div>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.teams?.color }} />
+                    <div className="flex-1 truncate font-medium">{b.teams?.name}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
-        <Tabs defaultValue="questions">
-          <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="questions">Questions</TabsTrigger><TabsTrigger value="audio">Audio</TabsTrigger><TabsTrigger value="teams">Équipes</TabsTrigger><TabsTrigger value="effects">Effets TV</TabsTrigger></TabsList>
-          <TabsContent value="questions"><Card className="p-4"><div className="grid grid-cols-4 gap-2 mb-4">{rounds.map(r => <Button key={r.id} variant={currentRoundId === r.id ? 'default' : 'outline'} size="sm" onClick={() => setCurrentRoundId(r.id)}>{r.title}</Button>)}</div><div className="space-y-2 max-h-96 overflow-y-auto">{roundQuestions.map(q => <div key={q.id} className="flex justify-between p-3 border rounded"><div><div className="font-semibold">{q.question_text}</div><div className="text-xs text-muted-foreground">{q.points} pts</div></div><Button size="sm" onClick={() => startQuestion(q)}>Lancer</Button></div>)}</div></Card></TabsContent>
-          <TabsContent value="audio"><AudioDeck tracks={audioTracks} /></TabsContent>
-          <TabsContent value="teams"><Card className="p-4"><div className="flex justify-between items-center mb-4"><h3 className="font-bold">Équipes ({connectedTeams.filter(t => t.is_active).length} connectées)</h3><Button size="sm" variant="outline" onClick={resetAllScores}>Reset scores</Button></div><div className="space-y-2">{connectedTeams.map(t => <div key={t.id} className="flex justify-between items-center p-3 border rounded"><div className="flex gap-2 items-center"><div className={`w-3 h-3 rounded-full ${t.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} title={t.is_active ? 'Connecté' : 'Déconnecté'} /><div className="w-6 h-6 rounded-full" style={{backgroundColor: t.color}} /><div><div className="font-bold">{t.name}</div><div className="text-xs">{t.score} pts</div></div></div><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, -5)}>-5</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button><Button size="sm" variant="outline" onClick={() => adjustTeamScore(t.id, 10)}>+10</Button></div></div>)}</div></Card></TabsContent>
-          <TabsContent value="effects"><Card className="p-4"><h3 className="font-bold mb-4">Effets TV & Jingles</h3><div className="space-y-3"><div className="space-y-2"><div className="text-sm font-semibold">Intro de manche</div><Button size="sm" className="w-full" onClick={showRoundIntro} disabled={!currentRoundId}>🎬 Lancer Intro Manche</Button></div><div className="space-y-2"><div className="text-sm font-semibold">Révélations</div><div className="flex gap-2"><Button size="sm" className="flex-1" onClick={() => showReveal('correct')}>✅ Bonne Réponse</Button><Button size="sm" className="flex-1" onClick={() => showReveal('incorrect')}>❌ Mauvaise Réponse</Button></div></div><div className="space-y-2"><div className="text-sm font-semibold">Classement</div><div className="flex gap-2"><Button size="sm" className="flex-1" onClick={showLeaderboard}>🏆 Afficher</Button><Button size="sm" className="flex-1" variant="outline" onClick={hideLeaderboard}>Masquer</Button></div></div></div></Card></TabsContent>
-        </Tabs>
+          {/* Teams */}
+          <Card className="flex-1 overflow-hidden flex flex-col">
+            <div className="p-3 border-b flex justify-between items-center flex-shrink-0">
+              <h3 className="font-bold text-sm">Équipes</h3>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={resetAllScores}>Reset</Button>
+                <Button size="sm" variant="ghost" onClick={disconnectAll}>Kick</Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {connectedTeams.map(t => (
+                <div key={t.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30">
+                  <div className={`w-2 h-2 rounded-full ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm truncate">{t.name}</div>
+                    <div className="text-xs">{t.score} pts</div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Effets TV */}
+          <Card className="p-3 flex-shrink-0">
+            <h3 className="font-bold mb-2 text-sm">Effets TV</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="outline" onClick={showRoundIntro}>
+                <Sparkles className="h-3 w-3 mr-1" />
+                Intro
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => showReveal('correct')}>
+                ✅
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => showReveal('incorrect')}>
+                ❌
+              </Button>
+              <Button size="sm" variant="outline" onClick={hideLeaderboard}>
+                Masquer
+              </Button>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

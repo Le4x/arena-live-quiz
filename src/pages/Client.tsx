@@ -63,12 +63,18 @@ const Client = () => {
       })
       .subscribe();
 
+    // Heartbeat présence (toutes les 15s)
+    const heartbeatInterval = setInterval(async () => {
+      if (teamId) {
+        await supabase.from('teams').update({ last_seen_at: new Date().toISOString() }).eq('id', teamId);
+      }
+    }, 15000);
+
     // S'abonner aux événements de jeu
     const unsubBuzzerReset = gameEvents.on<BuzzerResetEvent>('BUZZER_RESET', (event) => {
       console.log('🔔 Événement BUZZER_RESET reçu', event);
       if (event.data.questionInstanceId === currentQuestionInstanceId) {
         setHasBuzzed(false);
-        // Auto-focus sur le bouton buzzer
         setTimeout(() => {
           buzzerButtonRef.current?.focus();
         }, 100);
@@ -79,17 +85,32 @@ const Client = () => {
       }
     });
 
+    const unsubKick = gameEvents.on('KICK_ALL', () => {
+      toast({ title: "👋 Déconnecté par la régie" });
+      setTimeout(() => window.location.href = '/', 2000);
+    });
+
+    const unsubKickTeam = gameEvents.on('KICK_TEAM', (event: any) => {
+      if (event.data?.teamId === teamId) {
+        toast({ title: "👋 Déconnecté par la régie" });
+        setTimeout(() => window.location.href = '/', 2000);
+      }
+    });
+
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
       console.log('🎯 Nouvelle question', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
+      unsubKick();
+      unsubKickTeam();
     };
   }, [teamId, currentQuestionInstanceId]);
 

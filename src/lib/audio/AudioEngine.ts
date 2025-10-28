@@ -236,6 +236,35 @@ export class AudioEngine {
   }
 
   /**
+   * Jouer un jingle exactement 10s avec fade in/out
+   */
+  async playJingle(url: string, options: { fadeInMs?: number; fadeOutMs?: number; durationMs?: number } = {}): Promise<void> {
+    const { fadeInMs = 150, fadeOutMs = 150, durationMs = 10000 } = options;
+    
+    try {
+      // Créer une track temporaire pour le jingle
+      const jingleTrack: Track = {
+        id: 'jingle-temp',
+        name: 'Jingle',
+        url,
+        cues: []
+      };
+
+      // Charger et jouer
+      await this.loadAndPlay(jingleTrack);
+      await this.fadeIn(fadeInMs);
+
+      // Auto-stop après durée avec fade out
+      if (this.autoStopTimeout) clearTimeout(this.autoStopTimeout);
+      this.autoStopTimeout = window.setTimeout(async () => {
+        await this.stopWithFade(fadeOutMs);
+      }, durationMs - fadeOutMs);
+    } catch (error) {
+      console.error('Erreur lecture jingle:', error);
+    }
+  }
+
+  /**
    * Obtenir la position actuelle
    */
   getPosition(): number {

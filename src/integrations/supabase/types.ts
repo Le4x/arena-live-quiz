@@ -116,6 +116,7 @@ export type Database = {
           show_leaderboard: boolean | null
           show_pause_screen: boolean | null
           show_round_intro: boolean | null
+          show_waiting_screen: boolean | null
           timer_active: boolean | null
           timer_remaining: number | null
           updated_at: string | null
@@ -136,6 +137,7 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_waiting_screen?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
@@ -156,6 +158,7 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_waiting_screen?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
@@ -367,6 +370,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          last_seen_at: string | null
           name: string
           score: number | null
         }
@@ -377,6 +381,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_seen_at?: string | null
           name: string
           score?: number | null
         }
@@ -387,6 +392,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_seen_at?: string | null
           name?: string
           score?: number | null
         }
