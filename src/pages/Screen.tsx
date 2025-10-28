@@ -78,12 +78,16 @@ const Screen = () => {
           setCurrentQuestion(null);
         }
         
-        // Charger la manche actuelle si elle existe
-        if (gameStateData.current_round_id) {
+        // Charger la manche pour l'intro (current_round_intro) ou pour le jeu (current_round_id)
+        const roundIdToLoad = gameStateData.show_round_intro 
+          ? gameStateData.current_round_intro 
+          : gameStateData.current_round_id;
+          
+        if (roundIdToLoad) {
           const { data: roundData } = await supabase
             .from('rounds')
             .select('*')
-            .eq('id', gameStateData.current_round_id)
+            .eq('id', roundIdToLoad)
             .single();
           
           if (roundData) {
@@ -390,12 +394,29 @@ const Screen = () => {
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8">
                 {(() => {
-                  console.log('🎯 Options QCM:', currentQuestion.options);
-                  const options = Array.isArray(currentQuestion.options) 
-                    ? currentQuestion.options 
-                    : typeof currentQuestion.options === 'string'
-                    ? JSON.parse(currentQuestion.options)
-                    : [];
+                  console.log('🎯 Options QCM raw:', currentQuestion.options, typeof currentQuestion.options);
+                  
+                  let options = [];
+                  
+                  // Si c'est déjà un array
+                  if (Array.isArray(currentQuestion.options)) {
+                    options = currentQuestion.options;
+                  }
+                  // Si c'est un string JSON
+                  else if (typeof currentQuestion.options === 'string') {
+                    try {
+                      const parsed = JSON.parse(currentQuestion.options);
+                      options = Array.isArray(parsed) ? parsed : Object.values(parsed);
+                    } catch (e) {
+                      console.error('Error parsing options:', e);
+                    }
+                  }
+                  // Si c'est un objet JSONB de Supabase
+                  else if (typeof currentQuestion.options === 'object') {
+                    options = Object.values(currentQuestion.options);
+                  }
+                  
+                  console.log('✅ Options parsed:', options);
                   
                   return options.map((option: string, idx: number) => (
                     <div 
