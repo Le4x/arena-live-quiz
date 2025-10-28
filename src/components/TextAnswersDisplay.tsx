@@ -51,12 +51,30 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
     if (data) setAnswers(data);
   };
 
-  const markAnswer = async (answerId: string, isCorrect: boolean, points: number) => {
+  const markAnswer = async (answerId: string, teamId: string, isCorrect: boolean, points: number) => {
+    // Récupérer le score actuel de l'équipe et l'ancien statut de la réponse
+    const answer = answers.find(a => a.id === answerId);
+    if (!answer) return;
+
+    const { data: team } = await supabase
+      .from('teams')
+      .select('score')
+      .eq('id', teamId)
+      .single();
+
+    if (!team) return;
+
+    // Calculer l'ajustement de score
+    const oldPoints = answer.points_awarded || 0;
+    const newPoints = isCorrect ? points : 0;
+    const scoreDelta = newPoints - oldPoints;
+
+    // Mettre à jour la réponse
     const { error } = await supabase
       .from('team_answers')
       .update({ 
         is_correct: isCorrect,
-        points_awarded: isCorrect ? points : 0
+        points_awarded: newPoints
       })
       .eq('id', answerId);
 
@@ -66,12 +84,23 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
         description: "Impossible de noter la réponse",
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: isCorrect ? "Réponse correcte" : "Réponse incorrecte",
-      });
-      loadAnswers();
+      return;
     }
+
+    // Ajuster le score de l'équipe
+    if (scoreDelta !== 0) {
+      await supabase
+        .from('teams')
+        .update({ score: team.score + scoreDelta })
+        .eq('id', teamId);
+    }
+
+    toast({
+      title: isCorrect ? "Réponse correcte" : "Réponse incorrecte",
+      description: scoreDelta !== 0 ? `Score ajusté de ${scoreDelta > 0 ? '+' : ''}${scoreDelta} pts` : undefined
+    });
+    
+    loadAnswers();
   };
 
   if (!currentQuestionId || answers.length === 0) return null;
@@ -103,7 +132,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
                   size="sm"
                   variant={answer.is_correct === true ? "default" : "outline"}
                   className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => markAnswer(answer.id, true, 10)}
+                  onClick={() => markAnswer(answer.id, answer.team_id, true, 10)}
                 >
                   <CheckCircle2 className="h-4 w-4" />
                 </Button>
@@ -111,7 +140,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
                   size="sm"
                   variant={answer.is_correct === false ? "default" : "outline"}
                   className="bg-red-600 hover:bg-red-700 text-white"
-                  onClick={() => markAnswer(answer.id, false, 0)}
+                  onClick={() => markAnswer(answer.id, answer.team_id, false, 0)}
                 >
                   <XCircle className="h-4 w-4" />
                 </Button>

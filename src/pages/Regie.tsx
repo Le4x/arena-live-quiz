@@ -284,7 +284,77 @@ const Regie = () => {
 
   const showReveal = async () => {
     await supabase.from('game_state').update({ show_answer: true }).eq('game_session_id', sessionId);
-    toast({ title: '👁️ Réponse révélée' });
+    
+    // Attribution automatique des points
+    const currentQ = questions.find(q => q.id === currentQuestionId);
+    if (!currentQ || !sessionId) {
+      toast({ title: '👁️ Réponse révélée' });
+      return;
+    }
+
+    if (currentQ.question_type === 'qcm' || currentQ.question_type === 'blind_test') {
+      // Pour QCM et Blind Test : vérification simple et attribution automatique
+      const { data: answers } = await supabase
+        .from('team_answers')
+        .select('*, teams(score)')
+        .eq('question_id', currentQuestionId)
+        .eq('game_session_id', sessionId);
+
+      if (answers) {
+        for (const answer of answers) {
+          const isCorrect = answer.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim();
+          const points = isCorrect ? (currentQ.points || 10) : 0;
+          
+          // Mettre à jour la réponse
+          await supabase
+            .from('team_answers')
+            .update({ 
+              is_correct: isCorrect,
+              points_awarded: points
+            })
+            .eq('id', answer.id);
+
+          // Mettre à jour le score de l'équipe
+          if (isCorrect && answer.teams) {
+            await supabase
+              .from('teams')
+              .update({ score: (answer.teams.score || 0) + points })
+              .eq('id', answer.team_id);
+          }
+        }
+        toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
+      }
+    } else if (currentQ.question_type === 'text') {
+      // Pour les textes libres : vérification IA avec tolérance aux fautes
+      toast({ title: '⏳ Vérification IA en cours...' });
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('check-text-answers', {
+          body: { 
+            questionId: currentQuestionId,
+            correctAnswer: currentQ.correct_answer,
+            sessionId: sessionId
+          }
+        });
+
+        if (error) throw error;
+        
+        const correctCount = data.results?.filter((r: any) => r.isCorrect).length || 0;
+        toast({ 
+          title: '👁️ Réponse révélée et vérifiée', 
+          description: `${correctCount} réponse(s) acceptée(s) (vous pouvez ajuster manuellement)` 
+        });
+      } catch (error) {
+        console.error('Erreur vérification IA:', error);
+        toast({ 
+          title: '⚠️ Réponse révélée', 
+          description: 'Erreur lors de la vérification automatique, veuillez corriger manuellement',
+          variant: 'destructive'
+        });
+      }
+    } else {
+      toast({ title: '👁️ Réponse révélée' });
+    }
   };
 
   const hideReveal = async () => {
