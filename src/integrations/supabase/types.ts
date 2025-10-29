@@ -211,6 +211,51 @@ export type Database = {
           },
         ]
       }
+      help_requests: {
+        Row: {
+          created_at: string | null
+          game_session_id: string | null
+          id: string
+          message: string | null
+          resolved_at: string | null
+          status: string | null
+          team_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          game_session_id?: string | null
+          id?: string
+          message?: string | null
+          resolved_at?: string | null
+          status?: string | null
+          team_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          game_session_id?: string | null
+          id?: string
+          message?: string | null
+          resolved_at?: string | null
+          status?: string | null
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_requests_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "help_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null

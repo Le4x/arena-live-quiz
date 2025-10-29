@@ -56,6 +56,7 @@ export default {
         'glow-gold': 'var(--glow-gold)',
         'glow-blue': 'var(--glow-blue)',
         'glow-purple': 'var(--glow-purple)',
+        'elegant': '0 10px 30px -10px hsl(var(--primary) / 0.3)',
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -79,10 +80,21 @@ export default {
             height: "0",
           },
         },
+        "scale-in": {
+          "0%": {
+            transform: "scale(0.95)",
+            opacity: "0"
+          },
+          "100%": {
+            transform: "scale(1)",
+            opacity: "1"
+          }
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "scale-in": "scale-in 0.2s ease-out",
       },
     },
   },

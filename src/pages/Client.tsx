@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Trophy, Zap, Check, X, Send } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
@@ -29,6 +30,10 @@ const Client = () => {
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(30);
   const [timerDuration, setTimerDuration] = useState(30);
+  const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [teamRank, setTeamRank] = useState<number>(0);
+  const [isRequestingHelp, setIsRequestingHelp] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
 
@@ -47,6 +52,8 @@ const Client = () => {
       loadTeam();
     }
     loadGameState();
+    loadAllTeams();
+    loadActiveSession();
 
     const gameStateChannel = supabase
       .channel('client-game-state')
@@ -59,6 +66,7 @@ const Client = () => {
       .channel('client-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
         loadTeam();
+        loadAllTeams();
       })
       .subscribe();
 
@@ -355,6 +363,52 @@ const Client = () => {
     }
   };
 
+  const loadAllTeams = async () => {
+    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
+    if (data) {
+      setAllTeams(data);
+      // Calculer le classement de l'équipe actuelle
+      const rank = data.findIndex(t => t.id === teamId) + 1;
+      setTeamRank(rank);
+    }
+  };
+
+  const loadActiveSession = async () => {
+    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
+    if (data) setSessionId(data.id);
+  };
+
+  const requestHelp = async () => {
+    if (!teamId || !sessionId || isRequestingHelp) return;
+    
+    setIsRequestingHelp(true);
+    
+    try {
+      await supabase.from('help_requests').insert({
+        team_id: teamId,
+        game_session_id: sessionId,
+        message: 'Demande d\'aide de l\'équipe',
+        status: 'pending'
+      });
+      
+      toast({ 
+        title: '🆘 Demande envoyée', 
+        description: 'La régie a été informée de votre demande d\'aide'
+      });
+      
+      // Réactiver le bouton après 30 secondes
+      setTimeout(() => setIsRequestingHelp(false), 30000);
+    } catch (error) {
+      console.error('Erreur demande d\'aide:', error);
+      toast({ 
+        title: '❌ Erreur', 
+        description: 'Impossible d\'envoyer la demande',
+        variant: 'destructive'
+      });
+      setIsRequestingHelp(false);
+    }
+  };
+
   const loadGameState = async () => {
     const { data } = await supabase
       .from('game_state')
@@ -605,20 +659,100 @@ const Client = () => {
     );
   }
 
+  const getRankIcon = () => {
+    switch (teamRank) {
+      case 1: return <Crown className="h-8 w-8 text-yellow-500" />;
+      case 2: return <Medal className="h-8 w-8 text-gray-400" />;
+      case 3: return <Award className="h-8 w-8 text-amber-700" />;
+      default: return <Trophy className="h-8 w-8 text-muted-foreground" />;
+    }
+  };
+
+  const getRankBadgeColor = () => {
+    switch (teamRank) {
+      case 1: return "bg-gradient-to-r from-yellow-500 to-amber-500 text-white";
+      case 2: return "bg-gradient-to-r from-gray-300 to-gray-500 text-white";
+      case 3: return "bg-gradient-to-r from-amber-600 to-amber-800 text-white";
+      default: return "bg-primary/20 text-primary";
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-glow p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header équipe */}
-        <Card className="p-6 bg-card/90 backdrop-blur-sm border-2" style={{ borderColor: team.color }}>
-          <div className="flex items-center gap-4">
-            <div 
-              className="w-16 h-16 rounded-full"
-              style={{ backgroundColor: team.color }}
-            ></div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold">{team.name}</h2>
-              <p className="text-muted-foreground">Score: {team.score} points</p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-4">
+      <div className="max-w-2xl mx-auto space-y-4">
+        {/* Header équipe premium avec classement */}
+        <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in" 
+              style={{ borderColor: team.color }}>
+          {/* Effet de brillance */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+          
+          <div className="relative p-6">
+            <div className="flex items-center gap-4 mb-4">
+              {/* Avatar avec effet glow */}
+              <div className="relative">
+                <div 
+                  className="w-20 h-20 rounded-full shadow-elegant animate-pulse"
+                  style={{ 
+                    backgroundColor: team.color,
+                    boxShadow: `0 0 30px ${team.color}80`
+                  }}
+                />
+                <div className="absolute -bottom-1 -right-1">
+                  {getRankIcon()}
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    {team.name}
+                  </h2>
+                  <Badge className={`${getRankBadgeColor()} font-bold px-3 py-1 text-sm`}>
+                    #{teamRank}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <p className="text-2xl font-bold text-primary">
+                    {team.score} pts
+                  </p>
+                  <div className="text-sm text-muted-foreground">
+                    {teamRank === 1 && "🏆 En tête !"}
+                    {teamRank === 2 && "🥈 Deuxième"}
+                    {teamRank === 3 && "🥉 Troisième"}
+                    {teamRank > 3 && `${teamRank}e position`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bouton d'aide */}
+              <Button
+                onClick={requestHelp}
+                disabled={isRequestingHelp}
+                variant="outline"
+                size="lg"
+                className="bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-gold"
+              >
+                <HelpCircle className="h-6 w-6 text-red-500" />
+              </Button>
             </div>
+
+            {/* Barre de progression vs leader (si pas leader) */}
+            {teamRank > 1 && allTeams[0] && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Écart avec le leader</span>
+                  <span className="font-bold">{allTeams[0].score - team.score} pts</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+                    style={{ 
+                      width: `${Math.max(10, (team.score / allTeams[0].score) * 100)}%` 
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -634,45 +768,69 @@ const Client = () => {
 
         {/* Buzzer - Uniquement pour blind test */}
         {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
-          <Card className="p-8 bg-card/90 backdrop-blur-sm border-primary/20">
-            <Button
-              ref={buzzerButtonRef}
-              onClick={handleBuzzer}
-              disabled={hasBuzzed}
-              className="w-full h-32 text-3xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold disabled:opacity-50 transition-all"
-            >
-              <Zap className="mr-4 h-12 w-12" />
-              {hasBuzzed ? "BUZZÉ !" : "BUZZER"}
-            </Button>
+          <Card className="relative overflow-hidden p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
+            <div className="relative">
+              <Button
+                ref={buzzerButtonRef}
+                onClick={handleBuzzer}
+                disabled={hasBuzzed}
+                className="w-full h-36 text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                style={{
+                  boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(212, 175, 55, 0.5)'
+                }}
+              >
+                <Zap className="mr-4 h-16 w-16 animate-pulse" />
+                {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
+              </Button>
+            </div>
           </Card>
         )}
 
         {/* Question et réponse */}
         {currentQuestion && (
-          <Card className="p-6 bg-card/90 backdrop-blur-sm border-secondary/20 relative">
+          <Card className="relative overflow-hidden p-6 bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 border-secondary/30 shadow-2xl animate-fade-in">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
+            
             {showReveal && answerResult && (
               <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
                 answerResult === 'correct' 
-                  ? 'from-green-500/90 to-emerald-500/90' 
-                  : 'from-red-500/90 to-rose-500/90'
-              } rounded-lg animate-scale-in z-10`}>
-                <div className="text-center">
+                  ? 'from-green-500/95 to-emerald-600/95' 
+                  : 'from-red-500/95 to-rose-600/95'
+              } rounded-lg animate-scale-in z-10 backdrop-blur-sm`}>
+                <div className="text-center animate-bounce">
                   {answerResult === 'correct' ? (
                     <>
-                      <Check className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
-                      <p className="text-4xl font-bold text-white">BONNE RÉPONSE !</p>
+                      <Check className="w-32 h-32 mx-auto mb-4 text-white drop-shadow-glow" />
+                      <p className="text-5xl font-bold text-white drop-shadow-lg">BONNE RÉPONSE !</p>
+                      <p className="text-xl text-white/80 mt-2">🎉 Félicitations !</p>
                     </>
                   ) : (
                     <>
-                      <X className="w-24 h-24 mx-auto mb-4 text-white animate-bounce" />
-                      <p className="text-4xl font-bold text-white">MAUVAISE RÉPONSE</p>
+                      <X className="w-32 h-32 mx-auto mb-4 text-white drop-shadow-glow" />
+                      <p className="text-5xl font-bold text-white drop-shadow-lg">MAUVAISE RÉPONSE</p>
+                      <p className="text-xl text-white/80 mt-2">Dommage... Tentez votre chance !</p>
                     </>
                   )}
                 </div>
               </div>
             )}
-            <h3 className="text-xl font-bold text-secondary mb-4">Question actuelle</h3>
-            <p className="text-lg mb-6">{currentQuestion.question_text}</p>
+            
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-4">
+                <Badge className="bg-gradient-to-r from-secondary to-accent text-white font-bold px-4 py-1">
+                  {currentQuestion.question_type === 'blind_test' ? '🎵 Blind Test' : 
+                   currentQuestion.question_type === 'qcm' ? '📋 QCM' : 
+                   '✍️ Texte libre'}
+                </Badge>
+                <Badge variant="outline" className="font-bold">
+                  {currentQuestion.points || 10} points
+                </Badge>
+              </div>
+              
+              <h3 className="text-2xl font-bold text-secondary mb-6 leading-relaxed">
+                {currentQuestion.question_text}
+              </h3>
 
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="space-y-3 mb-6">
@@ -767,6 +925,7 @@ const Client = () => {
                 )}
               </div>
             )}
+            </div>
           </Card>
         )}
 

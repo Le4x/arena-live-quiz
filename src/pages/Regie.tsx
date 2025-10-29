@@ -20,6 +20,7 @@ import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { AudioDeck } from "@/components/audio/AudioDeck";
 import { TimerBar } from "@/components/TimerBar";
+import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -1014,6 +1015,10 @@ const Regie = () => {
           </Tabs>
         </div>
       </div>
+      
+      {/* Moniteur des demandes d'aide */}
+      <HelpRequestMonitor sessionId={sessionId} />
+      
       <Toaster />
     </div>
   );
