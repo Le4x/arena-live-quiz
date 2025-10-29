@@ -153,6 +153,12 @@ export class AudioEngine {
    * Stop complet
    */
   stop(): void {
+    // Annuler tous les timeouts automatiques
+    if (this.autoStopTimeout) {
+      clearTimeout(this.autoStopTimeout);
+      this.autoStopTimeout = null;
+    }
+    
     if (this.currentSource) {
       this.currentSource.stop();
       this.currentSource.disconnect();

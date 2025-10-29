@@ -434,19 +434,21 @@ const Regie = () => {
         if (currentQ?.audio_url) { 
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
+            // S'assurer que le track est chargé dans l'engine
+            await audioEngine.preloadTrack(s);
+            audioEngine['currentTrack'] = s;
+            audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
+            
             // Reprendre à la position absolue = CUE1 + position relative sauvegardée
             const cue1Time = s.cues[0]?.time || 0;
             const resumePosition = cue1Time + audioPositionWhenBuzzed;
-            await audioEngine.loadAndPlay(s, resumePosition);
-            console.log('🎵 Reprise musique: CUE1 =', cue1Time, ', position relative =', audioPositionWhenBuzzed, ', position absolue =', resumePosition);
+            const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
             
-            // Arrêter la musique automatiquement après le temps restant
-            if (timerWhenBuzzed !== null) {
-              setTimeout(() => {
-                audioEngine.stopWithFade(500);
-                console.log('🎵 Fin de l\'extrait - Arrêt automatique après', timerWhenBuzzed, 'secondes');
-              }, timerWhenBuzzed * 1000);
-            }
+            // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
+            await audioEngine.playFromTo(resumePosition, endPosition, 300);
+            
+            console.log('🎵 Reprise musique: CUE1 =', cue1Time, ', position relative =', audioPositionWhenBuzzed, 
+                        ', position absolue =', resumePosition, ', fin prévue à', endPosition);
           }
         }
         
