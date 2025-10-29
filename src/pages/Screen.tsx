@@ -53,12 +53,33 @@ const Screen = () => {
         event: 'INSERT', 
         schema: 'public', 
         table: 'buzzer_attempts' 
-      }, (payload) => {
+      }, async (payload) => {
         console.log('🔄 Screen: Buzzer INSERT détecté EN TEMPS RÉEL', payload);
-        // Forcer le rechargement immédiat
-        loadBuzzers();
-        // Forcer aussi le rechargement des données pour être sûr
-        loadData();
+        
+        // Récupérer directement les données du buzzer avec l'équipe
+        const { data: buzzerWithTeam, error } = await supabase
+          .from('buzzer_attempts')
+          .select('*, teams(*)')
+          .eq('id', payload.new.id)
+          .single();
+        
+        if (buzzerWithTeam && !error) {
+          console.log('✅ Buzzer avec équipe récupéré:', buzzerWithTeam);
+          
+          // Mettre à jour les buzzers immédiatement
+          setBuzzers(prev => {
+            // Si c'est le premier buzzer, déclencher l'animation
+            if (prev.length === 0) {
+              console.log('🎉 PREMIER BUZZER - Déclenchement animation!');
+              setShowBuzzerNotif(true);
+              setTimeout(() => {
+                console.log('⏰ Masquage notification buzzer');
+                setShowBuzzerNotif(false);
+              }, 5000);
+            }
+            return [...prev, buzzerWithTeam];
+          });
+        }
       })
       .on('postgres_changes', { 
         event: 'DELETE', 
