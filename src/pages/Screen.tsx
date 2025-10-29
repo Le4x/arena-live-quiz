@@ -7,6 +7,7 @@ import { JingleReveal } from "@/components/tv/JingleReveal";
 import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
 import { WaitingScreen } from "@/components/tv/WaitingScreen";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
+import { TimerBar } from "@/components/TimerBar";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -23,6 +24,7 @@ const Screen = () => {
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
   const [buzzerNotification, setBuzzerNotification] = useState<{show: boolean, team: any} | null>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
+  const [timerDuration, setTimerDuration] = useState(30);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -195,7 +197,7 @@ const Screen = () => {
   const loadData = async () => {
     const [teamsRes, gameStateRes] = await Promise.all([
       supabase.from('teams').select('*').order('score', { ascending: false }),
-      supabase.from('game_state').select('*, questions(*), game_sessions(*)').maybeSingle()
+      supabase.from('game_state').select('*, questions(*), game_sessions(*), current_round_id:rounds!current_round_id(*)').maybeSingle()
     ]);
 
     if (teamsRes.data) {
@@ -210,6 +212,11 @@ const Screen = () => {
     
     if (gameStateRes.data) {
       setGameState(gameStateRes.data);
+      
+      // Récupérer la durée du timer depuis le round
+      if (gameStateRes.data.current_round_id?.timer_duration) {
+        setTimerDuration(gameStateRes.data.current_round_id.timer_duration);
+      }
       
       // NE PAS charger la question si on affiche l'intro de manche
       if (!gameStateRes.data.show_round_intro) {
@@ -442,47 +449,15 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Chronomètre discret en haut à droite */}
+        {/* Barre de timer */}
         {timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
-          <div className="fixed top-6 right-6 z-30 animate-slide-in">
-            <div className="relative">
-              {/* Cercle extérieur animé */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-lg animate-pulse" />
-              
-              {/* Cercle principal */}
-              <div className="relative bg-card/95 backdrop-blur-xl rounded-full w-28 h-28 flex items-center justify-center shadow-glow-gold border-2 border-primary/40">
-                <div className="text-center">
-                  <div className="text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent">
-                    {timer}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Cercle de progression */}
-              <svg className="absolute inset-0 w-28 h-28 -rotate-90">
-                <circle
-                  cx="56"
-                  cy="56"
-                  r="52"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  fill="none"
-                  className="text-primary/20"
-                />
-                <circle
-                  cx="56"
-                  cy="56"
-                  r="52"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 52}`}
-                  strokeDashoffset={`${2 * Math.PI * 52 * (1 - timer / 30)}`}
-                  className="text-primary transition-all duration-1000"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
+          <div className="max-w-5xl mx-auto mb-6 animate-slide-in">
+            <TimerBar 
+              timerRemaining={timer}
+              timerDuration={timerDuration}
+              timerActive={gameState?.timer_active || false}
+              questionType={currentQuestion.question_type}
+            />
           </div>
         )}
 
