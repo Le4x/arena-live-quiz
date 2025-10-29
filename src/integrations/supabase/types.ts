@@ -124,7 +124,9 @@ export type Database = {
           show_leaderboard: boolean | null
           show_pause_screen: boolean | null
           show_round_intro: boolean | null
+          show_team_connection_screen: boolean | null
           show_waiting_screen: boolean | null
+          show_welcome_screen: boolean | null
           timer_active: boolean | null
           timer_remaining: number | null
           updated_at: string | null
@@ -146,7 +148,9 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_team_connection_screen?: boolean | null
           show_waiting_screen?: boolean | null
+          show_welcome_screen?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
@@ -168,7 +172,9 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_team_connection_screen?: boolean | null
           show_waiting_screen?: boolean | null
+          show_welcome_screen?: boolean | null
           timer_active?: boolean | null
           timer_remaining?: number | null
           updated_at?: string | null
