@@ -147,14 +147,14 @@ const Screen = () => {
       timer_remaining: gameState?.timer_remaining 
     });
     
+    // TOUJOURS synchroniser avec la valeur de la DB
+    if (gameState?.timer_remaining !== null && gameState?.timer_remaining !== undefined) {
+      console.log('⏱️ Screen: Syncing timer to', gameState.timer_remaining);
+      setTimer(gameState.timer_remaining);
+    }
+    
     if (gameState?.timer_active) {
-      // Initialiser le timer avec la valeur de la DB
-      if (gameState.timer_remaining !== null && gameState.timer_remaining !== undefined) {
-        console.log('⏱️ Screen: Setting timer to', gameState.timer_remaining);
-        setTimer(gameState.timer_remaining);
-      }
-      
-      // Démarrer le compte à rebours local
+      // Démarrer le compte à rebours local SEULEMENT après synchronisation
       interval = setInterval(() => {
         setTimer((prev) => {
           if (prev === null || prev <= 0) {
