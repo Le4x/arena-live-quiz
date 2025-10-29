@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
@@ -699,6 +699,40 @@ const Regie = () => {
     toast({ title: newValue ? '⏸️ Écran d\'attente activé' : '▶️ Retour au jeu' });
   };
 
+  const toggleWelcomeScreen = async () => {
+    const newValue = !gameState?.show_welcome_screen;
+    
+    // Désactiver les autres écrans
+    await supabase.from('game_state').update({ 
+      show_welcome_screen: newValue,
+      show_team_connection_screen: false,
+      show_waiting_screen: false,
+      current_question_id: null,
+      show_answer: false,
+      timer_active: false,
+      is_buzzer_active: false
+    }).eq('game_session_id', sessionId);
+    
+    toast({ title: newValue ? '🏠 Écran d\'accueil activé' : '▶️ Retour au jeu' });
+  };
+
+  const toggleTeamConnectionScreen = async () => {
+    const newValue = !gameState?.show_team_connection_screen;
+    
+    // Désactiver les autres écrans
+    await supabase.from('game_state').update({ 
+      show_team_connection_screen: newValue,
+      show_welcome_screen: false,
+      show_waiting_screen: false,
+      current_question_id: null,
+      show_answer: false,
+      timer_active: false,
+      is_buzzer_active: false
+    }).eq('game_session_id', sessionId);
+    
+    toast({ title: newValue ? '📡 Écran de connexion activé' : '▶️ Retour au jeu' });
+  };
+
   const resetSession = async () => {
     if (!sessionId || !confirm('Réinitialiser toute la session ? Cela supprimera tous les buzzers, réponses et réinitialisera les scores.')) return;
     
@@ -785,6 +819,22 @@ const Regie = () => {
             <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>
               <Monitor className="h-3 w-3 mr-1" />
               Écran
+            </Button>
+            <Button 
+              size="sm" 
+              variant={gameState?.show_welcome_screen ? "default" : "outline"}
+              onClick={toggleWelcomeScreen}
+            >
+              <Home className="h-3 w-3 mr-1" />
+              Accueil
+            </Button>
+            <Button 
+              size="sm" 
+              variant={gameState?.show_team_connection_screen ? "default" : "outline"}
+              onClick={toggleTeamConnectionScreen}
+            >
+              <Wifi className="h-3 w-3 mr-1" />
+              Équipes
             </Button>
             <Button 
               size="sm" 

@@ -5,7 +5,8 @@ import { playSound } from "@/lib/sounds";
 import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
 import { JingleReveal } from "@/components/tv/JingleReveal";
 import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
-import { WaitingScreen } from "@/components/tv/WaitingScreen";
+import { WelcomeScreen } from "@/components/tv/WelcomeScreen";
+import { TeamConnectionScreen } from "@/components/tv/TeamConnectionScreen";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 
@@ -313,6 +314,25 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Écran d'accueil */}
+      {gameState?.show_welcome_screen && (
+        <WelcomeScreen />
+      )}
+
+      {/* Écran de connexion des équipes */}
+      {gameState?.show_team_connection_screen && (
+        <TeamConnectionScreen
+          connectedTeams={teams
+            .filter(t => {
+              if (!t.last_seen_at) return false;
+              const now = new Date();
+              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000;
+            })
+            .map(t => ({ id: t.id, name: t.name, color: t.color }))
+          }
+        />
+      )}
+
       {/* Écran d'attente */}
       {gameState?.show_waiting_screen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm">
