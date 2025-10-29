@@ -56,13 +56,23 @@ export class AudioEngine {
     if (this.bufferCache.has(track.url)) return;
 
     try {
+      console.log('🎵 AudioEngine: Préchargement de', track.name, 'depuis', track.url);
       const response = await fetch(track.url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const arrayBuffer = await response.arrayBuffer();
+      console.log('✅ AudioEngine: Fichier téléchargé, taille:', arrayBuffer.byteLength, 'bytes');
+      
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+      console.log('✅ AudioEngine: Audio décodé, durée:', audioBuffer.duration, 'secondes');
+      
       this.bufferCache.set(track.url, audioBuffer);
       track.duration = audioBuffer.duration;
     } catch (error) {
-      console.error('Erreur préchargement:', error);
+      console.error('❌ AudioEngine: Erreur préchargement', track.name, error);
       throw error;
     }
   }
@@ -87,14 +97,22 @@ export class AudioEngine {
    * Lire depuis la position actuelle ou une position spécifique
    */
   async play(startAt?: number): Promise<void> {
+    // Activer l'AudioContext si suspendu (requis par les navigateurs)
     if (this.audioContext.state === 'suspended') {
+      console.log('🔊 AudioEngine: Activation AudioContext...');
       await this.audioContext.resume();
+      console.log('✅ AudioEngine: AudioContext activé');
     }
 
-    if (!this.currentBuffer) return;
+    if (!this.currentBuffer) {
+      console.warn('⚠️ AudioEngine: Pas de buffer chargé');
+      return;
+    }
 
     this.stop();
 
+    console.log('▶️ AudioEngine: Démarrage lecture à', startAt || this.pauseTime, 'secondes');
+    
     this.currentSource = this.audioContext.createBufferSource();
     this.currentSource.buffer = this.currentBuffer;
     this.currentSource.connect(this.gainNode);

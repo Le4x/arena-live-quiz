@@ -82,18 +82,27 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
   const handlePlayPause = async () => {
     if (!selectedTrack) return;
 
-    if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
-      await engine.loadAndPlay(selectedTrack);
-      onTrackChange?.(selectedTrack);
-      toast({ title: `▶️ ${selectedTrack.name}` });
-    } else {
-      if (state.isPlaying) {
-        engine.pause();
-        toast({ title: '⏸️ Pause' });
+    try {
+      if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
+        await engine.loadAndPlay(selectedTrack);
+        onTrackChange?.(selectedTrack);
+        toast({ title: `▶️ ${selectedTrack.name}` });
       } else {
-        await engine.play();
-        toast({ title: '▶️ Lecture' });
+        if (state.isPlaying) {
+          engine.pause();
+          toast({ title: '⏸️ Pause' });
+        } else {
+          await engine.play();
+          toast({ title: '▶️ Lecture' });
+        }
       }
+    } catch (error) {
+      console.error('Erreur lecture audio:', error);
+      toast({ 
+        title: '❌ Erreur audio', 
+        description: 'Impossible de lire le fichier. Vérifiez l\'URL.',
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -136,33 +145,33 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
   };
 
   return (
-    <Card className="p-4 bg-card/90 backdrop-blur-sm border-primary/20">
-      <div className="space-y-3">
-        {/* Header: Track selector + Status */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-2 flex-wrap flex-1">
+    <Card className="p-3 bg-card/90 backdrop-blur-sm border-primary/20">
+      <div className="space-y-2">
+        {/* Header: Track selector + Status - Compact */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1 flex-wrap flex-1 max-h-16 overflow-y-auto">
             {tracks.map((track) => (
               <Button
                 key={track.id}
                 variant={selectedTrack?.id === track.id ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedTrack(track)}
-                className="text-xs"
+                className="text-xs h-7 px-2"
               >
                 {track.name}
               </Button>
             ))}
           </div>
           {state.isPlaying && (
-            <Badge variant="default" className="animate-pulse">
+            <Badge variant="default" className="animate-pulse text-xs">
               <Zap className="h-3 w-3 mr-1" />
-              EN COURS
+              PLAY
             </Badge>
           )}
         </div>
 
-        {/* Waveform with Cue Points */}
-        <div className="relative h-20 bg-muted/50 rounded-lg overflow-hidden border border-border">
+        {/* Waveform with Cue Points - Compact */}
+        <div className="relative h-12 bg-muted/50 rounded overflow-hidden border border-border">
           <canvas 
             ref={canvasRef}
             className="w-full h-full"
@@ -200,26 +209,26 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
           )}
         </div>
 
-        {/* Main Controls */}
+        {/* Main Controls - Compact */}
         <div className="flex items-center gap-2">
           <Button
             size="icon"
             variant="outline"
             onClick={() => engine.seek(0)}
-            className="h-9 w-9"
+            className="h-8 w-8"
           >
-            <SkipBack className="h-4 w-4" />
+            <SkipBack className="h-3 w-3" />
           </Button>
 
           <Button
             size="icon"
             onClick={handlePlayPause}
-            className="bg-primary hover:bg-primary/90 h-11 w-11"
+            className="bg-primary hover:bg-primary/90 h-9 w-9"
           >
             {state.isPlaying ? (
-              <Pause className="h-5 w-5" />
+              <Pause className="h-4 w-4" />
             ) : (
-              <Play className="h-5 w-5" />
+              <Play className="h-4 w-4" />
             )}
           </Button>
 
@@ -227,19 +236,19 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
             size="icon"
             variant="outline"
             onClick={() => engine.seek(state.currentTime + 10)}
-            className="h-9 w-9"
+            className="h-8 w-8"
           >
-            <SkipForward className="h-4 w-4" />
+            <SkipForward className="h-3 w-3" />
           </Button>
 
           {/* Time display */}
-          <div className="flex-1 text-center font-mono text-sm font-bold">
+          <div className="flex-1 text-center font-mono text-xs font-bold">
             {formatTime(state.currentTime)} / {formatTime(state.duration)}
           </div>
 
-          {/* Volume */}
-          <div className="flex items-center gap-2 w-32">
-            <Volume2 className="h-4 w-4" />
+          {/* Volume - Compact */}
+          <div className="flex items-center gap-1 w-24">
+            <Volume2 className="h-3 w-3" />
             <Slider
               value={[state.volume * 100]}
               onValueChange={([value]) => engine.setVolume(value / 100)}
@@ -249,101 +258,65 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
           </div>
         </div>
 
-        {/* Cue Points Buttons */}
-        {selectedTrack && selectedTrack.cues.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            {selectedTrack.cues.map((cue, idx) => (
-              <Button
-                key={idx}
-                variant="secondary"
-                size="sm"
-                onClick={() => engine.jumpToCue(idx)}
-                className="text-xs font-mono"
-              >
-                CUE {idx + 1}: {cue.label} ({formatTime(cue.time)})
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {/* Fade Controls */}
-        <div className="grid grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border border-border">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">Fade In</span>
-              <span className="text-xs font-mono">{fadeInDuration}ms</span>
-            </div>
-            <Slider
-              value={[fadeInDuration]}
-              onValueChange={([value]) => setFadeInDuration(value)}
-              min={100}
-              max={2000}
-              step={50}
-              className="w-full"
-            />
-            <Button
-              size="sm"
-              onClick={handleFadeIn}
-              disabled={!selectedTrack}
-              className="w-full"
-              variant="outline"
-            >
-              <TrendingUp className="h-3 w-3 mr-2" />
-              Fade In
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">Fade Out</span>
-              <span className="text-xs font-mono">{fadeOutDuration}ms</span>
-            </div>
-            <Slider
-              value={[fadeOutDuration]}
-              onValueChange={([value]) => setFadeOutDuration(value)}
-              min={100}
-              max={2000}
-              step={50}
-              className="w-full"
-            />
-            <Button
-              size="sm"
-              onClick={handleFadeOut}
-              disabled={!state.isPlaying}
-              className="w-full"
-              variant="outline"
-            >
-              <TrendingDown className="h-3 w-3 mr-2" />
-              Fade Out
-            </Button>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Quick Actions & Cues - Compact en 1 ligne */}
+        <div className="flex gap-2 items-center flex-wrap">
           <Button
             variant="default"
             size="sm"
             onClick={handleClip30s}
             disabled={!selectedTrack}
-            className="bg-accent hover:bg-accent/90"
+            className="bg-accent hover:bg-accent/90 h-7 text-xs"
           >
-            🎵 Extrait 30s (CUE#1)
+            🎵 Extrait 30s
           </Button>
           <Button
             variant="default"
             size="sm"
             onClick={handlePlaySolution}
             disabled={!selectedTrack}
-            className="bg-secondary hover:bg-secondary/90"
+            className="bg-secondary hover:bg-secondary/90 h-7 text-xs"
           >
-            🎼 Solution 8s (CUE#2)
+            🎼 Solution 8s
           </Button>
-        </div>
-
-        {/* Keyboard shortcuts hint */}
-        <div className="text-[10px] text-muted-foreground text-center pt-1 border-t border-border/50">
-          ⌨️ Space/P: Play/Pause • ↑/↓: Volume • I: Fade In • O: Fade Out • 1-8: Cues
+          
+          {/* Cue Points en ligne */}
+          {selectedTrack && selectedTrack.cues.length > 0 && (
+            <>
+              <div className="h-4 w-px bg-border mx-1" />
+              {selectedTrack.cues.map((cue, idx) => (
+                <Button
+                  key={idx}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => engine.jumpToCue(idx)}
+                  className="text-xs font-mono h-7 px-2"
+                >
+                  CUE{idx + 1}
+                </Button>
+              ))}
+            </>
+          )}
+          
+          {/* Fades en ligne */}
+          <div className="h-4 w-px bg-border mx-1" />
+          <Button
+            size="sm"
+            onClick={handleFadeIn}
+            disabled={!selectedTrack}
+            variant="outline"
+            className="h-7 text-xs"
+          >
+            <TrendingUp className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleFadeOut}
+            disabled={!state.isPlaying}
+            variant="outline"
+            className="h-7 text-xs"
+          >
+            <TrendingDown className="h-3 w-3" />
+          </Button>
         </div>
       </div>
     </Card>
