@@ -78,7 +78,9 @@ const Screen = () => {
             console.log('✅ Screen: Équipe trouvée:', teamData.name, 'Color:', teamData.color);
             
             // Définir les données du buzzer en une seule fois
-            setBuzzerNotification({ show: true, team: teamData });
+            const notif = { show: true, team: teamData };
+            console.log('🎬 Screen: Setting buzzerNotification:', notif);
+            setBuzzerNotification(notif);
             playSound('buzz');
             
             // Cacher après 5 secondes
@@ -487,7 +489,16 @@ const Screen = () => {
         )}
 
         {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE */}
-        {buzzerNotification?.show && buzzerNotification.team && !gameState?.show_leaderboard && (
+        {(() => {
+          console.log('🎨 Screen render check:', {
+            buzzerNotification,
+            show: buzzerNotification?.show,
+            team: buzzerNotification?.team,
+            showLeaderboard: gameState?.show_leaderboard,
+            shouldShow: buzzerNotification?.show && buzzerNotification.team && !gameState?.show_leaderboard
+          });
+          return buzzerNotification?.show && buzzerNotification.team && !gameState?.show_leaderboard;
+        })() && (
           <>
             {/* Flash d'arrière-plan */}
             <div className="fixed inset-0 z-30 pointer-events-none">
