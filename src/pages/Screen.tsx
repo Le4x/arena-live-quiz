@@ -25,6 +25,7 @@ const Screen = () => {
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
   const [buzzerNotification, setBuzzerNotification] = useState<{show: boolean, team: any} | null>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
+  const [connectedTeamIds, setConnectedTeamIds] = useState<Set<string>>(new Set());
   const [timerDuration, setTimerDuration] = useState(30);
 
   // Debug: log buzzerNotification changes
@@ -49,13 +50,16 @@ const Screen = () => {
     const presenceChannel = supabase.channel('team_presence')
       .on('presence', { event: 'sync' }, () => {
         const presenceState = presenceChannel.presenceState();
-        const connectedCount = Object.values(presenceState)
-          .flat()
-          .filter((p: any) => p.team_id)
-          .length;
+        const connectedIds = new Set(
+          Object.values(presenceState)
+            .flat()
+            .map((p: any) => p.team_id)
+            .filter(Boolean)
+        );
         
-        console.log(`📊 Screen: ${connectedCount} équipes connectées`);
-        setConnectedTeamsCount(connectedCount);
+        console.log(`📊 Screen: ${connectedIds.size} équipes connectées`, Array.from(connectedIds));
+        setConnectedTeamsCount(connectedIds.size);
+        setConnectedTeamIds(connectedIds);
       })
       .subscribe();
 
@@ -323,11 +327,7 @@ const Screen = () => {
       {gameState?.show_team_connection_screen && (
         <TeamConnectionScreen
           connectedTeams={teams
-            .filter(t => {
-              if (!t.last_seen_at) return false;
-              const now = new Date();
-              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000;
-            })
+            .filter(t => connectedTeamIds.has(t.id))
             .map(t => ({ id: t.id, name: t.name, color: t.color }))
           }
         />
