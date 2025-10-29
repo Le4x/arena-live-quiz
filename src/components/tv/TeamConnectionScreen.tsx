@@ -13,7 +13,7 @@ interface TeamConnectionScreenProps {
 
 export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenProps) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-background via-background/95 to-primary/20">
+    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background/95 to-primary/20">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden">
         {/* Pulsing circles */}
@@ -66,33 +66,57 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
         ))}
       </div>
 
-      {/* Main content */}
-      <div className="relative z-10 w-full max-w-5xl px-8 space-y-12">
-        {/* Title section */}
+      {/* Logo animé en haut */}
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 pt-6 pb-4 flex justify-center"
+      >
         <motion.div
-          initial={{ opacity: 0, y: -30 }}
+          animate={{ 
+            y: [0, -8, 0],
+            rotate: [0, 1, 0, -1, 0]
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        >
+          <img 
+            src="/music-arena-logo.png" 
+            alt="Music Arena" 
+            className="h-20 md:h-24 w-auto drop-shadow-[0_0_30px_rgba(255,107,0,0.4)]"
+          />
+        </motion.div>
+      </motion.div>
+
+      {/* Main content */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 flex-1 flex flex-col overflow-hidden space-y-6">
+        {/* Title section - plus compact */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center space-y-6"
+          className="text-center space-y-4"
         >
-          <motion.div
+          <motion.h1 
+            className="text-4xl md:text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent drop-shadow-glow"
             animate={{ 
-              scale: [1, 1.05, 1],
-              rotate: [0, 2, 0, -2, 0]
+              scale: [1, 1.02, 1]
             }}
             transition={{
-              duration: 4,
+              duration: 3,
               repeat: Infinity,
               ease: "easeInOut"
             }}
           >
-            <h1 className="text-6xl md:text-8xl font-bold bg-gradient-arena bg-clip-text text-transparent drop-shadow-glow">
-              Préparez-vous au jeu
-            </h1>
-          </motion.div>
+            Préparez-vous au jeu
+          </motion.h1>
           
           <motion.div
-            className="flex items-center justify-center gap-4 text-3xl md:text-4xl text-primary font-bold"
+            className="flex items-center justify-center gap-3 text-xl md:text-2xl text-primary font-bold"
             animate={{
               opacity: [0.7, 1, 0.7]
             }}
@@ -102,86 +126,63 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
               ease: "easeInOut"
             }}
           >
-            <Wifi className="w-10 h-10" />
+            <Wifi className="w-6 h-6" />
             <span>Connexion en cours...</span>
           </motion.div>
         </motion.div>
 
-        {/* Teams counter */}
+        {/* Teams counter - plus compact */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-center"
+          className="flex justify-center"
         >
-          <div className="inline-flex items-center gap-4 bg-card/90 backdrop-blur-xl border-2 border-primary/50 rounded-3xl px-12 py-6 shadow-glow-gold">
-            <Users className="w-12 h-12 text-primary" />
+          <div className="inline-flex items-center gap-3 bg-card/90 backdrop-blur-xl border-2 border-primary/50 rounded-2xl px-8 py-4 shadow-glow-gold">
+            <Users className="w-8 h-8 text-primary" />
             <div className="text-left">
-              <div className="text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent">
+              <div className="text-3xl font-bold bg-gradient-arena bg-clip-text text-transparent">
                 {connectedTeams.length}
               </div>
-              <div className="text-xl text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {connectedTeams.length === 0 ? "équipe" : connectedTeams.length === 1 ? "équipe connectée" : "équipes connectées"}
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Teams list */}
+        {/* Teams list - optimisé pour 30+ équipes */}
         {connectedTeams.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="bg-card/80 backdrop-blur-xl border-2 border-primary/30 rounded-3xl p-8 shadow-elegant"
+            className="flex-1 bg-card/80 backdrop-blur-xl border-2 border-primary/30 rounded-2xl p-4 md:p-6 shadow-elegant overflow-hidden flex flex-col"
           >
-            <h2 className="text-3xl font-bold text-center mb-6 text-primary">
+            <h2 className="text-xl md:text-2xl font-bold text-center mb-4 text-primary flex-shrink-0">
               Équipes prêtes
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
-              <AnimatePresence mode="popLayout">
-                {connectedTeams.map((team, index) => (
-                  <motion.div
-                    key={team.id}
-                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                    transition={{ 
-                      duration: 0.4,
-                      delay: index * 0.05
-                    }}
-                    className="relative group"
-                  >
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <AnimatePresence mode="popLayout">
+                  {connectedTeams.map((team, index) => (
                     <motion.div
-                      className="absolute inset-0 rounded-2xl blur-xl opacity-50"
-                      style={{ backgroundColor: team.color }}
-                      animate={{
-                        opacity: [0.3, 0.6, 0.3]
+                      key={team.id}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ 
+                        duration: 0.3,
+                        delay: index * 0.03
                       }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        delay: index * 0.2
-                      }}
-                    />
-                    <div 
-                      className="relative flex items-center gap-3 p-4 rounded-2xl border-2 backdrop-blur-sm transition-all duration-300 group-hover:scale-105"
-                      style={{ 
-                        borderColor: team.color,
-                        backgroundColor: `${team.color}15`
-                      }}
+                      className="relative group"
                     >
                       <motion.div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        className="absolute inset-0 rounded-xl blur-lg opacity-40"
                         style={{ backgroundColor: team.color }}
                         animate={{
-                          scale: [1, 1.2, 1],
-                          boxShadow: [
-                            `0 0 0px ${team.color}`,
-                            `0 0 20px ${team.color}`,
-                            `0 0 0px ${team.color}`
-                          ]
+                          opacity: [0.2, 0.4, 0.2]
                         }}
                         transition={{
                           duration: 2,
@@ -189,13 +190,38 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
                           delay: index * 0.1
                         }}
                       />
-                      <span className="text-lg font-bold text-foreground truncate">
-                        {team.name}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                      <div 
+                        className="relative flex items-center gap-2 p-3 rounded-xl border backdrop-blur-sm transition-all duration-300 group-hover:scale-105"
+                        style={{ 
+                          borderColor: team.color,
+                          backgroundColor: `${team.color}10`
+                        }}
+                      >
+                        <motion.div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: team.color }}
+                          animate={{
+                            scale: [1, 1.3, 1],
+                            boxShadow: [
+                              `0 0 0px ${team.color}`,
+                              `0 0 15px ${team.color}`,
+                              `0 0 0px ${team.color}`
+                            ]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            delay: index * 0.08
+                          }}
+                        />
+                        <span className="text-sm font-bold text-foreground truncate">
+                          {team.name}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
           </motion.div>
         )}
@@ -206,10 +232,10 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.7 }}
-            className="text-center"
+            className="flex-1 flex items-center justify-center"
           >
             <motion.p 
-              className="text-2xl text-muted-foreground"
+              className="text-xl md:text-2xl text-muted-foreground"
               animate={{
                 opacity: [0.5, 1, 0.5]
               }}
@@ -224,6 +250,23 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
           </motion.div>
         )}
       </div>
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 107, 0, 0.1);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 107, 0, 0.5);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 107, 0, 0.7);
+        }
+      `}</style>
     </div>
   );
 };
