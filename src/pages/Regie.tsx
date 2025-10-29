@@ -8,12 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
 import { gameEvents } from "@/lib/runtime/GameEvents";
-import { ControlBar } from "@/components/regie/ControlBar";
 import type { SoundWithCues } from "@/pages/AdminSounds";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
@@ -685,87 +685,91 @@ const Regie = () => {
         </div>
       )}
 
-      {/* Control Bar */}
-      <div className="p-3 flex-shrink-0">
-        <ControlBar
-          timer={{
-            value: timerRemaining,
-            active: timerActive,
-            onToggle: () => setTimerActive(!timerActive),
-            onReset: () => { setTimerRemaining(30); setTimerActive(false); }
-          }}
-          audio={{
-            onPlayExtrait: () => {
-              const q = questions.find(x => x.id === currentQuestionId);
-              if (q?.audio_url) {
-                const t = audioTracks.find(x => x.url === q.audio_url);
-                if (t) { 
-                  audioEngine.loadAndPlay(t); 
-                  audioEngine.playClip30s(300);
-                  // Démarrer le timer quand on lance l'extrait
-                  setTimerActive(true);
-                  if (sessionId) {
-                    supabase.from('game_state').update({ timer_active: true }).eq('game_session_id', sessionId);
-                  }
-                }
-              }
-            },
-            onPlaySolution: () => {
-              const q = questions.find(x => x.id === currentQuestionId);
-              if (q?.audio_url) {
-                const t = audioTracks.find(x => x.url === q.audio_url);
-                if (t) { audioEngine.loadAndPlay(t); audioEngine.playSolution(8, 300, 300); }
-              }
-            }
-          }}
-          buzzer={{
-            locked: buzzerLocked,
-            active: gameState?.is_buzzer_active || false,
-            onToggle: toggleBuzzer,
-            onReset: async () => {
-              if (!currentQuestionInstanceId) {
-                toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
-                return;
-              }
-              
-              console.log('🔄 Reset buzzers pour instance:', currentQuestionInstanceId);
-              
-              // Supprimer les tentatives de buzzer pour cette question
-              if (sessionId) {
-                const { error } = await supabase.from('buzzer_attempts')
-                  .delete()
-                  .eq('question_instance_id', currentQuestionInstanceId)
-                  .eq('game_session_id', sessionId);
-                
-                if (error) {
-                  console.error('❌ Erreur suppression buzzers:', error);
-                  toast({ title: '❌ Erreur reset', variant: 'destructive' });
+      {/* Contrôles Buzzer et Reveal */}
+      <div className="px-3 pb-3 flex-shrink-0">
+        <Card className="p-3 bg-card/95 backdrop-blur">
+          <div className="flex items-center justify-between gap-3">
+            {/* Buzzers */}
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-muted-foreground" />
+              <Button 
+                size="sm" 
+                variant={gameState?.is_buzzer_active ? "default" : "outline"}
+                onClick={toggleBuzzer}
+              >
+                {gameState?.is_buzzer_active ? '⚡ Actifs' : 'Inactifs'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant={buzzerLocked ? "default" : "outline"}
+                disabled={!gameState?.is_buzzer_active}
+              >
+                {buzzerLocked ? '🔒 Lock' : 'Libre'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={async () => {
+                if (!currentQuestionInstanceId) {
+                  toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
                   return;
                 }
-              }
-              
-              // Envoyer l'événement de reset
-              await gameEvents.resetBuzzer(currentQuestionInstanceId);
-              setBuzzerLocked(false);
-              setBuzzers([]);
-              setBlockedTeams([]); // Réinitialiser les équipes bloquées
-              previousBuzzersCount.current = 0;
-              
-              // IMPORTANT : Réinitialiser aussi excluded_teams dans la DB et réactiver le buzzer
-              await supabase.from('game_state').update({ 
-                excluded_teams: [],
-                is_buzzer_active: true // Réactiver le buzzer pour tous
-              }).eq('game_session_id', sessionId);
-              
-              toast({ title: '🔄 Buzzers réinitialisés' });
-            }
-          }}
-          reveal={{
-            onReveal: showReveal,
-            onHide: hideReveal,
-            isRevealed: gameState?.show_answer || false
-          }}
-        />
+                
+                console.log('🔄 Reset buzzers pour instance:', currentQuestionInstanceId);
+                
+                // Supprimer les tentatives de buzzer pour cette question
+                if (sessionId) {
+                  const { error } = await supabase.from('buzzer_attempts')
+                    .delete()
+                    .eq('question_instance_id', currentQuestionInstanceId)
+                    .eq('game_session_id', sessionId);
+                  
+                  if (error) {
+                    console.error('❌ Erreur suppression buzzers:', error);
+                    toast({ title: '❌ Erreur reset', variant: 'destructive' });
+                    return;
+                  }
+                }
+                
+                // Envoyer l'événement de reset
+                await gameEvents.resetBuzzer(currentQuestionInstanceId);
+                setBuzzerLocked(false);
+                setBuzzers([]);
+                setBlockedTeams([]); // Réinitialiser les équipes bloquées
+                previousBuzzersCount.current = 0;
+                
+                // IMPORTANT : Réinitialiser aussi excluded_teams dans la DB et réactiver le buzzer
+                await supabase.from('game_state').update({ 
+                  excluded_teams: [],
+                  is_buzzer_active: true // Réactiver le buzzer pour tous
+                }).eq('game_session_id', sessionId);
+                
+                toast({ title: '🔄 Buzzers réinitialisés' });
+              }}>
+                Reset
+              </Button>
+            </div>
+
+            {/* Reveal */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase">Reveal</span>
+              {!gameState?.show_answer ? (
+                <Button 
+                  size="sm" 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={showReveal}
+                >
+                  👁️ Révéler réponse
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={hideReveal}
+                >
+                  🙈 Cacher réponse
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Main content */}
@@ -810,86 +814,101 @@ const Regie = () => {
           </div>
         </div>
 
-        {/* Right: Buzzers + Teams */}
+        {/* Right: Onglets (Jeu / Équipes / Effets TV) */}
         <div className="w-full lg:w-96 flex flex-col gap-3 overflow-hidden min-h-0">
-          {/* Buzzers */}
-          <BuzzerMonitor 
-            currentQuestionId={currentQuestionId} 
-            gameState={gameState} 
-            buzzers={buzzers}
-            questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
-            onCorrectAnswer={handleCorrectAnswer}
-            onWrongAnswer={handleWrongAnswer}
-            blockedTeams={blockedTeams}
-          />
+          <Tabs defaultValue="jeu" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full flex-shrink-0">
+              <TabsTrigger value="jeu" className="flex-1">Jeu</TabsTrigger>
+              <TabsTrigger value="equipes" className="flex-1">Équipes</TabsTrigger>
+              <TabsTrigger value="effets" className="flex-1">Effets TV</TabsTrigger>
+            </TabsList>
 
-          {/* Équipes bloquées */}
-          {blockedTeams.length > 0 && (
-            <Card className="p-4 bg-destructive/10 border-destructive/20">
-              <h3 className="text-sm font-bold text-destructive flex items-center gap-2 mb-3">
-                <X className="h-4 w-4" />
-                Équipes bloquées ({blockedTeams.length})
-              </h3>
-              <div className="space-y-2">
-                {blockedTeams.map(teamId => {
-                  const team = connectedTeams.find(t => t.id === teamId);
-                  return team ? (
-                    <div 
-                      key={teamId}
-                      className="flex items-center gap-2 p-2 rounded bg-destructive/20 border border-destructive/30"
-                    >
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-                      <span className="font-semibold text-sm">{team.name}</span>
-                      <Badge variant="destructive" className="ml-auto text-xs">Bloqué</Badge>
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            </Card>
-          )}
+            {/* Onglet Jeu */}
+            <TabsContent value="jeu" className="flex-1 overflow-y-auto space-y-3 mt-3">
+              {/* Buzzers */}
+              <BuzzerMonitor 
+                currentQuestionId={currentQuestionId} 
+                gameState={gameState} 
+                buzzers={buzzers}
+                questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
+                onCorrectAnswer={handleCorrectAnswer}
+                onWrongAnswer={handleWrongAnswer}
+                blockedTeams={blockedTeams}
+              />
 
-          {/* Teams */}
-          <Card className="flex-1 overflow-hidden flex flex-col">
-            <div className="p-3 border-b flex justify-between items-center flex-shrink-0">
-              <h3 className="font-bold text-sm">Équipes</h3>
-              <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={resetAllScores}>Reset</Button>
-                <Button size="sm" variant="ghost" onClick={disconnectAll}>Kick</Button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {connectedTeams.map(t => (
-                <div key={t.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30">
-                  <div className={`w-2 h-2 rounded-full ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm truncate">{t.name}</div>
-                    <div className="text-xs">{t.score} pts</div>
+              {/* Équipes bloquées */}
+              {blockedTeams.length > 0 && (
+                <Card className="p-4 bg-destructive/10 border-destructive/20">
+                  <h3 className="text-sm font-bold text-destructive flex items-center gap-2 mb-3">
+                    <X className="h-4 w-4" />
+                    Équipes bloquées ({blockedTeams.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {blockedTeams.map(teamId => {
+                      const team = connectedTeams.find(t => t.id === teamId);
+                      return team ? (
+                        <div 
+                          key={teamId}
+                          className="flex items-center gap-2 p-2 rounded bg-destructive/20 border border-destructive/30"
+                        >
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
+                          <span className="font-semibold text-sm">{team.name}</span>
+                          <Badge variant="destructive" className="ml-auto text-xs">Bloqué</Badge>
+                        </div>
+                      ) : null;
+                    })}
                   </div>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Onglet Équipes */}
+            <TabsContent value="equipes" className="flex-1 overflow-hidden mt-3">
+              <Card className="h-full overflow-hidden flex flex-col">
+                <div className="p-3 border-b flex justify-between items-center flex-shrink-0">
+                  <h3 className="font-bold text-sm">Équipes</h3>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                    <Button size="sm" variant="ghost" onClick={resetAllScores}>Reset</Button>
+                    <Button size="sm" variant="ghost" onClick={disconnectAll}>Kick</Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {connectedTeams.map(t => (
+                    <div key={t.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30">
+                      <div className={`w-2 h-2 rounded-full ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm truncate">{t.name}</div>
+                        <div className="text-xs">{t.score} pts</div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </TabsContent>
 
-          {/* Effets TV */}
-          <Card className="p-3 flex-shrink-0">
-            <h3 className="font-bold mb-2 text-sm">Effets TV</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" onClick={showRoundIntro}>
-                <Sparkles className="h-3 w-3 mr-1" />
-                Intro
-              </Button>
-              <Button size="sm" variant="outline" onClick={hideLeaderboard}>
-                Masquer
-              </Button>
-            </div>
-          </Card>
+            {/* Onglet Effets TV */}
+            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3">
+              <Card className="p-4">
+                <h3 className="font-bold mb-3 text-sm">Effets TV</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" onClick={showRoundIntro}>
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Intro
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={hideLeaderboard}>
+                    Masquer
+                  </Button>
+                </div>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
       <Toaster />
