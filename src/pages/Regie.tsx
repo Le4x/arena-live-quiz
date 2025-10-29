@@ -372,6 +372,17 @@ const Regie = () => {
   };
 
   const handleCorrectAnswer = async (teamId: string, points: number) => {
+    // Supprimer immédiatement les buzzers (state local ET DB)
+    if (currentQuestionId && sessionId) {
+      await supabase
+        .from('buzzer_attempts')
+        .delete()
+        .eq('question_id', currentQuestionId)
+        .eq('game_session_id', sessionId);
+      
+      setBuzzers([]); // Vider le state local immédiatement
+    }
+    
     // Attribuer les points à l'équipe
     const { data: team } = await supabase
       .from('teams')
@@ -404,21 +415,8 @@ const Regie = () => {
       } 
     }
     
-    // Nettoyer les buzzers après l'animation
     setTimeout(async () => { 
       await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId);
-      
-      // Supprimer tous les buzzers de la DB pour cette question
-      if (currentQuestionId && sessionId) {
-        await supabase
-          .from('buzzer_attempts')
-          .delete()
-          .eq('question_id', currentQuestionId)
-          .eq('game_session_id', sessionId);
-        
-        setBuzzers([]); // Vider le state local
-      }
-      
       toast({ title: `✅ Bonne réponse ! +${points} points` }); 
     }, 2000);
   };
