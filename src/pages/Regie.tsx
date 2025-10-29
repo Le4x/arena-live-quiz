@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
@@ -816,6 +816,31 @@ const Regie = () => {
             onWrongAnswer={handleWrongAnswer}
             blockedTeams={blockedTeams}
           />
+
+          {/* Équipes bloquées */}
+          {blockedTeams.length > 0 && (
+            <Card className="p-4 bg-destructive/10 border-destructive/20">
+              <h3 className="text-sm font-bold text-destructive flex items-center gap-2 mb-3">
+                <X className="h-4 w-4" />
+                Équipes bloquées ({blockedTeams.length})
+              </h3>
+              <div className="space-y-2">
+                {blockedTeams.map(teamId => {
+                  const team = connectedTeams.find(t => t.id === teamId);
+                  return team ? (
+                    <div 
+                      key={teamId}
+                      className="flex items-center gap-2 p-2 rounded bg-destructive/20 border border-destructive/30"
+                    >
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
+                      <span className="font-semibold text-sm">{team.name}</span>
+                      <Badge variant="destructive" className="ml-auto text-xs">Bloqué</Badge>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Teams */}
           <Card className="flex-1 overflow-hidden flex flex-col">
