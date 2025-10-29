@@ -75,6 +75,7 @@ const Screen = () => {
       console.log('🎭 Screen: Reveal reçu', event);
       if (event.data?.teamId) {
         const team = teams.find(t => t.id === event.data.teamId);
+        console.log('👥 Team trouvée:', team);
         if (team) {
           setBuzzerResultTeam({ 
             ...team, 
@@ -82,7 +83,11 @@ const Screen = () => {
             correctAnswer: event.data.correctAnswer // Ajouter la réponse correcte
           });
           setShowBuzzerResult(true);
-          setTimeout(() => setShowBuzzerResult(false), 4000);
+          console.log('✅ Affichage reveal pour 8 secondes');
+          setTimeout(() => {
+            setShowBuzzerResult(false);
+            console.log('❌ Masquage reveal');
+          }, 8000); // Augmenté à 8 secondes
         }
       }
     });

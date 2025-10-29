@@ -143,14 +143,19 @@ const Regie = () => {
       const currentQ = questions.find(q => q.id === currentQuestionId);
       if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
         console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
+        console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
         
         // Sauvegarder le timer et la position audio avant de l'arrêter
         setTimerWhenBuzzed(timerRemaining);
         const currentPos = audioEngine.getPosition();
         setAudioPositionWhenBuzzed(currentPos);
+        console.log('💾 Position audio sauvegardée:', currentPos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
+        
+        // Arrêter la musique immédiatement
+        console.log('🎵 Arrêt audio avec fade...');
         audioEngine.stopWithFade(150); // Fade rapide
         
         // Mettre à jour le timer dans la DB IMMÉDIATEMENT
@@ -357,6 +362,8 @@ const Regie = () => {
   };
 
   const handleCorrectAnswer = async (teamId: string, points: number) => {
+    console.log('✅ handleCorrectAnswer appelé', { teamId, points });
+    
     // Attribuer les points à l'équipe
     const { data: team } = await supabase
       .from('teams')
@@ -372,6 +379,11 @@ const Regie = () => {
       
       // Récupérer la réponse correcte de la question
       const currentQ = questions.find(x => x.id === currentQuestionId);
+      console.log('📤 Envoi événement REVEAL_ANSWER', { 
+        teamId, 
+        isCorrect: true, 
+        correctAnswer: currentQ?.correct_answer 
+      });
       await gameEvents.revealAnswer(teamId, true, currentQ?.correct_answer);
     }
 
