@@ -2,32 +2,29 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Zap, Trophy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { gameEvents } from "@/lib/runtime/GameEvents";
 
-export const BuzzerMonitor = ({ currentQuestionId, gameState, buzzers }: { currentQuestionId: string | null; gameState: any | null; buzzers: any[] }) => {
+export const BuzzerMonitor = ({ 
+  currentQuestionId, 
+  gameState, 
+  buzzers,
+  questionPoints,
+  onCorrectAnswer,
+  onWrongAnswer,
+  blockedTeams = []
+}: { 
+  currentQuestionId: string | null; 
+  gameState: any | null; 
+  buzzers: any[];
+  questionPoints: number;
+  onCorrectAnswer: (teamId: string, points: number) => void;
+  onWrongAnswer: (teamId: string) => void;
+  blockedTeams?: string[];
+}) => {
   const { toast } = useToast();
-
-  const awardPoints = async (teamId: string, points: number, isCorrect: boolean) => {
-    const { data: team } = await supabase
-      .from('teams')
-      .select('score')
-      .eq('id', teamId)
-      .single();
-
-    if (team) {
-      await supabase
-        .from('teams')
-        .update({ score: team.score + points })
-        .eq('id', teamId);
-      
-      // Envoyer l'événement au client
-      await gameEvents.revealAnswer(teamId, isCorrect);
-      
-      toast({ title: "Points attribués !", description: `${points > 0 ? '+' : ''}${points} points` });
-    }
-  };
 
   const clearBuzzers = async () => {
     if (!currentQuestionId || !gameState?.game_session_id) return;
@@ -60,45 +57,45 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState, buzzers }: { curre
       </div>
       
       <div className="space-y-3">
-        {buzzers.map((buzzer, index) => (
-          <div
-            key={buzzer.id}
-            className="flex items-center gap-4 p-4 rounded-lg border-2 bg-muted/50"
-            style={{ borderColor: buzzer.teams?.color }}
-          >
-            <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
-            <div className="flex-1">
-              <div className="font-bold text-lg">{buzzer.teams?.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(buzzer.buzzed_at).toLocaleTimeString('fr-FR')}
+        {buzzers.map((buzzer, index) => {
+          const isBlocked = blockedTeams.includes(buzzer.team_id);
+          return (
+            <div
+              key={buzzer.id}
+              className={`flex items-center gap-4 p-4 rounded-lg border-2 ${isBlocked ? 'bg-muted/30 opacity-60' : 'bg-muted/50'}`}
+              style={{ borderColor: buzzer.teams?.color }}
+            >
+              <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
+              <div className="flex-1">
+                <div className="font-bold text-lg flex items-center gap-2">
+                  {buzzer.teams?.name}
+                  {isBlocked && <Badge variant="destructive" className="text-xs">Bloqué</Badge>}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(buzzer.buzzed_at).toLocaleTimeString('fr-FR')}
+                </div>
               </div>
+              {!isBlocked && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => onCorrectAnswer(buzzer.team_id, questionPoints)}
+                  >
+                    ✓ Bonne
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => onWrongAnswer(buzzer.team_id)}
+                  >
+                    ✗ Mauvaise
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => awardPoints(buzzer.team_id, 10, true)}
-              >
-                <Trophy className="h-4 w-4 mr-1" />
-                +10
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => awardPoints(buzzer.team_id, 5, true)}
-              >
-                +5
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => awardPoints(buzzer.team_id, -5, false)}
-              >
-                -5
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );

@@ -39,6 +39,8 @@ const Regie = () => {
   const [buzzerLocked, setBuzzerLocked] = useState(false);
   const [buzzers, setBuzzers] = useState<any[]>([]);
   const [timerWhenBuzzed, setTimerWhenBuzzed] = useState<number>(0);
+  const [blockedTeams, setBlockedTeams] = useState<string[]>([]);
+  const [audioPositionWhenBuzzed, setAudioPositionWhenBuzzed] = useState<number>(0);
 
   useEffect(() => {
     loadActiveSession();
@@ -141,12 +143,14 @@ const Regie = () => {
       if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
         console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
         
-        // Sauvegarder le timer avant de l'arrêter
+        // Sauvegarder le timer et la position audio avant de l'arrêter
         setTimerWhenBuzzed(timerRemaining);
+        const currentPos = audioEngine.getPosition();
+        setAudioPositionWhenBuzzed(currentPos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
-        audioEngine.stopWithFade(300);
+        audioEngine.stopWithFade(150); // Fade rapide
         
         // Mettre à jour le timer dans la DB IMMÉDIATEMENT
         if (sessionId) {
@@ -253,8 +257,9 @@ const Regie = () => {
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
     
-    // Réinitialiser le compteur de buzzers
+    // Réinitialiser le compteur de buzzers et les équipes bloquées
     previousBuzzersCount.current = 0;
+    setBlockedTeams([]);
     
     await supabase.from('question_instances').insert({
       id: instanceId,
@@ -288,7 +293,10 @@ const Regie = () => {
     toast({ title: '🎬 Question lancée' });
   };
 
-  const handleWrongAnswer = async () => {
+  const handleWrongAnswer = async (teamId: string) => {
+    // Bloquer l'équipe qui a donné une mauvaise réponse
+    setBlockedTeams(prev => [...prev, teamId]);
+    
     await supabase.from('game_state').update({ answer_result: 'incorrect' }).eq('game_session_id', sessionId);
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
@@ -298,39 +306,54 @@ const Regie = () => {
       
       // Relancer la musique et le timer pour blind test
       if (currentQ?.question_type === 'blind_test') {
-        const currentPos = audioEngine.getPosition();
-        if (currentPos < 30) { 
-          if (currentQ?.audio_url) { 
-            const s = audioTracks.find(t => t.url === currentQ.audio_url); 
-            if (s) {
-              await audioEngine.loadAndPlay(s, currentPos);
-              console.log('🎵 Reprise musique à', currentPos);
-            }
-          } 
-          
-          // Reprendre avec le timer sauvegardé au moment du buzz
-          setTimerRemaining(timerWhenBuzzed);
-          setTimerActive(true);
-          
-          // Mettre à jour le timer dans la DB avec le temps restant sauvegardé
-          await supabase.from('game_state').update({ 
-            is_buzzer_active: true, 
-            answer_result: null,
-            timer_active: true,
-            timer_remaining: timerWhenBuzzed // Reprendre avec le temps sauvegardé
-          }).eq('game_session_id', sessionId);
-          
-          console.log('⏱️ Reprise timer à', timerWhenBuzzed);
-        }
+        if (currentQ?.audio_url) { 
+          const s = audioTracks.find(t => t.url === currentQ.audio_url); 
+          if (s) {
+            // Reprendre à la position exacte où on s'était arrêté
+            await audioEngine.loadAndPlay(s, audioPositionWhenBuzzed);
+            console.log('🎵 Reprise musique à', audioPositionWhenBuzzed);
+          }
+        } 
+        
+        // Reprendre avec le timer sauvegardé au moment du buzz
+        setTimerRemaining(timerWhenBuzzed);
+        setTimerActive(true);
+        
+        // Mettre à jour le timer dans la DB avec le temps restant sauvegardé
+        await supabase.from('game_state').update({ 
+          is_buzzer_active: true, 
+          answer_result: null,
+          timer_active: true,
+          timer_remaining: timerWhenBuzzed // Reprendre avec le temps sauvegardé
+        }).eq('game_session_id', sessionId);
+        
+        console.log('⏱️ Reprise timer à', timerWhenBuzzed);
       } else {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
       
       toast({ title: '❌ Mauvaise - Reprise' });
-    }, 3000);
+    }, 2000);
   };
 
-  const handleCorrectAnswer = async () => {
+  const handleCorrectAnswer = async (teamId: string, points: number) => {
+    // Attribuer les points à l'équipe
+    const { data: team } = await supabase
+      .from('teams')
+      .select('score')
+      .eq('id', teamId)
+      .single();
+
+    if (team) {
+      await supabase
+        .from('teams')
+        .update({ score: team.score + points })
+        .eq('id', teamId);
+      
+      await gameEvents.revealAnswer(teamId, true);
+    }
+
+    
     await supabase.from('game_state').update({ answer_result: 'correct', is_buzzer_active: false, timer_active: false }).eq('game_session_id', sessionId);
     setTimerActive(false);
     const q = questions.find(x => x.id === currentQuestionId);
@@ -343,8 +366,8 @@ const Regie = () => {
     }
     setTimeout(async () => { 
       await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
-      toast({ title: '✅ Correcte' }); 
-    }, 3000);
+      toast({ title: `✅ Bonne réponse ! +${points} points` }); 
+    }, 2000);
   };
 
   const toggleBuzzer = async () => {
@@ -711,7 +734,15 @@ const Regie = () => {
         {/* Right: Buzzers + Teams */}
         <div className="w-96 flex flex-col gap-3 overflow-hidden">
           {/* Buzzers */}
-          <BuzzerMonitor currentQuestionId={currentQuestionId} gameState={gameState} buzzers={buzzers} />
+          <BuzzerMonitor 
+            currentQuestionId={currentQuestionId} 
+            gameState={gameState} 
+            buzzers={buzzers}
+            questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
+            onCorrectAnswer={handleCorrectAnswer}
+            onWrongAnswer={handleWrongAnswer}
+            blockedTeams={blockedTeams}
+          />
 
           {/* Teams */}
           <Card className="flex-1 overflow-hidden flex flex-col">
