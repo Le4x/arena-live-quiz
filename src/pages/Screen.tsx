@@ -183,11 +183,13 @@ const Screen = () => {
       playSound('correct');
       setRevealResult('correct');
       setShowRevealAnimation(true);
+      setBuzzerNotification(null); // Cacher la notification de buzzer
       setTimeout(() => setShowRevealAnimation(false), 3000);
     } else if (gameState?.answer_result === 'incorrect') {
       playSound('incorrect');
       setRevealResult('incorrect');
       setShowRevealAnimation(true);
+      setBuzzerNotification(null); // Cacher la notification de buzzer
       setTimeout(() => setShowRevealAnimation(false), 2000);
     }
   }, [gameState?.answer_result]);
