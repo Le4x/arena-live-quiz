@@ -49,26 +49,33 @@ const Screen = () => {
       .subscribe();
 
     const buzzersChannel = supabase
-      .channel('screen-buzzers-global')
+      .channel('screen-buzzers-realtime-v2')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
         table: 'buzzer_attempts' 
-      }, async (payload) => {
-        console.log('🔔 Screen: BUZZER REÇU!', payload);
+      }, async (payload: any) => {
+        console.log('🔔🔔🔔 Screen: BUZZER REÇU EN TEMPS REEL!', payload);
+        console.log('🔔 Payload new:', payload.new);
         
-        // Charger immédiatement l'équipe qui a buzzé
         const newBuzzer = payload.new;
-        if (newBuzzer.team_id && newBuzzer.is_first) {
-          console.log('⚡ Screen: C\'est le PREMIER buzzer!');
-          const { data: teamData } = await supabase
+        
+        // Vérifier si c'est le premier buzzer
+        if (newBuzzer && newBuzzer.is_first === true) {
+          console.log('⚡⚡⚡ Screen: C\'EST LE PREMIER BUZZER!');
+          console.log('⚡ Team ID:', newBuzzer.team_id);
+          
+          // Charger l'équipe
+          const { data: teamData, error } = await supabase
             .from('teams')
             .select('*')
             .eq('id', newBuzzer.team_id)
             .single();
           
+          console.log('👥 Team data:', teamData, 'Error:', error);
+          
           if (teamData) {
-            console.log('👥 Screen: Équipe trouvée:', teamData.name);
+            console.log('✅ Screen: Équipe trouvée:', teamData.name, 'Color:', teamData.color);
             setFirstBuzzerTeam(teamData);
             setShowBuzzerNotif(true);
             playSound('buzz');
@@ -79,13 +86,19 @@ const Screen = () => {
               setShowBuzzerNotif(false);
               setFirstBuzzerTeam(null);
             }, 5000);
+          } else {
+            console.error('❌ Screen: Équipe non trouvée!');
           }
+        } else {
+          console.log('ℹ️ Screen: Pas le premier buzzer (is_first:', newBuzzer?.is_first, ')');
         }
         
         // Recharger tous les buzzers pour la liste
         loadBuzzers();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Screen: Buzzer channel status:', status);
+      });
 
     const answersChannel = supabase
       .channel('screen-qcm-answers')
