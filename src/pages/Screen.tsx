@@ -99,14 +99,13 @@ const Screen = () => {
     loadTextAnswers();
   }, [currentQuestion?.id, gameState?.game_session_id]);
 
-  // Polling de secours pour les buzzers (1 seconde)
+  // Polling de secours pour les buzzers (200ms pour réactivité maximale)
   useEffect(() => {
     if (!currentQuestion?.id || !gameState?.game_session_id) return;
     
     const interval = setInterval(() => {
-      console.log('🔄 Screen: Polling buzzers');
       loadBuzzers();
-    }, 1000);
+    }, 200);
     
     return () => clearInterval(interval);
   }, [currentQuestion?.id, gameState?.game_session_id]);

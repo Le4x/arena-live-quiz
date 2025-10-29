@@ -76,6 +76,17 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
+  // Polling de secours pour les buzzers (200ms pour réactivité maximale)
+  useEffect(() => {
+    if (!currentQuestionId || !sessionId) return;
+    
+    const interval = setInterval(() => {
+      loadBuzzers();
+    }, 200);
+    
+    return () => clearInterval(interval);
+  }, [currentQuestionId, sessionId]);
+
   useEffect(() => {
     if (!sessionId) return;
     const stateChannel = supabase.channel('game-state-regie')
@@ -126,8 +137,8 @@ const Regie = () => {
       
       // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
-        console.log('🛑 Arrêt timer et musique, timer était à', timerRemaining);
+      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
+        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
         
         // Sauvegarder le timer avant de l'arrêter
         setTimerWhenBuzzed(timerRemaining);
@@ -141,14 +152,16 @@ const Regie = () => {
           supabase.from('game_state').update({ 
             timer_active: false,
             timer_remaining: timerRemaining
-          }).eq('game_session_id', sessionId);
+          }).eq('game_session_id', sessionId).then(() => {
+            console.log('✅ DB mise à jour: timer_active=false, timer_remaining=', timerRemaining);
+          });
         }
       }
     }
     
     // Mettre à jour le compteur
     previousBuzzersCount.current = buzzers.length;
-  }, [buzzers, currentQuestionId, questions, sessionId, timerRemaining]);
+  }, [buzzers]);
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
