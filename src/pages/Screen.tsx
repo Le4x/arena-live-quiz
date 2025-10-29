@@ -53,9 +53,38 @@ const Screen = () => {
         event: 'INSERT', 
         schema: 'public', 
         table: 'buzzer_attempts' 
-      }, (payload) => {
+      }, async (payload) => {
         console.log('🔄 Screen: Buzzer INSERT détecté', payload);
-        loadBuzzers();
+        
+        // Charger immédiatement l'équipe qui a buzzé
+        const newBuzzer = payload.new;
+        if (newBuzzer.team_id) {
+          const { data: teamData } = await supabase
+            .from('teams')
+            .select('*')
+            .eq('id', newBuzzer.team_id)
+            .single();
+          
+          if (teamData) {
+            const buzzerWithTeam = { ...newBuzzer, teams: teamData };
+            
+            // Mettre à jour immédiatement le state
+            setBuzzers(prev => {
+              const isFirst = prev.length === 0;
+              const newBuzzers = [...prev, buzzerWithTeam];
+              
+              // Afficher l'animation seulement si c'est le premier buzzer
+              if (isFirst) {
+                console.log('🔔 Screen: Premier buzzer détecté!', teamData.name);
+                setShowBuzzerNotif(true);
+                setTimeout(() => setShowBuzzerNotif(false), 5000);
+                playSound('buzz');
+              }
+              
+              return newBuzzers;
+            });
+          }
+        }
       })
       .subscribe();
 
