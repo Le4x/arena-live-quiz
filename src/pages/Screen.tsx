@@ -68,16 +68,9 @@ const Screen = () => {
           
           // Mettre à jour les buzzers immédiatement
           setBuzzers(prev => {
-            // Si c'est le premier buzzer, déclencher l'animation
-            if (prev.length === 0) {
-              console.log('🎉 PREMIER BUZZER - Déclenchement animation!');
-              setShowBuzzerNotif(true);
-              setTimeout(() => {
-                console.log('⏰ Masquage notification buzzer');
-                setShowBuzzerNotif(false);
-              }, 5000);
-            }
-            return [...prev, buzzerWithTeam];
+            const newBuzzers = [...prev, buzzerWithTeam];
+            console.log('📊 Buzzers avant:', prev.length, 'après:', newBuzzers.length);
+            return newBuzzers;
           });
         }
       })
@@ -110,6 +103,21 @@ const Screen = () => {
       supabase.removeChannel(answersChannel);
     };
   }, [teams]);
+
+  // Surveiller les changements de buzzers pour déclencher l'animation
+  useEffect(() => {
+    console.log('🔔 useEffect buzzers.length changé:', buzzers.length, 'showBuzzerNotif:', showBuzzerNotif);
+    
+    // Si on vient de passer de 0 à au moins 1 buzzer, déclencher l'animation
+    if (buzzers.length === 1 && !showBuzzerNotif) {
+      console.log('🎉 DÉCLENCHEMENT ANIMATION - Premier buzzer détecté!');
+      setShowBuzzerNotif(true);
+      setTimeout(() => {
+        console.log('⏰ Masquage notification buzzer après 5s');
+        setShowBuzzerNotif(false);
+      }, 5000);
+    }
+  }, [buzzers.length]);
 
   useEffect(() => {
     console.log('📌 Game state changed, reloading buzzers');
