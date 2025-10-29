@@ -342,7 +342,15 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
 
-    // Réinitialiser le chrono pour permettre de relancer
+    // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
+    await supabase.from('game_state').update({
+      timer_active: false
+    }).eq('game_session_id', sessionId);
+
+    // Attendre un tout petit peu pour que le changement soit propagé
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Réinitialiser le chrono et le relancer
     setTimerRemaining(timerDuration);
     setTimerActive(true);
 
