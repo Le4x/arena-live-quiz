@@ -76,16 +76,7 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
-  // Polling de secours pour les buzzers (200ms pour réactivité maximale)
-  useEffect(() => {
-    if (!currentQuestionId || !sessionId) return;
-    
-    const interval = setInterval(() => {
-      loadBuzzers();
-    }, 200);
-    
-    return () => clearInterval(interval);
-  }, [currentQuestionId, sessionId]);
+  // Pas de polling - uniquement real-time
 
   useEffect(() => {
     if (!sessionId) return;
@@ -704,7 +695,7 @@ const Regie = () => {
         {/* Right: Buzzers + Teams */}
         <div className="w-96 flex flex-col gap-3 overflow-hidden">
           {/* Buzzers */}
-          <BuzzerMonitor currentQuestionId={currentQuestionId} gameState={gameState} />
+          <BuzzerMonitor currentQuestionId={currentQuestionId} gameState={gameState} buzzers={buzzers} />
 
           {/* Teams */}
           <Card className="flex-1 overflow-hidden flex flex-col">

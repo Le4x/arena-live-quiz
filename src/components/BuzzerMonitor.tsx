@@ -6,39 +6,8 @@ import { Zap, Trophy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { gameEvents } from "@/lib/runtime/GameEvents";
 
-export const BuzzerMonitor = ({ currentQuestionId, gameState }: { currentQuestionId: string | null; gameState: any | null }) => {
+export const BuzzerMonitor = ({ currentQuestionId, gameState, buzzers }: { currentQuestionId: string | null; gameState: any | null; buzzers: any[] }) => {
   const { toast } = useToast();
-  const [buzzers, setBuzzers] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!currentQuestionId) return;
-    
-    loadBuzzers();
-
-    const channel = supabase
-      .channel('buzzer-monitor')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
-        loadBuzzers();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentQuestionId]);
-
-  const loadBuzzers = async () => {
-    if (!currentQuestionId || !gameState?.game_session_id) return;
-    
-    const { data } = await supabase
-      .from('buzzer_attempts')
-      .select('*, teams(*)')
-      .eq('question_id', currentQuestionId)
-      .eq('game_session_id', gameState.game_session_id)
-      .order('buzzed_at', { ascending: true });
-    
-    if (data) setBuzzers(data);
-  };
 
   const awardPoints = async (teamId: string, points: number, isCorrect: boolean) => {
     const { data: team } = await supabase

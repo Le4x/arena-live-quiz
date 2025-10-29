@@ -99,16 +99,7 @@ const Screen = () => {
     loadTextAnswers();
   }, [currentQuestion?.id, gameState?.game_session_id]);
 
-  // Polling de secours pour les buzzers (200ms pour réactivité maximale)
-  useEffect(() => {
-    if (!currentQuestion?.id || !gameState?.game_session_id) return;
-    
-    const interval = setInterval(() => {
-      loadBuzzers();
-    }, 200);
-    
-    return () => clearInterval(interval);
-  }, [currentQuestion?.id, gameState?.game_session_id]);
+  // Pas de polling - uniquement real-time
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
