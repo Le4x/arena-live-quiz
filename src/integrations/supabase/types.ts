@@ -54,6 +54,13 @@ export type Database = {
             foreignKeyName: "buzzer_attempts_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
+            referencedRelation: "public_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buzzer_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
             referencedRelation: "questions"
             referencedColumns: ["id"]
           },
@@ -171,6 +178,13 @@ export type Database = {
             foreignKeyName: "game_state_current_question_id_fkey"
             columns: ["current_question_id"]
             isOneToOne: false
+            referencedRelation: "public_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_current_question_id_fkey"
+            columns: ["current_question_id"]
+            isOneToOne: false
             referencedRelation: "questions"
             referencedColumns: ["id"]
           },
@@ -196,6 +210,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
       }
       question_instances: {
         Row: {
@@ -353,6 +385,13 @@ export type Database = {
             foreignKeyName: "team_answers_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
+            referencedRelation: "public_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
             referencedRelation: "questions"
             referencedColumns: ["id"]
           },
@@ -401,15 +440,80 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      public_questions: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          cue_points: Json | null
+          display_order: number | null
+          id: string | null
+          options: Json | null
+          points: number | null
+          question_text: string | null
+          question_type: string | null
+          round_id: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          cue_points?: Json | null
+          display_order?: number | null
+          id?: string | null
+          options?: Json | null
+          points?: number | null
+          question_text?: string | null
+          question_type?: string | null
+          round_id?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          cue_points?: Json | null
+          display_order?: number | null
+          id?: string | null
+          options?: Json | null
+          points?: number | null
+          question_text?: string | null
+          question_type?: string | null
+          round_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      is_admin: { Args: { check_user_id: string }; Returns: boolean }
       reset_game_session: { Args: { session_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -536,6 +640,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator"],
+    },
   },
 } as const
