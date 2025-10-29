@@ -522,18 +522,6 @@ const Regie = () => {
       await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId);
       toast({ title: `✅ Bonne réponse ! +${points} points` }); 
     }, 2000);
-    
-    // Basculer automatiquement vers l'écran d'attente après 4 secondes
-    setTimeout(async () => {
-      await supabase.from('game_state').update({ 
-        show_waiting_screen: true,
-        current_question_id: null,
-        show_answer: false,
-        timer_remaining: 0
-      }).eq('game_session_id', sessionId);
-      setCurrentQuestionId(null);
-      toast({ title: '⏸️ En attente de la prochaine question' });
-    }, 4000);
   };
 
   const toggleBuzzer = async () => {
@@ -577,17 +565,6 @@ const Regie = () => {
     const currentQ = questions.find(q => q.id === currentQuestionId);
     if (!currentQ || !sessionId) {
       toast({ title: '👁️ Réponse révélée' });
-      // Basculer vers l'écran d'attente après 3 secondes
-      setTimeout(async () => {
-        await supabase.from('game_state').update({ 
-          show_waiting_screen: true,
-          current_question_id: null,
-          show_answer: false,
-          timer_remaining: 0
-        }).eq('game_session_id', sessionId);
-        setCurrentQuestionId(null);
-        toast({ title: '⏸️ En attente de la prochaine question' });
-      }, 3000);
       return;
     }
 
@@ -667,7 +644,7 @@ const Regie = () => {
             description: `${pendingCount} réponse(s) non validée(s). Validez-les avant de révéler.`,
             variant: 'destructive'
           });
-          return; // Ne pas basculer vers l'écran d'attente si des réponses ne sont pas validées
+          return;
         } else {
           toast({ 
             title: '👁️ Réponse révélée et points attribués', 
@@ -678,18 +655,6 @@ const Regie = () => {
     } else {
       toast({ title: '👁️ Réponse révélée' });
     }
-    
-    // Basculer automatiquement vers l'écran d'attente après 3 secondes
-    setTimeout(async () => {
-      await supabase.from('game_state').update({ 
-        show_waiting_screen: true,
-        current_question_id: null,
-        show_answer: false,
-        timer_remaining: 0
-      }).eq('game_session_id', sessionId);
-      setCurrentQuestionId(null);
-      toast({ title: '⏸️ En attente de la prochaine question' });
-    }, 3000);
   };
 
   const hideReveal = async () => {
@@ -802,11 +767,25 @@ const Regie = () => {
               <Monitor className="h-3 w-3 mr-1" />
               Écran
             </Button>
-            <Button size="sm" variant="outline" onClick={toggleWaitingScreen}>
-              {gameState?.show_waiting_screen ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            <Button 
+              size="sm" 
+              variant={gameState?.show_waiting_screen ? "outline" : "secondary"}
+              onClick={toggleWaitingScreen}
+            >
+              {gameState?.show_waiting_screen ? (
+                <>
+                  <Eye className="h-3 w-3 mr-1" />
+                  Reprendre
+                </>
+              ) : (
+                <>
+                  ⏸️ Attente
+                </>
+              )}
             </Button>
             <Button size="sm" variant="outline" onClick={showLeaderboard}>
-              <Trophy className="h-3 w-3" />
+              <Trophy className="h-3 w-3 mr-1" />
+              Classement
             </Button>
             <Button size="sm" variant="destructive" onClick={resetSession}>
               <RotateCcw className="h-3 w-3" />
