@@ -676,7 +676,26 @@ const Regie = () => {
 
   const toggleWaitingScreen = async () => {
     const newValue = !gameState?.show_waiting_screen;
-    await supabase.from('game_state').update({ show_waiting_screen: newValue }).eq('game_session_id', sessionId);
+    
+    if (newValue) {
+      // En passant en mode attente, effacer la question en cours
+      await supabase.from('game_state').update({ 
+        show_waiting_screen: true,
+        current_question_id: null,
+        show_answer: false,
+        timer_active: false,
+        timer_remaining: 0,
+        is_buzzer_active: false
+      }).eq('game_session_id', sessionId);
+      setCurrentQuestionId(null);
+      setTimerActive(false);
+    } else {
+      // En sortant du mode attente, juste désactiver l'écran
+      await supabase.from('game_state').update({ 
+        show_waiting_screen: false 
+      }).eq('game_session_id', sessionId);
+    }
+    
     toast({ title: newValue ? '⏸️ Écran d\'attente activé' : '▶️ Retour au jeu' });
   };
 
