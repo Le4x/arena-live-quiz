@@ -22,8 +22,6 @@ const Screen = () => {
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showBuzzerNotif, setShowBuzzerNotif] = useState(false);
-  const [showBuzzerResult, setShowBuzzerResult] = useState(false);
-  const [buzzerResultTeam, setBuzzerResultTeam] = useState<any>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
@@ -70,34 +68,14 @@ const Screen = () => {
       })
       .subscribe();
 
-    // Écouter les événements de révélation pour les buzzers
-    const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
-      console.log('🎭 Screen: Reveal reçu', event);
-      if (event.data?.teamId) {
-        const team = teams.find(t => t.id === event.data.teamId);
-        console.log('👥 Team trouvée:', team);
-        if (team) {
-          setBuzzerResultTeam({ 
-            ...team, 
-            isCorrect: event.data.isCorrect,
-            correctAnswer: event.data.correctAnswer // Ajouter la réponse correcte
-          });
-          setShowBuzzerResult(true);
-          console.log('✅ Affichage reveal pour 8 secondes');
-          setTimeout(() => {
-            setShowBuzzerResult(false);
-            console.log('❌ Masquage reveal');
-          }, 8000); // Augmenté à 8 secondes
-        }
-      }
-    });
+    // Plus besoin de l'événement REVEAL_ANSWER pour afficher une notification
+    // Le reveal se fait maintenant via show_answer dans la question
 
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
-      unsubReveal();
     };
   }, [teams]);
 
@@ -403,6 +381,19 @@ const Screen = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Réponse pour buzzer - révélée quand show_answer = true */}
+                {currentQuestion.question_type === 'blind_test' && gameState?.show_answer && currentQuestion.correct_answer && (
+                  <div className="mt-6 p-6 rounded-xl bg-green-500/30 border-2 border-green-400 shadow-glow-gold animate-pulse">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Check className="w-8 h-8 text-green-400" />
+                        <span className="text-2xl font-bold text-green-400">RÉPONSE</span>
+                      </div>
+                      <p className="text-3xl font-bold">{currentQuestion.correct_answer}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -463,7 +454,7 @@ const Screen = () => {
         )}
 
         {/* Premier buzzeur - DISCRET EN HAUT À DROITE */}
-        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && !showBuzzerResult && (
+        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
           <div 
             className="fixed top-8 right-8 z-40 animate-slide-in"
           >
@@ -487,43 +478,7 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Résultat validation buzzer */}
-        {showBuzzerResult && buzzerResultTeam && !gameState?.show_leaderboard && (
-          <div className="fixed top-8 right-8 z-50 animate-scale-in">
-            <div 
-              className={`bg-card/95 backdrop-blur-xl rounded-2xl p-6 border-4 shadow-glow-gold max-w-md ${
-                buzzerResultTeam.isCorrect ? 'border-green-500' : 'border-red-500'
-              }`}
-            >
-              <div className="text-center">
-                {buzzerResultTeam.isCorrect ? (
-                  <>
-                    <Check className="w-16 h-16 mx-auto mb-3 text-green-500 animate-bounce" />
-                    <h3 className="text-2xl font-bold text-green-500 mb-2">BONNE RÉPONSE !</h3>
-                  </>
-                ) : (
-                  <>
-                    <X className="w-16 h-16 mx-auto mb-3 text-red-500 animate-bounce" />
-                    <h3 className="text-2xl font-bold text-red-500 mb-2">MAUVAISE RÉPONSE</h3>
-                  </>
-                )}
-                <div
-                  className="w-12 h-12 rounded-full mx-auto mb-2"
-                  style={{ backgroundColor: buzzerResultTeam.color }}
-                ></div>
-                <h4 className="text-lg font-bold">{buzzerResultTeam.name}</h4>
-                
-                {/* Afficher la réponse correcte */}
-                {buzzerResultTeam.correctAnswer && (
-                  <div className="mt-4 pt-4 border-t border-primary/30">
-                    <p className="text-sm text-muted-foreground mb-1">La réponse était :</p>
-                    <p className="text-xl font-bold text-primary">{buzzerResultTeam.correctAnswer}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Notification supprimée - Le reveal se fait en dessous de la question */}
 
         {/* Liste des buzzers */}
         {buzzers.length > 1 && !gameState?.show_leaderboard && (

@@ -362,8 +362,6 @@ const Regie = () => {
   };
 
   const handleCorrectAnswer = async (teamId: string, points: number) => {
-    console.log('✅ handleCorrectAnswer appelé', { teamId, points });
-    
     // Attribuer les points à l'équipe
     const { data: team } = await supabase
       .from('teams')
@@ -377,14 +375,11 @@ const Regie = () => {
         .update({ score: team.score + points })
         .eq('id', teamId);
       
-      // Récupérer la réponse correcte de la question
-      const currentQ = questions.find(x => x.id === currentQuestionId);
-      console.log('📤 Envoi événement REVEAL_ANSWER', { 
-        teamId, 
-        isCorrect: true, 
-        correctAnswer: currentQ?.correct_answer 
-      });
-      await gameEvents.revealAnswer(teamId, true, currentQ?.correct_answer);
+      // Afficher l'animation "Bonne réponse" et révéler la réponse en dessous
+      await supabase.from('game_state').update({ 
+        answer_result: 'correct',
+        show_answer: true 
+      }).eq('game_session_id', sessionId);
     }
 
     
@@ -409,8 +404,12 @@ const Regie = () => {
     await supabase.from('game_state').update({ is_buzzer_active: newState }).eq('game_session_id', sessionId);
     await gameEvents.toggleBuzzer(newState);
     if (newState) {
+      // Réinitialiser complètement l'état des buzzers
       await gameEvents.resetBuzzer(currentQuestionInstanceId || '');
       setBuzzerLocked(false);
+      setTimerWhenBuzzed(null);
+      setAudioPositionWhenBuzzed(null);
+      console.log('🔄 Buzzers réinitialisés complètement');
     }
     toast({ title: newState ? '⚡ Buzzers activés' : '🚫 Buzzers désactivés' });
   };
