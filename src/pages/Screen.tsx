@@ -54,7 +54,18 @@ const Screen = () => {
         schema: 'public', 
         table: 'buzzer_attempts' 
       }, (payload) => {
-        console.log('🔄 Screen: Buzzer INSERT détecté', payload);
+        console.log('🔄 Screen: Buzzer INSERT détecté EN TEMPS RÉEL', payload);
+        // Forcer le rechargement immédiat
+        loadBuzzers();
+        // Forcer aussi le rechargement des données pour être sûr
+        loadData();
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🔄 Screen: Buzzer DELETE détecté', payload);
         loadBuzzers();
       })
       .subscribe();
@@ -456,118 +467,68 @@ const Screen = () => {
           </div>
         )}
 
-        {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE MAIS COMPACTE */}
+        {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION ÉLÉGANTE */}
         {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
-          <>
-            {/* Flash d'arrière-plan discret */}
-            <div className="fixed inset-0 z-30 pointer-events-none">
-              <div 
-                className="absolute inset-0"
-                style={{ 
-                  backgroundColor: buzzers[0].teams?.color,
-                  opacity: 0.1,
-                  animation: 'pulse 0.5s ease-in-out 2'
-                }}
-              />
-            </div>
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-fade-in">
+            {/* Carte principale sobre */}
+            <div 
+              className="relative bg-card/95 backdrop-blur-xl rounded-3xl p-8 border-4 shadow-2xl"
+              style={{ 
+                borderColor: buzzers[0].teams?.color,
+                boxShadow: `0 0 40px ${buzzers[0].teams?.color}30`
+              }}
+            >
+              {/* Éclairs discrets aux coins */}
+              <div className="absolute -top-3 -left-3">
+                <Zap className="w-8 h-8 text-accent" style={{ opacity: 0.6 }} />
+              </div>
+              <div className="absolute -top-3 -right-3">
+                <Zap className="w-8 h-8 text-accent" style={{ opacity: 0.6 }} />
+              </div>
 
-            {/* Animation centrale compacte */}
-            <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
-              <div className="relative animate-scale-in">
-                {/* Cercles concentriques animés */}
-                <div className="absolute inset-0 -m-12">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="absolute inset-0 rounded-full border-4 opacity-40"
-                      style={{
-                        borderColor: buzzers[0].teams?.color,
-                        animation: `ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite`,
-                        animationDelay: `${i * 0.3}s`,
-                      }}
-                    />
-                  ))}
+              <div className="text-center relative z-10">
+                {/* Badge BUZZER sobre */}
+                <div className="mb-4">
+                  <h2 className="text-4xl font-bold text-accent">⚡ BUZZER ⚡</h2>
                 </div>
 
-                {/* Carte principale réduite */}
-                <div 
-                  className="relative bg-card/98 backdrop-blur-xl rounded-3xl p-8 border-6 shadow-2xl"
+                {/* Avatar sobre de l'équipe */}
+                <div className="relative inline-block mb-4">
+                  <div
+                    className="w-20 h-20 rounded-full mx-auto shadow-lg"
+                    style={{ 
+                      backgroundColor: buzzers[0].teams?.color,
+                      boxShadow: `0 0 20px ${buzzers[0].teams?.color}40`
+                    }}
+                  />
+                </div>
+
+                {/* Nom de l'équipe */}
+                <h3 
+                  className="text-3xl font-bold mb-3"
                   style={{ 
-                    borderColor: buzzers[0].teams?.color,
-                    boxShadow: `0 0 60px ${buzzers[0].teams?.color}60, 0 0 90px ${buzzers[0].teams?.color}30`,
-                    animation: 'bounce 0.6s ease-in-out 2'
+                    color: buzzers[0].teams?.color,
+                    textShadow: `0 0 10px ${buzzers[0].teams?.color}30`
                   }}
                 >
-                  {/* Éclairs aux coins (réduits) */}
-                  <div className="absolute -top-4 -left-4">
-                    <Zap className="w-10 h-10 text-accent animate-pulse" style={{ filter: 'drop-shadow(0 0 15px currentColor)' }} />
-                  </div>
-                  <div className="absolute -top-4 -right-4">
-                    <Zap className="w-10 h-10 text-accent animate-pulse" style={{ animationDelay: '0.3s', filter: 'drop-shadow(0 0 15px currentColor)' }} />
-                  </div>
+                  {buzzers[0].teams?.name}
+                </h3>
 
-                  <div className="text-center relative z-10">
-                    {/* Badge BUZZER réduit */}
-                    <div className="mb-4">
-                      <div className="inline-block bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent animate-pulse">
-                        <h2 className="text-5xl font-black tracking-wider">⚡ BUZZER ⚡</h2>
-                      </div>
-                    </div>
-
-                    {/* Avatar réduit de l'équipe */}
-                    <div className="relative inline-block mb-4">
-                      <div
-                        className="w-24 h-24 rounded-full mx-auto animate-pulse shadow-2xl"
-                        style={{ 
-                          backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 40px ${buzzers[0].teams?.color}, inset 0 0 20px rgba(255,255,255,0.3)`
-                        }}
-                      />
-                      {/* Particules autour (réduites) */}
-                      {[...Array(6)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="absolute w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: buzzers[0].teams?.color,
-                            top: '50%',
-                            left: '50%',
-                            animation: `ping 1s ease-out infinite`,
-                            animationDelay: `${i * 0.2}s`,
-                            transform: `rotate(${i * 60}deg) translateY(-60px)`,
-                          }}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Nom de l'équipe réduit */}
-                    <h3 
-                      className="text-4xl font-black mb-3 animate-pulse"
-                      style={{ 
-                        color: buzzers[0].teams?.color,
-                        textShadow: `0 0 20px ${buzzers[0].teams?.color}, 0 0 40px ${buzzers[0].teams?.color}`
-                      }}
-                    >
-                      {buzzers[0].teams?.name}
-                    </h3>
-
-                    {/* Badge "PREMIER!" réduit */}
-                    <div className="inline-block">
-                      <div 
-                        className="px-6 py-3 rounded-full font-black text-2xl text-white animate-pulse"
-                        style={{ 
-                          backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 30px ${buzzers[0].teams?.color}`
-                        }}
-                      >
-                        🏆 PREMIER ! 🏆
-                      </div>
-                    </div>
+                {/* Badge "PREMIER!" sobre */}
+                <div className="inline-block">
+                  <div 
+                    className="px-6 py-2 rounded-full font-bold text-xl text-white"
+                    style={{ 
+                      backgroundColor: buzzers[0].teams?.color,
+                      boxShadow: `0 0 15px ${buzzers[0].teams?.color}40`
+                    }}
+                  >
+                    🏆 PREMIER ! 🏆
                   </div>
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Notification supprimée - Le reveal se fait en dessous de la question */}
