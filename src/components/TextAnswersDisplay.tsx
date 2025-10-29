@@ -8,14 +8,21 @@ import { useToast } from "@/hooks/use-toast";
 interface TextAnswersDisplayProps {
   currentQuestionId: string | null;
   gameState: any | null;
+  currentQuestion: any | null;
 }
 
-export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswersDisplayProps) => {
+export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuestion }: TextAnswersDisplayProps) => {
   const { toast } = useToast();
   const [answers, setAnswers] = useState<any[]>([]);
 
   useEffect(() => {
-    if (currentQuestionId) {
+    console.log('💬 TextAnswersDisplay - Question changed:', { 
+      currentQuestionId, 
+      questionType: currentQuestion?.question_type,
+      sessionId: gameState?.game_session_id 
+    });
+    
+    if (currentQuestionId && currentQuestion?.question_type === 'free_text') {
       loadAnswers();
 
       const answersChannel = supabase
@@ -26,6 +33,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
           table: 'team_answers',
           filter: `question_id=eq.${currentQuestionId}`
         }, () => {
+          console.log('💬 TextAnswersDisplay - Realtime update detected');
           loadAnswers();
         })
         .subscribe();
@@ -36,19 +44,29 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
     } else {
       setAnswers([]);
     }
-  }, [currentQuestionId]);
+  }, [currentQuestionId, currentQuestion?.question_type, gameState?.game_session_id]);
 
   const loadAnswers = async () => {
-    if (!currentQuestionId || !gameState?.game_session_id) return;
+    if (!currentQuestionId || !gameState?.game_session_id) {
+      console.log('💬 TextAnswersDisplay - Missing required data');
+      return;
+    }
 
-    const { data } = await supabase
+    console.log('💬 TextAnswersDisplay - Loading answers...', { currentQuestionId, sessionId: gameState.game_session_id });
+
+    const { data, error } = await supabase
       .from('team_answers')
       .select('*, teams(name, color)')
       .eq('question_id', currentQuestionId)
       .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
-    if (data) setAnswers(data);
+    if (error) {
+      console.error('💬 TextAnswersDisplay - Error loading answers:', error);
+    } else {
+      console.log('💬 TextAnswersDisplay - Loaded answers:', data?.length || 0);
+      if (data) setAnswers(data);
+    }
   };
 
   const markAnswer = async (answerId: string, isCorrect: boolean) => {
@@ -73,12 +91,16 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
     loadAnswers();
   };
 
-  if (!currentQuestionId || answers.length === 0) return null;
+  // Ne rien afficher si pas une question free text
+  if (!currentQuestion || currentQuestion.question_type !== 'free_text') return null;
+  
+  // Afficher le composant même sans réponse pour voir qu'il y a une question active
+  if (!currentQuestionId) return null;
 
   const validatedCount = answers.filter(a => a.is_correct !== null).length;
 
   return (
-    <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20">
+    <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20 mt-2">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-bold text-accent">
           Réponses texte ({answers.length})
@@ -87,42 +109,48 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState }: TextAnswers
           {validatedCount}/{answers.length} validées
         </span>
       </div>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
-        {answers.map((answer) => (
-          <div
-            key={answer.id}
-            className="flex items-center gap-2 p-2 rounded border border-border bg-muted/30 text-sm"
-            style={{ borderLeftColor: answer.teams?.color, borderLeftWidth: '3px' }}
-          >
+      {answers.length === 0 ? (
+        <div className="text-xs text-muted-foreground text-center py-2">
+          En attente de réponses...
+        </div>
+      ) : (
+        <div className="space-y-1 max-h-48 overflow-y-auto">
+          {answers.map((answer) => (
             <div
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: answer.teams?.color }}
-            />
-            <div className="font-bold truncate w-20 flex-shrink-0" style={{ color: answer.teams?.color }}>
-              {answer.teams?.name}
+              key={answer.id}
+              className="flex items-center gap-2 p-2 rounded border border-border bg-muted/30 text-sm"
+              style={{ borderLeftColor: answer.teams?.color, borderLeftWidth: '3px' }}
+            >
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: answer.teams?.color }}
+              />
+              <div className="font-bold truncate w-20 flex-shrink-0" style={{ color: answer.teams?.color }}>
+                {answer.teams?.name}
+              </div>
+              <div className="flex-1 truncate">{answer.answer}</div>
+              <div className="flex gap-1 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant={answer.is_correct === true ? "default" : "ghost"}
+                  className={`h-6 w-6 p-0 ${answer.is_correct === true ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-600/20'}`}
+                  onClick={() => markAnswer(answer.id, true)}
+                >
+                  <Check className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={answer.is_correct === false ? "default" : "ghost"}
+                  className={`h-6 w-6 p-0 ${answer.is_correct === false ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-red-600/20'}`}
+                  onClick={() => markAnswer(answer.id, false)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
-            <div className="flex-1 truncate">{answer.answer}</div>
-            <div className="flex gap-1 flex-shrink-0">
-              <Button
-                size="sm"
-                variant={answer.is_correct === true ? "default" : "ghost"}
-                className={`h-6 w-6 p-0 ${answer.is_correct === true ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-600/20'}`}
-                onClick={() => markAnswer(answer.id, true)}
-              >
-                <Check className="h-3 w-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant={answer.is_correct === false ? "default" : "ghost"}
-                className={`h-6 w-6 p-0 ${answer.is_correct === false ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-red-600/20'}`}
-                onClick={() => markAnswer(answer.id, false)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 };

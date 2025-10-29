@@ -699,7 +699,11 @@ const Regie = () => {
           {/* Réponses QCM et Freetext */}
           <div className="flex-shrink-0 max-h-64 overflow-y-auto">
             <QCMAnswersDisplay currentQuestion={questions.find(q => q.id === currentQuestionId)} gameState={gameState} />
-            <TextAnswersDisplay currentQuestionId={currentQuestionId} gameState={gameState} />
+            <TextAnswersDisplay 
+              currentQuestionId={currentQuestionId} 
+              gameState={gameState}
+              currentQuestion={questions.find(q => q.id === currentQuestionId)}
+            />
           </div>
         </div>
 
