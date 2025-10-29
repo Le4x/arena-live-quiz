@@ -41,6 +41,7 @@ const Regie = () => {
   const [timerWhenBuzzed, setTimerWhenBuzzed] = useState<number>(0);
   const [blockedTeams, setBlockedTeams] = useState<string[]>([]);
   const [audioPositionWhenBuzzed, setAudioPositionWhenBuzzed] = useState<number>(0);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
 
   useEffect(() => {
     loadActiveSession();
@@ -267,8 +268,11 @@ const Regie = () => {
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
         await audioEngine.preloadTrack(track);
+        setCurrentTrack(track); // Définir uniquement le track de la question
         toast({ title: '🎵 Son préchargé', description: track.name });
       }
+    } else {
+      setCurrentTrack(null); // Pas de track pour les questions non-blind test
     }
     
     await supabase.from('question_instances').insert({
@@ -621,10 +625,10 @@ const Regie = () => {
       </div>
 
       {/* Audio Deck - Lecteur pro avec cue points */}
-      {audioTracks.length > 0 && (
+      {currentTrack && (
         <div className="p-3 flex-shrink-0">
           <AudioDeck 
-            tracks={audioTracks}
+            tracks={[currentTrack]}
             onTrackChange={(track) => {
               console.log('📻 Track changed:', track.name);
             }}
