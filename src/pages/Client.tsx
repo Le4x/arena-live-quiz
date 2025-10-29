@@ -133,6 +133,11 @@ const Client = () => {
         const isCorrect = event.data?.isCorrect;
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
         playSound(isCorrect ? 'correct' : 'incorrect');
+        
+        // Cacher le reveal après 3 secondes
+        setTimeout(() => {
+          setShowReveal(false);
+        }, 3000);
       }
     });
 

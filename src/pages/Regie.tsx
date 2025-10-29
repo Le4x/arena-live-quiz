@@ -309,9 +309,15 @@ const Regie = () => {
 
   const handleWrongAnswer = async (teamId: string) => {
     // Bloquer l'équipe qui a donné une mauvaise réponse
-    setBlockedTeams(prev => [...prev, teamId]);
+    const newBlockedTeams = [...blockedTeams, teamId];
+    setBlockedTeams(newBlockedTeams);
     
-    await supabase.from('game_state').update({ answer_result: 'incorrect' }).eq('game_session_id', sessionId);
+    // IMPORTANT : Synchroniser avec la DB pour que les clients puissent voir qu'ils sont bloqués
+    await supabase.from('game_state').update({ 
+      answer_result: 'incorrect',
+      excluded_teams: newBlockedTeams
+    }).eq('game_session_id', sessionId);
+    
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
       setBuzzerLocked(false);
@@ -701,6 +707,13 @@ const Regie = () => {
               setBuzzers([]);
               setBlockedTeams([]); // Réinitialiser les équipes bloquées
               previousBuzzersCount.current = 0;
+              
+              // IMPORTANT : Réinitialiser aussi excluded_teams dans la DB et réactiver le buzzer
+              await supabase.from('game_state').update({ 
+                excluded_teams: [],
+                is_buzzer_active: true // Réactiver le buzzer pour tous
+              }).eq('game_session_id', sessionId);
+              
               toast({ title: '🔄 Buzzers réinitialisés' });
             }
           }}
