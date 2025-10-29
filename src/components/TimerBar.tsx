@@ -34,18 +34,18 @@ export const TimerBar = ({
   };
 
   return (
-    <Card className="p-4 bg-card/95 backdrop-blur">
+    <Card className="p-3 sm:p-4 bg-card/95 backdrop-blur">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-muted-foreground">
+        <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
           {questionType === 'blind_test' ? '🎵 Temps restant' : '⏱️ Temps restant'}
         </span>
-        <span className="text-lg font-bold tabular-nums">
+        <span className="text-base sm:text-lg font-bold tabular-nums">
           {displayTime}s
         </span>
       </div>
       <Progress 
         value={percentage} 
-        className="h-3"
+        className="h-2 sm:h-3"
         indicatorClassName={getColorClass()}
       />
       {!timerActive && timerRemaining > 0 && (

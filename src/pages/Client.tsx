@@ -660,62 +660,65 @@ const Client = () => {
   }
 
   const getRankIcon = () => {
+    const iconClass = "h-6 w-6 sm:h-8 sm:w-8";
     switch (teamRank) {
-      case 1: return <Crown className="h-8 w-8 text-yellow-500" />;
-      case 2: return <Medal className="h-8 w-8 text-gray-400" />;
-      case 3: return <Award className="h-8 w-8 text-amber-700" />;
-      default: return <Trophy className="h-8 w-8 text-muted-foreground" />;
+      case 1: return <Crown className={`${iconClass} text-yellow-500`} />;
+      case 2: return <Medal className={`${iconClass} text-gray-400`} />;
+      case 3: return <Award className={`${iconClass} text-amber-700`} />;
+      default: return <Trophy className={`${iconClass} text-muted-foreground`} />;
     }
   };
 
   const getRankBadgeColor = () => {
     switch (teamRank) {
-      case 1: return "bg-gradient-to-r from-yellow-500 to-amber-500 text-white";
-      case 2: return "bg-gradient-to-r from-gray-300 to-gray-500 text-white";
+      case 1: return "bg-gradient-to-r from-yellow-400 to-yellow-600 text-black";
+      case 2: return "bg-gradient-to-r from-gray-300 to-gray-500 text-black";
       case 3: return "bg-gradient-to-r from-amber-600 to-amber-800 text-white";
-      default: return "bg-primary/20 text-primary";
+      default: return "bg-primary/30 text-primary border border-primary/50";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-4">
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* Header équipe premium avec classement */}
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
+      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+        {/* Header équipe premium avec classement - RESPONSIVE */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in" 
               style={{ borderColor: team.color }}>
           {/* Effet de brillance */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
           
-          <div className="relative p-6">
-            <div className="flex items-center gap-4 mb-4">
+          <div className="relative p-3 sm:p-6">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
               {/* Avatar avec effet glow */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <div 
-                  className="w-20 h-20 rounded-full shadow-elegant animate-pulse"
+                  className="w-14 h-14 sm:w-20 sm:h-20 rounded-full shadow-elegant animate-pulse"
                   style={{ 
                     backgroundColor: team.color,
                     boxShadow: `0 0 30px ${team.color}80`
                   }}
                 />
                 <div className="absolute -bottom-1 -right-1">
-                  {getRankIcon()}
+                  <div className="w-6 h-6 sm:w-8 sm:h-8">
+                    {getRankIcon()}
+                  </div>
                 </div>
               </div>
               
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h2 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">
                     {team.name}
                   </h2>
-                  <Badge className={`${getRankBadgeColor()} font-bold px-3 py-1 text-sm`}>
+                  <Badge className={`${getRankBadgeColor()} font-bold px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm flex-shrink-0`}>
                     #{teamRank}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="text-2xl font-bold text-primary">
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                  <p className="text-lg sm:text-2xl font-bold text-primary">
                     {team.score} pts
                   </p>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs sm:text-sm text-muted-foreground">
                     {teamRank === 1 && "🏆 En tête !"}
                     {teamRank === 2 && "🥈 Deuxième"}
                     {teamRank === 3 && "🥉 Troisième"}
@@ -724,21 +727,21 @@ const Client = () => {
                 </div>
               </div>
 
-              {/* Bouton d'aide */}
+              {/* Bouton d'aide - RESPONSIVE */}
               <Button
                 onClick={requestHelp}
                 disabled={isRequestingHelp}
                 variant="outline"
                 size="lg"
-                className="bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-gold"
+                className="flex-shrink-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-red h-10 w-10 sm:h-12 sm:w-12 p-0"
               >
-                <HelpCircle className="h-6 w-6 text-red-500" />
+                <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
               </Button>
             </div>
 
             {/* Barre de progression vs leader (si pas leader) */}
             {teamRank > 1 && allTeams[0] && (
-              <div className="mt-3 pt-3 border-t border-border/50">
+              <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-border/50">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                   <span>Écart avec le leader</span>
                   <span className="font-bold">{allTeams[0].score - team.score} pts</span>
@@ -766,30 +769,30 @@ const Client = () => {
           />
         )}
 
-        {/* Buzzer - Uniquement pour blind test */}
+        {/* Buzzer - Uniquement pour blind test - RESPONSIVE */}
         {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
-          <Card className="relative overflow-hidden p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
+          <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
               <Button
                 ref={buzzerButtonRef}
                 onClick={handleBuzzer}
                 disabled={hasBuzzed}
-                className="w-full h-36 text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
                 style={{
-                  boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(212, 175, 55, 0.5)'
+                  boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(255, 120, 0, 0.5)'
                 }}
               >
-                <Zap className="mr-4 h-16 w-16 animate-pulse" />
+                <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
                 {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
               </Button>
             </div>
           </Card>
         )}
 
-        {/* Question et réponse */}
+        {/* Question et réponse - RESPONSIVE */}
         {currentQuestion && (
-          <Card className="relative overflow-hidden p-6 bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 border-secondary/30 shadow-2xl animate-fade-in">
+          <Card className="relative overflow-hidden p-4 sm:p-6 bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 border-secondary/30 shadow-2xl animate-fade-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             
             {showReveal && answerResult && (
@@ -798,18 +801,18 @@ const Client = () => {
                   ? 'from-green-500/95 to-emerald-600/95' 
                   : 'from-red-500/95 to-rose-600/95'
               } rounded-lg animate-scale-in z-10 backdrop-blur-sm`}>
-                <div className="text-center animate-bounce">
+                <div className="text-center animate-bounce p-4">
                   {answerResult === 'correct' ? (
                     <>
-                      <Check className="w-32 h-32 mx-auto mb-4 text-white drop-shadow-glow" />
-                      <p className="text-5xl font-bold text-white drop-shadow-lg">BONNE RÉPONSE !</p>
-                      <p className="text-xl text-white/80 mt-2">🎉 Félicitations !</p>
+                      <Check className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-2 sm:mb-4 text-white drop-shadow-glow" />
+                      <p className="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg">BONNE RÉPONSE !</p>
+                      <p className="text-base sm:text-xl text-white/80 mt-1 sm:mt-2">🎉 Félicitations !</p>
                     </>
                   ) : (
                     <>
-                      <X className="w-32 h-32 mx-auto mb-4 text-white drop-shadow-glow" />
-                      <p className="text-5xl font-bold text-white drop-shadow-lg">MAUVAISE RÉPONSE</p>
-                      <p className="text-xl text-white/80 mt-2">Dommage... Tentez votre chance !</p>
+                      <X className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-2 sm:mb-4 text-white drop-shadow-glow" />
+                      <p className="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg">MAUVAISE RÉPONSE</p>
+                      <p className="text-base sm:text-xl text-white/80 mt-1 sm:mt-2">Dommage... Tentez votre chance !</p>
                     </>
                   )}
                 </div>
@@ -817,23 +820,23 @@ const Client = () => {
             )}
             
             <div className="relative">
-              <div className="flex items-center gap-2 mb-4">
-                <Badge className="bg-gradient-to-r from-secondary to-accent text-white font-bold px-4 py-1">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4 flex-wrap">
+                <Badge className="bg-gradient-to-r from-secondary to-accent text-white font-bold px-3 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm">
                   {currentQuestion.question_type === 'blind_test' ? '🎵 Blind Test' : 
                    currentQuestion.question_type === 'qcm' ? '📋 QCM' : 
                    '✍️ Texte libre'}
                 </Badge>
-                <Badge variant="outline" className="font-bold">
+                <Badge variant="outline" className="font-bold text-xs sm:text-sm">
                   {currentQuestion.points || 10} points
                 </Badge>
               </div>
               
-              <h3 className="text-2xl font-bold text-secondary mb-6 leading-relaxed">
+              <h3 className="text-lg sm:text-2xl font-bold text-secondary mb-4 sm:mb-6 leading-relaxed">
                 {currentQuestion.question_text}
               </h3>
 
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
-              <div className="space-y-3 mb-6">
+              <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                 {(() => {
                   try {
                     const options = typeof currentQuestion.options === 'string' 
@@ -849,7 +852,7 @@ const Client = () => {
                           key={key}
                           variant="outline"
                           disabled={hasAnswered || !isTimerActive}
-                          className={`w-full justify-start text-left h-auto py-4 px-6 disabled:opacity-100 transition-all ${
+                          className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
                             showReveal && isCorrectOption 
                               ? 'bg-green-500/20 border-green-500 border-2' 
                               : showReveal && isSelectedOption && answerResult === 'incorrect'
@@ -863,28 +866,28 @@ const Client = () => {
                             submitAnswer(optionValue);
                           }}
                         >
-                          <span className="text-primary font-bold mr-3">{key}.</span>
-                          <span>{optionValue}</span>
+                          <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
+                          <span className="flex-1">{optionValue}</span>
                           {showReveal && isCorrectOption && (
-                            <Check className="ml-auto h-6 w-6 text-green-500" />
+                            <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
                           )}
                           {showReveal && isSelectedOption && answerResult === 'incorrect' && (
-                            <X className="ml-auto h-6 w-6 text-red-500" />
+                            <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
                           )}
                         </Button>
                       );
                     });
                   } catch (e) {
-                    return <p className="text-destructive">Erreur de chargement des options</p>;
+                    return <p className="text-destructive text-sm sm:text-base">Erreur de chargement des options</p>;
                   }
                 })()}
                 {hasAnswered && !showReveal && (
-                  <div className="text-center text-green-500 font-bold">
+                  <div className="text-center text-green-500 font-bold text-sm sm:text-base">
                     ✓ Réponse enregistrée
                   </div>
                 )}
                 {!isTimerActive && !hasAnswered && (
-                  <div className="text-center text-destructive font-bold">
+                  <div className="text-center text-destructive font-bold text-sm sm:text-base">
                     ⏱️ Temps écoulé - Réponses fermées
                   </div>
                 )}
@@ -892,7 +895,7 @@ const Client = () => {
             )}
 
             {currentQuestion.question_type === 'free_text' && (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <Input
                   placeholder="Votre réponse..."
                   value={answer}
@@ -903,23 +906,23 @@ const Client = () => {
                     }
                   }}
                   disabled={hasAnswered || !isTimerActive}
-                  className="bg-input border-border"
+                  className="bg-input border-border text-sm sm:text-base h-10 sm:h-12"
                 />
                 <Button
                   onClick={() => submitAnswer()}
                   disabled={hasAnswered || !isTimerActive}
-                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-blue disabled:opacity-50"
+                  className="w-full h-10 sm:h-12 text-sm sm:text-base bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-pink disabled:opacity-50"
                 >
-                  <Send className="mr-2 h-5 w-5" />
+                  <Send className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   Envoyer la réponse
                 </Button>
                 {hasAnswered && (
-                  <div className="text-center text-green-500 font-bold">
+                  <div className="text-center text-green-500 font-bold text-sm sm:text-base">
                     ✓ Réponse envoyée
                   </div>
                 )}
                 {!isTimerActive && !hasAnswered && (
-                  <div className="text-center text-destructive font-bold">
+                  <div className="text-center text-destructive font-bold text-sm sm:text-base">
                     ⏱️ Temps écoulé - Réponses fermées
                   </div>
                 )}

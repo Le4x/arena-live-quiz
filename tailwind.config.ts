@@ -53,9 +53,9 @@ export default {
         'gradient-glow': 'var(--gradient-glow)',
       },
       boxShadow: {
-        'glow-gold': 'var(--glow-gold)',
-        'glow-blue': 'var(--glow-blue)',
-        'glow-purple': 'var(--glow-purple)',
+        'glow-orange': 'var(--glow-orange)',
+        'glow-pink': 'var(--glow-pink)',
+        'glow-red': 'var(--glow-red)',
         'elegant': '0 10px 30px -10px hsl(var(--primary) / 0.3)',
       },
       borderRadius: {
