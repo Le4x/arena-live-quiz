@@ -60,6 +60,9 @@ const Screen = () => {
         console.log(`📊 Screen: ${connectedIds.size} équipes connectées`, Array.from(connectedIds));
         setConnectedTeamsCount(connectedIds.size);
         setConnectedTeamIds(connectedIds);
+        
+        // Recharger les équipes depuis la DB pour avoir les nouvelles équipes
+        loadData();
       })
       .subscribe();
 
