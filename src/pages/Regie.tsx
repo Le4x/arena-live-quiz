@@ -207,10 +207,18 @@ const Regie = () => {
     if (data) {
       // Calculer présence (< 10s = connecté pour meilleure réactivité)
       const now = new Date();
-      const withPresence = data.map(t => ({
-        ...t,
-        is_connected: t.last_seen_at ? (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000 : false
-      }));
+      const withPresence = data.map(t => {
+        const lastSeen = t.last_seen_at ? new Date(t.last_seen_at).getTime() : 0;
+        const diffMs = now.getTime() - lastSeen;
+        const isConnected = t.last_seen_at ? diffMs < 10000 : false;
+        console.log(`👥 Regie: Équipe ${t.name} - last_seen: ${t.last_seen_at}, diff: ${diffMs}ms, connected: ${isConnected}`);
+        return {
+          ...t,
+          is_connected: isConnected
+        };
+      });
+      const connectedCount = withPresence.filter(t => t.is_connected).length;
+      console.log(`📊 Regie: ${connectedCount} équipes connectées sur ${withPresence.length}`);
       setConnectedTeams(withPresence);
     }
   };

@@ -69,15 +69,27 @@ const Client = () => {
       })
       .subscribe();
 
-    // Heartbeat présence (toutes les 3s pour réactivité)
-    const heartbeatInterval = setInterval(async () => {
+    // Heartbeat présence immédiat puis toutes les 3s
+    const sendHeartbeat = async () => {
       if (teamId) {
-        await supabase.from('teams').update({ 
+        console.log('💓 Client: Heartbeat pour équipe', teamId);
+        const { error } = await supabase.from('teams').update({ 
           last_seen_at: new Date().toISOString(),
           is_active: true 
         }).eq('id', teamId);
+        if (error) {
+          console.error('❌ Client: Erreur heartbeat', error);
+        } else {
+          console.log('✅ Client: Heartbeat envoyé');
+        }
       }
-    }, 3000);
+    };
+
+    // Premier heartbeat immédiat
+    sendHeartbeat();
+
+    // Puis interval toutes les 3s
+    const heartbeatInterval = setInterval(sendHeartbeat, 3000);
 
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
