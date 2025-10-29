@@ -148,30 +148,56 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
         </div>
 
         <div>
-          <Label>Son depuis la banque</Label>
-          <Select value={selectedSoundId} onValueChange={(id) => {
-            setSelectedSoundId(id);
-            const sound = availableSounds.find(s => s.id === id);
-            if (sound) setAudioUrl(sound.url);
-          }}>
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Choisir un son depuis la banque" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableSounds.map((sound) => (
-                <SelectItem key={sound.id} value={sound.id}>
-                  {sound.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-1">
-            Ou entrez une URL audio manuellement ci-dessous
-          </p>
+          <Label className="text-base font-semibold flex items-center gap-2">
+            <Music className="h-4 w-4" />
+            Son depuis la banque ({availableSounds.length} disponibles)
+          </Label>
+          {availableSounds.length === 0 ? (
+            <div className="mt-2 p-3 bg-muted/50 border border-border rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Aucun son disponible. Allez dans <strong>Admin &gt; Banque de sons</strong> pour uploader vos fichiers MP3.
+              </p>
+            </div>
+          ) : (
+            <>
+              <Select value={selectedSoundId} onValueChange={(id) => {
+                setSelectedSoundId(id);
+                const sound = availableSounds.find(s => s.id === id);
+                if (sound) {
+                  setAudioUrl(sound.url);
+                  toast({ 
+                    title: "🎵 Son sélectionné", 
+                    description: sound.name 
+                  });
+                }
+              }}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="🎵 Choisir un son depuis la banque..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSounds.map((sound) => (
+                    <SelectItem key={sound.id} value={sound.id}>
+                      🎵 {sound.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedSoundId && (
+                <div className="mt-2 p-2 bg-accent/10 border border-accent/20 rounded text-sm">
+                  ✅ Son sélectionné : <strong>{availableSounds.find(s => s.id === selectedSoundId)?.name}</strong>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Les CUE points (extrait/solution) seront automatiquement appliqués
+              </p>
+            </>
+          )}
         </div>
 
-        <div>
-          <Label>URL Audio (optionnel)</Label>
+        <div className="border-t border-border pt-4">
+          <Label className="text-sm font-normal text-muted-foreground">
+            Ou entrez une URL audio manuellement
+          </Label>
           <div className="flex gap-2 mt-1">
             <Input
               placeholder="https://example.com/music.mp3"
