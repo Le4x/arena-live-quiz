@@ -24,6 +24,7 @@ const Client = () => {
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showReveal, setShowReveal] = useState(false);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
+  const [isBlockedForQuestion, setIsBlockedForQuestion] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(30);
@@ -155,7 +156,7 @@ const Client = () => {
           variant: "destructive",
         });
         playSound('incorrect');
-        setDeviceBlocked(true);
+        setIsBlockedForQuestion(true);
       }
     });
 
@@ -200,6 +201,7 @@ const Client = () => {
     setHasAnswered(false);
     setAnswerResult(null);
     setShowReveal(false);
+    setIsBlockedForQuestion(false);
     
     // Réinitialiser le timer actif depuis gameState
     if (gameState?.timer_active !== undefined) {
