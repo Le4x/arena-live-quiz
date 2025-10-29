@@ -185,7 +185,7 @@ const Screen = () => {
     const qId = currentQuestion?.id;
     const sId = gameState?.game_session_id;
     
-    console.log('🔍 Screen: loadBuzzers appelé', { qId, sId });
+    console.log('🔍 Screen: loadBuzzers appelé', { qId, sId, currentBuzzersCount: buzzers.length });
     
     if (!qId || !sId) {
       console.log('⚠️ Screen: Pas de question ou session');
@@ -206,17 +206,20 @@ const Screen = () => {
       return;
     }
     
-    console.log('📥 Screen: Buzzers chargés', data?.length || 0, data);
+    console.log('📥 Screen: Buzzers chargés', data?.length || 0, 'ancien count:', buzzers.length);
     
     if (data && data.length > 0) {
-      const hadBuzzers = buzzers.length > 0;
+      const previousCount = buzzers.length;
       setBuzzers(data);
       
-      // Afficher la notification seulement si c'est un nouveau buzzer
-      if (data.length > buzzers.length || !hadBuzzers) {
-        console.log('🔔 Screen: Nouvelle notification buzzer');
+      // Afficher la notification si c'est le PREMIER buzzer qui arrive
+      if (previousCount === 0 && data.length > 0) {
+        console.log('🔔 Screen: PREMIER BUZZER - Animation lancée!');
         setShowBuzzerNotif(true);
-        setTimeout(() => setShowBuzzerNotif(false), 5000);
+        setTimeout(() => {
+          console.log('⏰ Masquage notification buzzer');
+          setShowBuzzerNotif(false);
+        }, 5000);
       }
     } else {
       setBuzzers([]);
@@ -453,30 +456,30 @@ const Screen = () => {
           </div>
         )}
 
-        {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE */}
+        {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE MAIS COMPACTE */}
         {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
           <>
-            {/* Flash d'arrière-plan */}
+            {/* Flash d'arrière-plan discret */}
             <div className="fixed inset-0 z-30 pointer-events-none">
               <div 
-                className="absolute inset-0 animate-pulse"
+                className="absolute inset-0"
                 style={{ 
                   backgroundColor: buzzers[0].teams?.color,
-                  opacity: 0.15,
-                  animation: 'pulse 0.5s ease-in-out 3'
+                  opacity: 0.1,
+                  animation: 'pulse 0.5s ease-in-out 2'
                 }}
               />
             </div>
 
-            {/* Animation centrale spectaculaire */}
+            {/* Animation centrale compacte */}
             <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
               <div className="relative animate-scale-in">
                 {/* Cercles concentriques animés */}
-                <div className="absolute inset-0 -m-20">
+                <div className="absolute inset-0 -m-12">
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="absolute inset-0 rounded-full border-4 opacity-50"
+                      className="absolute inset-0 rounded-full border-4 opacity-40"
                       style={{
                         borderColor: buzzers[0].teams?.color,
                         animation: `ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite`,
@@ -486,81 +489,75 @@ const Screen = () => {
                   ))}
                 </div>
 
-                {/* Carte principale */}
+                {/* Carte principale réduite */}
                 <div 
-                  className="relative bg-card/98 backdrop-blur-xl rounded-3xl p-12 border-8 shadow-2xl animate-bounce"
+                  className="relative bg-card/98 backdrop-blur-xl rounded-3xl p-8 border-6 shadow-2xl"
                   style={{ 
                     borderColor: buzzers[0].teams?.color,
-                    boxShadow: `0 0 80px ${buzzers[0].teams?.color}80, 0 0 120px ${buzzers[0].teams?.color}40`,
+                    boxShadow: `0 0 60px ${buzzers[0].teams?.color}60, 0 0 90px ${buzzers[0].teams?.color}30`,
                     animation: 'bounce 0.6s ease-in-out 2'
                   }}
                 >
-                  {/* Éclairs animés dans les coins */}
-                  <div className="absolute -top-6 -left-6">
-                    <Zap className="w-16 h-16 text-accent animate-pulse" style={{ filter: 'drop-shadow(0 0 20px currentColor)' }} />
+                  {/* Éclairs aux coins (réduits) */}
+                  <div className="absolute -top-4 -left-4">
+                    <Zap className="w-10 h-10 text-accent animate-pulse" style={{ filter: 'drop-shadow(0 0 15px currentColor)' }} />
                   </div>
-                  <div className="absolute -top-6 -right-6">
-                    <Zap className="w-16 h-16 text-accent animate-pulse" style={{ animationDelay: '0.3s', filter: 'drop-shadow(0 0 20px currentColor)' }} />
-                  </div>
-                  <div className="absolute -bottom-6 -left-6">
-                    <Zap className="w-16 h-16 text-accent animate-pulse" style={{ animationDelay: '0.6s', filter: 'drop-shadow(0 0 20px currentColor)' }} />
-                  </div>
-                  <div className="absolute -bottom-6 -right-6">
-                    <Zap className="w-16 h-16 text-accent animate-pulse" style={{ animationDelay: '0.9s', filter: 'drop-shadow(0 0 20px currentColor)' }} />
+                  <div className="absolute -top-4 -right-4">
+                    <Zap className="w-10 h-10 text-accent animate-pulse" style={{ animationDelay: '0.3s', filter: 'drop-shadow(0 0 15px currentColor)' }} />
                   </div>
 
                   <div className="text-center relative z-10">
-                    {/* Badge BUZZER géant */}
-                    <div className="mb-6">
+                    {/* Badge BUZZER réduit */}
+                    <div className="mb-4">
                       <div className="inline-block bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent animate-pulse">
-                        <h2 className="text-7xl font-black tracking-wider">⚡ BUZZER ⚡</h2>
+                        <h2 className="text-5xl font-black tracking-wider">⚡ BUZZER ⚡</h2>
                       </div>
                     </div>
 
-                    {/* Avatar géant de l'équipe */}
-                    <div className="relative inline-block mb-6">
+                    {/* Avatar réduit de l'équipe */}
+                    <div className="relative inline-block mb-4">
                       <div
-                        className="w-40 h-40 rounded-full mx-auto animate-pulse shadow-2xl"
+                        className="w-24 h-24 rounded-full mx-auto animate-pulse shadow-2xl"
                         style={{ 
                           backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 60px ${buzzers[0].teams?.color}, inset 0 0 30px rgba(255,255,255,0.3)`
+                          boxShadow: `0 0 40px ${buzzers[0].teams?.color}, inset 0 0 20px rgba(255,255,255,0.3)`
                         }}
                       />
-                      {/* Particules autour */}
-                      {[...Array(8)].map((_, i) => (
+                      {/* Particules autour (réduites) */}
+                      {[...Array(6)].map((_, i) => (
                         <div
                           key={i}
-                          className="absolute w-4 h-4 rounded-full"
+                          className="absolute w-3 h-3 rounded-full"
                           style={{
                             backgroundColor: buzzers[0].teams?.color,
                             top: '50%',
                             left: '50%',
                             animation: `ping 1s ease-out infinite`,
-                            animationDelay: `${i * 0.15}s`,
-                            transform: `rotate(${i * 45}deg) translateY(-100px)`,
+                            animationDelay: `${i * 0.2}s`,
+                            transform: `rotate(${i * 60}deg) translateY(-60px)`,
                           }}
                         />
                       ))}
                     </div>
 
-                    {/* Nom de l'équipe géant */}
+                    {/* Nom de l'équipe réduit */}
                     <h3 
-                      className="text-6xl font-black mb-4 animate-pulse"
+                      className="text-4xl font-black mb-3 animate-pulse"
                       style={{ 
                         color: buzzers[0].teams?.color,
-                        textShadow: `0 0 30px ${buzzers[0].teams?.color}, 0 0 60px ${buzzers[0].teams?.color}`
+                        textShadow: `0 0 20px ${buzzers[0].teams?.color}, 0 0 40px ${buzzers[0].teams?.color}`
                       }}
                     >
                       {buzzers[0].teams?.name}
                     </h3>
 
-                    {/* Badge "PREMIER!" */}
+                    {/* Badge "PREMIER!" réduit */}
                     <div className="inline-block">
                       <div 
-                        className="px-8 py-4 rounded-full font-black text-3xl text-white animate-pulse"
+                        className="px-6 py-3 rounded-full font-black text-2xl text-white animate-pulse"
                         style={{ 
                           backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 40px ${buzzers[0].teams?.color}`
+                          boxShadow: `0 0 30px ${buzzers[0].teams?.color}`
                         }}
                       >
                         🏆 PREMIER ! 🏆
