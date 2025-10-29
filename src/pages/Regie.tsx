@@ -268,14 +268,31 @@ const Regie = () => {
     previousBuzzersCount.current = 0;
     setBlockedTeams([]);
     
-    // Précharger le son pour les blind tests
+    // Précharger le son pour les blind tests - avec chargement complet
     if (question.question_type === 'blind_test' && question.audio_url) {
       const track = audioTracks.find(t => t.url === question.audio_url);
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
-        await audioEngine.preloadTrack(track);
-        setCurrentTrack(track);
-        toast({ title: '🎵 Son préchargé', description: track.name });
+        toast({ title: '⏳ Chargement audio...', description: track.name });
+        
+        try {
+          // Précharger ET charger dans l'engine
+          await audioEngine.preloadTrack(track);
+          await audioEngine.loadAndPlay(track);
+          await audioEngine.stop(); // Arrêter immédiatement, on veut juste charger
+          
+          setCurrentTrack(track);
+          toast({ title: '✅ Son prêt', description: track.name });
+          console.log('✅ Audio complètement préchargé et prêt');
+        } catch (error) {
+          console.error('❌ Erreur préchargement:', error);
+          toast({ 
+            title: '⚠️ Erreur audio', 
+            description: 'Le son n\'a pas pu être chargé',
+            variant: 'destructive'
+          });
+          setCurrentTrack(null);
+        }
       }
     } else {
       setCurrentTrack(null);
