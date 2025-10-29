@@ -144,6 +144,21 @@ const Client = () => {
       }
     });
 
+    const unsubBlocked = gameEvents.on('TEAM_BLOCKED', (event: any) => {
+      console.log('🚫 Équipe bloquée', event);
+      
+      // Vérifier si c'est cette équipe qui est bloquée
+      if (event.data?.teamId === teamId) {
+        toast({
+          title: "❌ Mauvaise réponse",
+          description: "Vous êtes maintenant bloqué pour cette question",
+          variant: "destructive",
+        });
+        playSound('incorrect');
+        setDeviceBlocked(true);
+      }
+    });
+
     const unsubResetAll = gameEvents.on('RESET_ALL', () => {
       console.log('🔄 Reset global reçu');
       setHasBuzzed(false);
@@ -171,6 +186,7 @@ const Client = () => {
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
+      unsubBlocked();
       unsubResetAll();
       unsubKick();
       unsubKickTeam();

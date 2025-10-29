@@ -380,6 +380,9 @@ const Regie = () => {
     const newBlockedTeams = [...blockedTeams, teamId];
     setBlockedTeams(newBlockedTeams);
     
+    // Envoyer une notification à l'équipe qu'elle est bloquée
+    await gameEvents.blockTeam(teamId);
+    
     // IMPORTANT : Synchroniser avec la DB pour que les clients puissent voir qu'ils sont bloqués
     await supabase.from('game_state').update({ 
       answer_result: 'incorrect',

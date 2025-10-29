@@ -19,7 +19,8 @@ export type GameEventType =
   | 'WAITING_SHOW'
   | 'WAITING_HIDE'
   | 'TOGGLE_BUZZER'
-  | 'REVEAL_ANSWER';
+  | 'REVEAL_ANSWER'
+  | 'TEAM_BLOCKED';
 
 export interface GameEvent {
   type: GameEventType;
@@ -200,6 +201,13 @@ export const gameEvents = {
     await getGameEvents().emit({
       type: 'REVEAL_ANSWER',
       data: { teamId, isCorrect, correctAnswer },
+    });
+  },
+
+  blockTeam: async (teamId: string) => {
+    await getGameEvents().emit({
+      type: 'TEAM_BLOCKED',
+      data: { teamId },
     });
   },
 };
