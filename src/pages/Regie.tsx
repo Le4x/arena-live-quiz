@@ -370,7 +370,9 @@ const Regie = () => {
         .update({ score: team.score + points })
         .eq('id', teamId);
       
-      await gameEvents.revealAnswer(teamId, true);
+      // Récupérer la réponse correcte de la question
+      const currentQ = questions.find(x => x.id === currentQuestionId);
+      await gameEvents.revealAnswer(teamId, true, currentQ?.correct_answer);
     }
 
     

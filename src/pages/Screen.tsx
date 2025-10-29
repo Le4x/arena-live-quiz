@@ -76,7 +76,11 @@ const Screen = () => {
       if (event.data?.teamId) {
         const team = teams.find(t => t.id === event.data.teamId);
         if (team) {
-          setBuzzerResultTeam({ ...team, isCorrect: event.data.isCorrect });
+          setBuzzerResultTeam({ 
+            ...team, 
+            isCorrect: event.data.isCorrect,
+            correctAnswer: event.data.correctAnswer // Ajouter la réponse correcte
+          });
           setShowBuzzerResult(true);
           setTimeout(() => setShowBuzzerResult(false), 4000);
         }
@@ -482,7 +486,7 @@ const Screen = () => {
         {showBuzzerResult && buzzerResultTeam && !gameState?.show_leaderboard && (
           <div className="fixed top-8 right-8 z-50 animate-scale-in">
             <div 
-              className={`bg-card/95 backdrop-blur-xl rounded-2xl p-6 border-4 shadow-glow-gold max-w-xs ${
+              className={`bg-card/95 backdrop-blur-xl rounded-2xl p-6 border-4 shadow-glow-gold max-w-md ${
                 buzzerResultTeam.isCorrect ? 'border-green-500' : 'border-red-500'
               }`}
             >
@@ -503,6 +507,14 @@ const Screen = () => {
                   style={{ backgroundColor: buzzerResultTeam.color }}
                 ></div>
                 <h4 className="text-lg font-bold">{buzzerResultTeam.name}</h4>
+                
+                {/* Afficher la réponse correcte */}
+                {buzzerResultTeam.correctAnswer && (
+                  <div className="mt-4 pt-4 border-t border-primary/30">
+                    <p className="text-sm text-muted-foreground mb-1">La réponse était :</p>
+                    <p className="text-xl font-bold text-primary">{buzzerResultTeam.correctAnswer}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
