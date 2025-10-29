@@ -17,28 +17,40 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   }, []);
 
   useEffect(() => {
-    if (currentQuestion?.id && currentQuestion?.question_type === 'qcm') {
+    console.log('📊 QCMAnswersDisplay - Question changed:', { 
+      questionId: currentQuestion?.id, 
+      questionType: currentQuestion?.question_type,
+      sessionId: gameState?.game_session_id 
+    });
+
+    if (currentQuestion?.id && currentQuestion?.question_type === 'qcm' && gameState?.game_session_id) {
       loadAnswers();
 
+      // Canal unique pour éviter les conflits
+      const channelName = `qcm-answers-${currentQuestion.id}-${gameState.game_session_id}`;
       const answersChannel = supabase
-        .channel('qcm-answers-changes')
+        .channel(channelName)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'team_answers',
           filter: `question_id=eq.${currentQuestion.id}`
-        }, () => {
+        }, (payload) => {
+          console.log('📊 QCMAnswersDisplay - Realtime update:', payload);
           loadAnswers();
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📊 QCMAnswersDisplay - Subscription status:', status);
+        });
 
       return () => {
+        console.log('📊 QCMAnswersDisplay - Cleaning up channel');
         supabase.removeChannel(answersChannel);
       };
     } else {
       setAnswers([]);
     }
-  }, [currentQuestion?.id]);
+  }, [currentQuestion?.id, currentQuestion?.question_type, gameState?.game_session_id]);
 
   const loadTeams = async () => {
     const { data } = await supabase.from('teams').select('*');

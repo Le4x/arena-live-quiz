@@ -22,23 +22,28 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
       sessionId: gameState?.game_session_id 
     });
     
-    if (currentQuestionId && currentQuestion?.question_type === 'free_text') {
+    if (currentQuestionId && currentQuestion?.question_type === 'free_text' && gameState?.game_session_id) {
       loadAnswers();
 
+      // Canal unique pour éviter les conflits
+      const channelName = `text-answers-${currentQuestionId}-${gameState.game_session_id}`;
       const answersChannel = supabase
-        .channel('text-answers-changes')
+        .channel(channelName)
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'team_answers',
           filter: `question_id=eq.${currentQuestionId}`
-        }, () => {
-          console.log('💬 TextAnswersDisplay - Realtime update detected');
+        }, (payload) => {
+          console.log('💬 TextAnswersDisplay - Realtime update:', payload);
           loadAnswers();
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log('💬 TextAnswersDisplay - Subscription status:', status);
+        });
 
       return () => {
+        console.log('💬 TextAnswersDisplay - Cleaning up channel');
         supabase.removeChannel(answersChannel);
       };
     } else {
