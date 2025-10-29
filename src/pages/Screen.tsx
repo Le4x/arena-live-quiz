@@ -21,8 +21,7 @@ const Screen = () => {
   const [currentRound, setCurrentRound] = useState<any>(null);
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
-  const [showBuzzerNotif, setShowBuzzerNotif] = useState(false);
-  const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
+  const [buzzerNotification, setBuzzerNotification] = useState<{show: boolean, team: any} | null>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
@@ -77,15 +76,15 @@ const Screen = () => {
           
           if (teamData) {
             console.log('✅ Screen: Équipe trouvée:', teamData.name, 'Color:', teamData.color);
-            setFirstBuzzerTeam(teamData);
-            setShowBuzzerNotif(true);
+            
+            // Définir les données du buzzer en une seule fois
+            setBuzzerNotification({ show: true, team: teamData });
             playSound('buzz');
             
             // Cacher après 5 secondes
             setTimeout(() => {
               console.log('⏰ Screen: Fin animation buzzer');
-              setShowBuzzerNotif(false);
-              setFirstBuzzerTeam(null);
+              setBuzzerNotification(null);
             }, 5000);
           } else {
             console.error('❌ Screen: Équipe non trouvée!');
@@ -233,7 +232,7 @@ const Screen = () => {
     if (!qId || !sId) {
       console.log('⚠️ Screen: Pas de question ou session');
       setBuzzers([]);
-      setShowBuzzerNotif(false);
+      setBuzzerNotification(null);
       return;
     }
     
@@ -252,18 +251,9 @@ const Screen = () => {
     console.log('📥 Screen: Buzzers chargés', data?.length || 0, data);
     
     if (data && data.length > 0) {
-      const hadBuzzers = buzzers.length > 0;
       setBuzzers(data);
-      
-      // Afficher la notification seulement si c'est un nouveau buzzer
-      if (data.length > buzzers.length || !hadBuzzers) {
-        console.log('🔔 Screen: Nouvelle notification buzzer');
-        setShowBuzzerNotif(true);
-        setTimeout(() => setShowBuzzerNotif(false), 5000);
-      }
     } else {
       setBuzzers([]);
-      setShowBuzzerNotif(false);
     }
   };
 
@@ -497,14 +487,14 @@ const Screen = () => {
         )}
 
         {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE */}
-        {showBuzzerNotif && firstBuzzerTeam && !gameState?.show_leaderboard && (
+        {buzzerNotification?.show && buzzerNotification.team && !gameState?.show_leaderboard && (
           <>
             {/* Flash d'arrière-plan */}
             <div className="fixed inset-0 z-30 pointer-events-none">
               <div 
                 className="absolute inset-0 animate-pulse"
                 style={{ 
-                  backgroundColor: firstBuzzerTeam.color,
+                  backgroundColor: buzzerNotification.team.color,
                   opacity: 0.15,
                   animation: 'pulse 0.5s ease-in-out 3'
                 }}
@@ -521,7 +511,7 @@ const Screen = () => {
                       key={i}
                       className="absolute inset-0 rounded-full border-4 opacity-50"
                       style={{
-                        borderColor: firstBuzzerTeam.color,
+                        borderColor: buzzerNotification.team.color,
                         animation: `ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite`,
                         animationDelay: `${i * 0.3}s`,
                       }}
@@ -533,8 +523,8 @@ const Screen = () => {
                 <div 
                   className="relative bg-card/98 backdrop-blur-xl rounded-3xl p-12 border-8 shadow-2xl animate-bounce"
                   style={{ 
-                    borderColor: firstBuzzerTeam.color,
-                    boxShadow: `0 0 80px ${firstBuzzerTeam.color}80, 0 0 120px ${firstBuzzerTeam.color}40`,
+                    borderColor: buzzerNotification.team.color,
+                    boxShadow: `0 0 80px ${buzzerNotification.team.color}80, 0 0 120px ${buzzerNotification.team.color}40`,
                     animation: 'bounce 0.6s ease-in-out 2'
                   }}
                 >
@@ -565,8 +555,8 @@ const Screen = () => {
                       <div
                         className="w-40 h-40 rounded-full mx-auto animate-pulse shadow-2xl"
                         style={{ 
-                          backgroundColor: firstBuzzerTeam.color,
-                          boxShadow: `0 0 60px ${firstBuzzerTeam.color}, inset 0 0 30px rgba(255,255,255,0.3)`
+                          backgroundColor: buzzerNotification.team.color,
+                          boxShadow: `0 0 60px ${buzzerNotification.team.color}, inset 0 0 30px rgba(255,255,255,0.3)`
                         }}
                       />
                       {/* Particules autour */}
@@ -575,7 +565,7 @@ const Screen = () => {
                           key={i}
                           className="absolute w-4 h-4 rounded-full"
                           style={{
-                            backgroundColor: firstBuzzerTeam.color,
+                            backgroundColor: buzzerNotification.team.color,
                             top: '50%',
                             left: '50%',
                             animation: `ping 1s ease-out infinite`,
@@ -590,11 +580,11 @@ const Screen = () => {
                     <h3 
                       className="text-6xl font-black mb-4 animate-pulse"
                       style={{ 
-                        color: firstBuzzerTeam.color,
-                        textShadow: `0 0 30px ${firstBuzzerTeam.color}, 0 0 60px ${firstBuzzerTeam.color}`
+                        color: buzzerNotification.team.color,
+                        textShadow: `0 0 30px ${buzzerNotification.team.color}, 0 0 60px ${buzzerNotification.team.color}`
                       }}
                     >
-                      {firstBuzzerTeam.name}
+                      {buzzerNotification.team.name}
                     </h3>
 
                     {/* Badge "PREMIER!" */}
@@ -602,8 +592,8 @@ const Screen = () => {
                       <div 
                         className="px-8 py-4 rounded-full font-black text-3xl text-white animate-pulse"
                         style={{ 
-                          backgroundColor: firstBuzzerTeam.color,
-                          boxShadow: `0 0 40px ${firstBuzzerTeam.color}`
+                          backgroundColor: buzzerNotification.team.color,
+                          boxShadow: `0 0 40px ${buzzerNotification.team.color}`
                         }}
                       >
                         🏆 PREMIER ! 🏆
