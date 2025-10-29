@@ -26,6 +26,7 @@ const Screen = () => {
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
+    console.log('🚀 Screen: Initialisation des canaux realtime');
     loadData();
     
     // Realtime subscriptions avec rechargement complet
@@ -49,7 +50,7 @@ const Screen = () => {
       .subscribe();
 
     const buzzersChannel = supabase
-      .channel('screen-buzzers-realtime-v2')
+      .channel('screen-buzzers-realtime-v3')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
@@ -113,12 +114,13 @@ const Screen = () => {
     // Le reveal se fait maintenant via show_answer dans la question
 
     return () => {
+      console.log('🧹 Screen: Nettoyage des canaux realtime');
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
     };
-  }, [teams]);
+  }, []); // IMPORTANT: Pas de dépendances pour éviter les reconnexions
 
   useEffect(() => {
     console.log('📌 Question or session changed, loading buzzers');
