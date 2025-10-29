@@ -615,8 +615,8 @@ const Client = () => {
           </div>
         </Card>
 
-        {/* Barre de timer */}
-        {currentQuestion && timerRemaining > 0 && (
+        {/* Barre de timer - Uniquement si timer actif ET question en cours */}
+        {currentQuestion && isTimerActive && timerRemaining > 0 && (
           <TimerBar 
             timerRemaining={timerRemaining}
             timerDuration={timerDuration || 30}

@@ -459,8 +459,8 @@ const Screen = () => {
           </div>
         )}
 
-        {/* Barre de timer */}
-        {timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
+        {/* Barre de timer - Uniquement si timer actif ET question en cours */}
+        {gameState?.timer_active && timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
           <div className="max-w-5xl mx-auto mb-6 animate-slide-in">
             <TimerBar 
               timerRemaining={timer}
