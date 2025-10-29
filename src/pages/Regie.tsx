@@ -322,22 +322,29 @@ const Regie = () => {
     const question = questions.find(q => q.id === currentQuestionId);
     if (!question) return;
 
+    const round = rounds.find(r => r.id === question.round_id);
+    const timerDuration = round?.timer_duration || 30;
+
+    // Réinitialiser le chrono pour permettre de relancer
+    setTimerRemaining(timerDuration);
+    setTimerActive(true);
+
     // Envoyer la question aux clients et démarrer le chrono
     await supabase.from('game_state').update({
       current_question_id: currentQuestionId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
-      timer_remaining: timerRemaining
+      timer_remaining: timerDuration
     }).eq('game_session_id', sessionId);
 
-    setTimerActive(true);
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
-    // Lancer l'audio automatiquement pour les blind tests
+    // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack) {
-      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name);
-      await audioEngine.loadAndPlay(currentTrack);
-      toast({ title: '🚀 Question envoyée !', description: '🎵 Audio lancé' });
+      console.log('🎵 Lancement automatique de l\'audio depuis l\'extrait:', currentTrack.name);
+      // Jouer l'extrait de 30s (depuis CUE#1)
+      await audioEngine.playClip30s(300);
+      toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
     } else {
       toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
     }
