@@ -333,7 +333,14 @@ const Regie = () => {
     setTimerActive(true);
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
-    toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
+    // Lancer l'audio automatiquement pour les blind tests
+    if (question.question_type === 'blind_test' && currentTrack) {
+      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name);
+      await audioEngine.loadAndPlay(currentTrack);
+      toast({ title: '🚀 Question envoyée !', description: '🎵 Audio lancé' });
+    } else {
+      toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
+    }
   };
 
   const handleWrongAnswer = async (teamId: string) => {
