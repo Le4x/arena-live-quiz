@@ -323,6 +323,16 @@ const Regie = () => {
       excluded_teams: newBlockedTeams
     }).eq('game_session_id', sessionId);
     
+    // Supprimer le buzzer de l'équipe qui a raté
+    if (currentQuestionId && sessionId) {
+      await supabase
+        .from('buzzer_attempts')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('question_id', currentQuestionId)
+        .eq('game_session_id', sessionId);
+    }
+    
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
       setBuzzerLocked(false);
@@ -393,8 +403,22 @@ const Regie = () => {
         await audioEngine.playSolution(8, 300, 300); 
       } 
     }
+    
+    // Nettoyer les buzzers après l'animation
     setTimeout(async () => { 
-      await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId); 
+      await supabase.from('game_state').update({ answer_result: null }).eq('game_session_id', sessionId);
+      
+      // Supprimer tous les buzzers de la DB pour cette question
+      if (currentQuestionId && sessionId) {
+        await supabase
+          .from('buzzer_attempts')
+          .delete()
+          .eq('question_id', currentQuestionId)
+          .eq('game_session_id', sessionId);
+        
+        setBuzzers([]); // Vider le state local
+      }
+      
       toast({ title: `✅ Bonne réponse ! +${points} points` }); 
     }, 2000);
   };
