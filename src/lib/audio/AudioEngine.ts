@@ -81,15 +81,27 @@ export class AudioEngine {
    * Charger et lire une track
    */
   async loadAndPlay(track: Track, startAt: number = 0): Promise<void> {
+    console.log('🎵 AudioEngine: loadAndPlay appelé pour', track.name);
     await this.stop();
     this.currentTrack = track;
 
     // Précharger si pas en cache
     if (!this.bufferCache.has(track.url)) {
+      console.log('📥 AudioEngine: Buffer pas en cache, préchargement...');
       await this.preloadTrack(track);
+    } else {
+      console.log('✅ AudioEngine: Buffer déjà en cache');
     }
 
-    this.currentBuffer = this.bufferCache.get(track.url)!;
+    // Vérifier que le buffer est bien chargé
+    const buffer = this.bufferCache.get(track.url);
+    if (!buffer) {
+      console.error('❌ AudioEngine: Buffer introuvable après préchargement!');
+      throw new Error('Impossible de charger le fichier audio');
+    }
+
+    this.currentBuffer = buffer;
+    console.log('✅ AudioEngine: Buffer assigné, durée:', buffer.duration);
     await this.play(startAt);
   }
 

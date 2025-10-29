@@ -34,10 +34,24 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
 
   useEffect(() => {
     // Précharger toutes les tracks au chargement
-    tracks.forEach(track => {
-      engine.preloadTrack(track).catch(err => {
-        console.error('Erreur préchargement:', track.name, err);
-      });
+    console.log('📦 AudioDeck: Préchargement de', tracks.length, 'tracks...');
+    const preloadPromises = tracks.map(track => {
+      return engine.preloadTrack(track)
+        .then(() => {
+          console.log('✅ Préchargé:', track.name);
+        })
+        .catch(err => {
+          console.error('❌ Échec préchargement:', track.name, err);
+          toast({ 
+            title: `❌ Erreur: ${track.name}`,
+            description: `Impossible de charger le fichier. Vérifiez l'URL.`,
+            variant: 'destructive'
+          });
+        });
+    });
+
+    Promise.all(preloadPromises).then(() => {
+      console.log('✅ Tous les fichiers audio sont préchargés');
     });
   }, [tracks]);
 
