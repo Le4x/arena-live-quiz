@@ -315,17 +315,17 @@ const Screen = () => {
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
       {/* Écran d'attente */}
       {gameState?.show_waiting_screen && (
-        <WaitingScreen
-          sessionName={currentSession?.name}
-          connectedTeams={teams
-            .filter(t => {
-              if (!t.last_seen_at) return false;
-              const now = new Date();
-              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000;
-            })
-            .map(t => ({ id: t.id, name: t.name, color: t.color }))
-          }
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm">
+          <div className="text-center space-y-6 animate-fade-in px-4">
+            <div className="text-6xl md:text-8xl animate-pulse">⏸️</div>
+            <h2 className="text-3xl md:text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+              En attente de la prochaine question
+            </h2>
+            <p className="text-xl md:text-2xl text-muted-foreground">
+              Préparez-vous...
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Animation de révélation bonne/mauvaise réponse */}
