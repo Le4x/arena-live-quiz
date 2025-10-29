@@ -19,6 +19,7 @@ import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
 import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { AudioDeck } from "@/components/audio/AudioDeck";
+import { TimerBar } from "@/components/TimerBar";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -740,6 +741,16 @@ const Regie = () => {
                 }}
               />
             </Card>
+          )}
+
+          {/* Barre de timer */}
+          {currentQuestionId && timerRemaining > 0 && (
+            <TimerBar 
+              timerRemaining={timerRemaining}
+              timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
+              timerActive={timerActive}
+              questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
+            />
           )}
 
           {/* Contrôles compacts Buzzer + Reveal */}

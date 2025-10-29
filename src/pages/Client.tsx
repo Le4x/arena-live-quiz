@@ -8,6 +8,7 @@ import { Trophy, Zap, Check, X, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
+import { TimerBar } from "@/components/TimerBar";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -25,6 +26,8 @@ const Client = () => {
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [timerRemaining, setTimerRemaining] = useState(30);
+  const [timerDuration, setTimerDuration] = useState(30);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
 
@@ -186,12 +189,40 @@ const Client = () => {
     if (gameState?.timer_active !== undefined) {
       setIsTimerActive(gameState.timer_active);
     }
+
+    // Synchroniser timer_remaining et timer_duration
+    if (gameState?.timer_remaining !== undefined) {
+      setTimerRemaining(gameState.timer_remaining);
+    }
     
     // Charger l'instance ID depuis game_state
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id, gameState?.timer_active]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, gameState?.timer_active, gameState?.timer_remaining]);
+
+  // Décompte du timer côté client
+  useEffect(() => {
+    if (!isTimerActive || timerRemaining <= 0) return;
+    
+    const interval = setInterval(() => {
+      setTimerRemaining(prev => {
+        const next = prev - 1;
+        if (next <= 0) {
+          setIsTimerActive(false);
+          toast({ 
+            title: '⏱️ Temps écoulé !', 
+            description: 'Les réponses ne sont plus acceptées',
+            variant: 'destructive'
+          });
+          playSound('incorrect');
+        }
+        return Math.max(0, next);
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isTimerActive, timerRemaining]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
@@ -285,12 +316,24 @@ const Client = () => {
   const loadGameState = async () => {
     const { data } = await supabase
       .from('game_state')
-      .select('*, questions(*)')
+      .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
       .maybeSingle();
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
       setIsTimerActive(data.timer_active || false);
+      
+      // Synchroniser le timer
+      if (data.timer_remaining !== undefined) {
+        setTimerRemaining(data.timer_remaining);
+      }
+      
+      // Définir la durée du timer depuis le round
+      if (data.current_round_id?.timer_duration) {
+        setTimerDuration(data.current_round_id.timer_duration);
+      } else {
+        setTimerDuration(30); // Par défaut 30s
+      }
     }
   };
 
@@ -531,6 +574,16 @@ const Client = () => {
             </div>
           </div>
         </Card>
+
+        {/* Barre de timer */}
+        {currentQuestion && timerRemaining > 0 && (
+          <TimerBar 
+            timerRemaining={timerRemaining}
+            timerDuration={timerDuration || 30}
+            timerActive={isTimerActive}
+            questionType={currentQuestion.question_type}
+          />
+        )}
 
         {/* Buzzer - Uniquement pour blind test */}
         {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
