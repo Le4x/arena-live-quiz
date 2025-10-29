@@ -22,6 +22,7 @@ const Screen = () => {
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealResult, setRevealResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showBuzzerNotif, setShowBuzzerNotif] = useState(false);
+  const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
   useEffect(() => {
@@ -54,11 +55,12 @@ const Screen = () => {
         schema: 'public', 
         table: 'buzzer_attempts' 
       }, async (payload) => {
-        console.log('🔄 Screen: Buzzer INSERT détecté', payload);
+        console.log('🔔 Screen: BUZZER REÇU!', payload);
         
         // Charger immédiatement l'équipe qui a buzzé
         const newBuzzer = payload.new;
-        if (newBuzzer.team_id) {
+        if (newBuzzer.team_id && newBuzzer.is_first) {
+          console.log('⚡ Screen: C\'est le PREMIER buzzer!');
           const { data: teamData } = await supabase
             .from('teams')
             .select('*')
@@ -66,25 +68,22 @@ const Screen = () => {
             .single();
           
           if (teamData) {
-            const buzzerWithTeam = { ...newBuzzer, teams: teamData };
+            console.log('👥 Screen: Équipe trouvée:', teamData.name);
+            setFirstBuzzerTeam(teamData);
+            setShowBuzzerNotif(true);
+            playSound('buzz');
             
-            // Mettre à jour immédiatement le state
-            setBuzzers(prev => {
-              const isFirst = prev.length === 0;
-              const newBuzzers = [...prev, buzzerWithTeam];
-              
-              // Afficher l'animation seulement si c'est le premier buzzer
-              if (isFirst) {
-                console.log('🔔 Screen: Premier buzzer détecté!', teamData.name);
-                setShowBuzzerNotif(true);
-                setTimeout(() => setShowBuzzerNotif(false), 5000);
-                playSound('buzz');
-              }
-              
-              return newBuzzers;
-            });
+            // Cacher après 5 secondes
+            setTimeout(() => {
+              console.log('⏰ Screen: Fin animation buzzer');
+              setShowBuzzerNotif(false);
+              setFirstBuzzerTeam(null);
+            }, 5000);
           }
         }
+        
+        // Recharger tous les buzzers pour la liste
+        loadBuzzers();
       })
       .subscribe();
 
@@ -483,14 +482,14 @@ const Screen = () => {
         )}
 
         {/* PREMIÈRE ÉQUIPE QUI BUZZE - ANIMATION SPECTACULAIRE */}
-        {buzzers.length > 0 && showBuzzerNotif && !gameState?.show_leaderboard && (
+        {showBuzzerNotif && firstBuzzerTeam && !gameState?.show_leaderboard && (
           <>
             {/* Flash d'arrière-plan */}
             <div className="fixed inset-0 z-30 pointer-events-none">
               <div 
                 className="absolute inset-0 animate-pulse"
                 style={{ 
-                  backgroundColor: buzzers[0].teams?.color,
+                  backgroundColor: firstBuzzerTeam.color,
                   opacity: 0.15,
                   animation: 'pulse 0.5s ease-in-out 3'
                 }}
@@ -507,7 +506,7 @@ const Screen = () => {
                       key={i}
                       className="absolute inset-0 rounded-full border-4 opacity-50"
                       style={{
-                        borderColor: buzzers[0].teams?.color,
+                        borderColor: firstBuzzerTeam.color,
                         animation: `ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite`,
                         animationDelay: `${i * 0.3}s`,
                       }}
@@ -519,8 +518,8 @@ const Screen = () => {
                 <div 
                   className="relative bg-card/98 backdrop-blur-xl rounded-3xl p-12 border-8 shadow-2xl animate-bounce"
                   style={{ 
-                    borderColor: buzzers[0].teams?.color,
-                    boxShadow: `0 0 80px ${buzzers[0].teams?.color}80, 0 0 120px ${buzzers[0].teams?.color}40`,
+                    borderColor: firstBuzzerTeam.color,
+                    boxShadow: `0 0 80px ${firstBuzzerTeam.color}80, 0 0 120px ${firstBuzzerTeam.color}40`,
                     animation: 'bounce 0.6s ease-in-out 2'
                   }}
                 >
@@ -551,8 +550,8 @@ const Screen = () => {
                       <div
                         className="w-40 h-40 rounded-full mx-auto animate-pulse shadow-2xl"
                         style={{ 
-                          backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 60px ${buzzers[0].teams?.color}, inset 0 0 30px rgba(255,255,255,0.3)`
+                          backgroundColor: firstBuzzerTeam.color,
+                          boxShadow: `0 0 60px ${firstBuzzerTeam.color}, inset 0 0 30px rgba(255,255,255,0.3)`
                         }}
                       />
                       {/* Particules autour */}
@@ -561,7 +560,7 @@ const Screen = () => {
                           key={i}
                           className="absolute w-4 h-4 rounded-full"
                           style={{
-                            backgroundColor: buzzers[0].teams?.color,
+                            backgroundColor: firstBuzzerTeam.color,
                             top: '50%',
                             left: '50%',
                             animation: `ping 1s ease-out infinite`,
@@ -576,11 +575,11 @@ const Screen = () => {
                     <h3 
                       className="text-6xl font-black mb-4 animate-pulse"
                       style={{ 
-                        color: buzzers[0].teams?.color,
-                        textShadow: `0 0 30px ${buzzers[0].teams?.color}, 0 0 60px ${buzzers[0].teams?.color}`
+                        color: firstBuzzerTeam.color,
+                        textShadow: `0 0 30px ${firstBuzzerTeam.color}, 0 0 60px ${firstBuzzerTeam.color}`
                       }}
                     >
-                      {buzzers[0].teams?.name}
+                      {firstBuzzerTeam.name}
                     </h3>
 
                     {/* Badge "PREMIER!" */}
@@ -588,8 +587,8 @@ const Screen = () => {
                       <div 
                         className="px-8 py-4 rounded-full font-black text-3xl text-white animate-pulse"
                         style={{ 
-                          backgroundColor: buzzers[0].teams?.color,
-                          boxShadow: `0 0 40px ${buzzers[0].teams?.color}`
+                          backgroundColor: firstBuzzerTeam.color,
+                          boxShadow: `0 0 40px ${firstBuzzerTeam.color}`
                         }}
                       >
                         🏆 PREMIER ! 🏆
