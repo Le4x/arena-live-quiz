@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Play, Pause, Plus, Trash2, Music } from "lucide-react";
+import { ArrowLeft, Play, Pause, Plus, Trash2, Music, Upload, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface SoundWithCues {
   id: string;
@@ -28,6 +29,8 @@ const AdminSounds = () => {
   const [newSolutionDuration, setNewSolutionDuration] = useState(8);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_sounds');
@@ -108,6 +111,78 @@ const AdminSounds = () => {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('audio/')) {
+          toast({ 
+            title: "Erreur", 
+            description: `${file.name} n'est pas un fichier audio`,
+            variant: "destructive" 
+          });
+          continue;
+        }
+
+        // Upload vers Supabase Storage
+        const fileName = `${Date.now()}-${file.name}`;
+        const { data, error } = await supabase.storage
+          .from('audio-files')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          console.error('Erreur upload:', error);
+          toast({ 
+            title: "Erreur upload", 
+            description: error.message,
+            variant: "destructive" 
+          });
+          continue;
+        }
+
+        // Obtenir l'URL publique
+        const { data: { publicUrl } } = supabase.storage
+          .from('audio-files')
+          .getPublicUrl(fileName);
+
+        // Créer l'entrée dans la banque de sons
+        const newSound: SoundWithCues = {
+          id: Date.now().toString(),
+          name: file.name.replace(/\.[^/.]+$/, ""), // Nom sans extension
+          url: publicUrl,
+          cue1_time: 0,
+          cue2_time: 30,
+          solution_duration: 8,
+        };
+
+        saveSounds([...sounds, newSound]);
+        toast({ 
+          title: "✅ Fichier uploadé", 
+          description: file.name 
+        });
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast({ 
+        title: "Erreur", 
+        description: "Impossible d'uploader les fichiers",
+        variant: "destructive" 
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -124,9 +199,48 @@ const AdminSounds = () => {
           </Button>
         </header>
 
-        {/* Ajouter un son */}
+        {/* Upload de fichiers MP3 */}
+        <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
+          <h2 className="text-2xl font-bold text-accent mb-4">📤 Upload MP3 depuis votre ordinateur</h2>
+          <p className="text-muted-foreground mb-4">
+            Uploadez vos fichiers MP3 directement vers Lovable Cloud Storage. Ils seront automatiquement ajoutés à votre banque de sons.
+          </p>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label>Sélectionner des fichiers MP3</Label>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                multiple
+                onChange={handleFileUpload}
+                disabled={uploading}
+                className="mt-1"
+              />
+            </div>
+            <Button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="bg-accent hover:bg-accent/90"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Upload en cours...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-5 w-5" />
+                  Choisir des fichiers
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Ajouter un son manuellement */}
         <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
-          <h2 className="text-2xl font-bold text-primary mb-4">Ajouter un son</h2>
+          <h2 className="text-2xl font-bold text-primary mb-4">➕ Ou ajouter une URL manuellement</h2>
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
