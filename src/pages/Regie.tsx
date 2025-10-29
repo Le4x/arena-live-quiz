@@ -673,105 +673,6 @@ const Regie = () => {
         </div>
       </div>
 
-      {/* Audio Deck - Lecteur pro avec cue points */}
-      {currentTrack && (
-        <div className="p-3 flex-shrink-0">
-          <AudioDeck 
-            tracks={[currentTrack]}
-            onTrackChange={(track) => {
-              console.log('📻 Track changed:', track.name);
-            }}
-          />
-        </div>
-      )}
-
-      {/* Contrôles Buzzer et Reveal */}
-      <div className="px-3 pb-3 flex-shrink-0">
-        <Card className="p-3 bg-card/95 backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
-            {/* Buzzers */}
-            <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-muted-foreground" />
-              <Button 
-                size="sm" 
-                variant={gameState?.is_buzzer_active ? "default" : "outline"}
-                onClick={toggleBuzzer}
-              >
-                {gameState?.is_buzzer_active ? '⚡ Actifs' : 'Inactifs'}
-              </Button>
-              <Button 
-                size="sm" 
-                variant={buzzerLocked ? "default" : "outline"}
-                disabled={!gameState?.is_buzzer_active}
-              >
-                {buzzerLocked ? '🔒 Lock' : 'Libre'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={async () => {
-                if (!currentQuestionInstanceId) {
-                  toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
-                  return;
-                }
-                
-                console.log('🔄 Reset buzzers pour instance:', currentQuestionInstanceId);
-                
-                // Supprimer les tentatives de buzzer pour cette question
-                if (sessionId) {
-                  const { error } = await supabase.from('buzzer_attempts')
-                    .delete()
-                    .eq('question_instance_id', currentQuestionInstanceId)
-                    .eq('game_session_id', sessionId);
-                  
-                  if (error) {
-                    console.error('❌ Erreur suppression buzzers:', error);
-                    toast({ title: '❌ Erreur reset', variant: 'destructive' });
-                    return;
-                  }
-                }
-                
-                // Envoyer l'événement de reset
-                await gameEvents.resetBuzzer(currentQuestionInstanceId);
-                setBuzzerLocked(false);
-                setBuzzers([]);
-                setBlockedTeams([]); // Réinitialiser les équipes bloquées
-                previousBuzzersCount.current = 0;
-                
-                // IMPORTANT : Réinitialiser aussi excluded_teams dans la DB et réactiver le buzzer
-                await supabase.from('game_state').update({ 
-                  excluded_teams: [],
-                  is_buzzer_active: true // Réactiver le buzzer pour tous
-                }).eq('game_session_id', sessionId);
-                
-                toast({ title: '🔄 Buzzers réinitialisés' });
-              }}>
-                Reset
-              </Button>
-            </div>
-
-            {/* Reveal */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase">Reveal</span>
-              {!gameState?.show_answer ? (
-                <Button 
-                  size="sm" 
-                  className="bg-primary hover:bg-primary/90"
-                  onClick={showReveal}
-                >
-                  👁️ Révéler réponse
-                </Button>
-              ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={hideReveal}
-                >
-                  🙈 Cacher réponse
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {/* Main content */}
       <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-3 px-3 pb-3">
         {/* Left: Questions + Answers */}
@@ -814,8 +715,81 @@ const Regie = () => {
           </div>
         </div>
 
-        {/* Right: Onglets (Jeu / Équipes / Effets TV) */}
+        {/* Right: Audio + Contrôles + Onglets */}
         <div className="w-full lg:w-96 flex flex-col gap-3 overflow-hidden min-h-0">
+          {/* Audio Deck compact */}
+          {currentTrack && (
+            <Card className="flex-shrink-0 p-3">
+              <AudioDeck 
+                tracks={[currentTrack]}
+                onTrackChange={(track) => {
+                  console.log('📻 Track changed:', track.name);
+                }}
+              />
+            </Card>
+          )}
+
+          {/* Contrôles compacts Buzzer + Reveal */}
+          <Card className="flex-shrink-0 p-2 bg-card/95 backdrop-blur">
+            <div className="flex items-center justify-between gap-2">
+              {/* Buzzers */}
+              <div className="flex items-center gap-1">
+                <Radio className="h-3 w-3 text-muted-foreground" />
+                <Button 
+                  size="sm" 
+                  variant={gameState?.is_buzzer_active ? "default" : "outline"}
+                  onClick={toggleBuzzer}
+                  className="h-7 text-xs"
+                >
+                  {gameState?.is_buzzer_active ? '⚡ Actifs' : 'Inactifs'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={async () => {
+                    if (!currentQuestionInstanceId) {
+                      toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
+                      return;
+                    }
+                    
+                    if (sessionId) {
+                      await supabase.from('buzzer_attempts')
+                        .delete()
+                        .eq('question_instance_id', currentQuestionInstanceId)
+                        .eq('game_session_id', sessionId);
+                    }
+                    
+                    await gameEvents.resetBuzzer(currentQuestionInstanceId);
+                    setBuzzerLocked(false);
+                    setBuzzers([]);
+                    setBlockedTeams([]);
+                    previousBuzzersCount.current = 0;
+                    
+                    await supabase.from('game_state').update({ 
+                      excluded_teams: [],
+                      is_buzzer_active: true
+                    }).eq('game_session_id', sessionId);
+                    
+                    toast({ title: '🔄 Reset' });
+                  }}>
+                  Reset
+                </Button>
+              </div>
+
+              {/* Reveal */}
+              <Button 
+                size="sm" 
+                variant={gameState?.show_answer ? "outline" : "default"}
+                onClick={gameState?.show_answer ? hideReveal : showReveal}
+                className="h-7 text-xs"
+              >
+                {gameState?.show_answer ? '🙈 Cacher' : '👁️ Révéler'}
+              </Button>
+            </div>
+          </Card>
+
+          {/* Onglets (Jeu / Équipes / Effets TV) */}
           <Tabs defaultValue="jeu" className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="w-full flex-shrink-0">
               <TabsTrigger value="jeu" className="flex-1">Jeu</TabsTrigger>
