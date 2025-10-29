@@ -261,6 +261,16 @@ const Regie = () => {
     previousBuzzersCount.current = 0;
     setBlockedTeams([]);
     
+    // Précharger le son pour les blind tests
+    if (question.question_type === 'blind_test' && question.audio_url) {
+      const track = audioTracks.find(t => t.url === question.audio_url);
+      if (track) {
+        console.log('🎵 Préchargement du son:', track.name);
+        await audioEngine.preloadTrack(track);
+        toast({ title: '🎵 Son préchargé', description: track.name });
+      }
+    }
+    
     await supabase.from('question_instances').insert({
       id: instanceId,
       question_id: question.id,
@@ -276,7 +286,7 @@ const Regie = () => {
       current_question_instance_id: instanceId, 
       current_round_id: question.round_id, 
       is_buzzer_active: question.question_type === 'blind_test', // Buzzer actif uniquement pour blind test
-      timer_active: true, // Timer démarre automatiquement
+      timer_active: false, // Timer ne démarre pas automatiquement pour que la régie lance l'extrait
       timer_remaining: timerDuration,
       show_leaderboard: false,
       show_waiting_screen: false,
@@ -287,10 +297,10 @@ const Regie = () => {
     setBuzzerLocked(false);
     setBuzzers([]);
     setTimerRemaining(timerDuration);
-    setTimerActive(true);
+    setTimerActive(false); // Ne pas démarrer le timer automatiquement
     
     await gameEvents.startQuestion(question.id, instanceId, sessionId!);
-    toast({ title: '🎬 Question lancée' });
+    toast({ title: '🎬 Question chargée - Lancez l\'extrait quand prêt' });
   };
 
   const handleWrongAnswer = async (teamId: string) => {
@@ -636,7 +646,15 @@ const Regie = () => {
               const q = questions.find(x => x.id === currentQuestionId);
               if (q?.audio_url) {
                 const t = audioTracks.find(x => x.url === q.audio_url);
-                if (t) { audioEngine.loadAndPlay(t); audioEngine.playClip30s(300); }
+                if (t) { 
+                  audioEngine.loadAndPlay(t); 
+                  audioEngine.playClip30s(300);
+                  // Démarrer le timer quand on lance l'extrait
+                  setTimerActive(true);
+                  if (sessionId) {
+                    supabase.from('game_state').update({ timer_active: true }).eq('game_session_id', sessionId);
+                  }
+                }
               }
             },
             onPlaySolution: () => {
@@ -677,6 +695,7 @@ const Regie = () => {
               await gameEvents.resetBuzzer(currentQuestionInstanceId);
               setBuzzerLocked(false);
               setBuzzers([]);
+              setBlockedTeams([]); // Réinitialiser les équipes bloquées
               previousBuzzersCount.current = 0;
               toast({ title: '🔄 Buzzers réinitialisés' });
             }
@@ -690,11 +709,11 @@ const Regie = () => {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-hidden flex gap-3 px-3 pb-3">
+      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-3 px-3 pb-3">
         {/* Left: Questions + Answers */}
-        <div className="flex-1 overflow-hidden flex flex-col gap-3">
+        <div className="flex-1 overflow-hidden flex flex-col gap-3 min-h-0">
           {/* Questions */}
-          <Card className="flex-1 overflow-hidden flex flex-col">
+          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
           <div className="p-3 border-b flex gap-2 overflow-x-auto flex-shrink-0">
             {rounds.map(r => (
               <Button 
@@ -732,7 +751,7 @@ const Regie = () => {
         </div>
 
         {/* Right: Buzzers + Teams */}
-        <div className="w-96 flex flex-col gap-3 overflow-hidden">
+        <div className="w-full lg:w-96 flex flex-col gap-3 overflow-hidden min-h-0">
           {/* Buzzers */}
           <BuzzerMonitor 
             currentQuestionId={currentQuestionId} 
