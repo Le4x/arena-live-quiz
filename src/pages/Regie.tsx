@@ -43,6 +43,7 @@ const Regie = () => {
   const [blockedTeams, setBlockedTeams] = useState<string[]>([]);
   const [audioPositionWhenBuzzed, setAudioPositionWhenBuzzed] = useState<number>(0);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
 
   useEffect(() => {
     loadActiveSession();
@@ -170,11 +171,12 @@ const Regie = () => {
         console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
         console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
         
-        // Sauvegarder le timer et la position audio avant de l'arrêter
+        // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
         setTimerWhenBuzzed(timerRemaining);
         const currentPos = audioEngine.getPosition();
-        setAudioPositionWhenBuzzed(currentPos);
-        console.log('💾 Position audio sauvegardée:', currentPos);
+        const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
+        setAudioPositionWhenBuzzed(relativePos);
+        console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
@@ -386,6 +388,9 @@ const Regie = () => {
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack) {
       console.log('🎵 Lancement automatique de l\'audio depuis l\'extrait:', currentTrack.name);
+      // Sauvegarder la position de départ du clip (CUE1)
+      const cue1Time = currentTrack.cues[0]?.time || 0;
+      setClipStartTime(cue1Time);
       // Jouer l'extrait de 30s (depuis CUE#1)
       await audioEngine.playClip30s(300);
       toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
@@ -429,9 +434,11 @@ const Regie = () => {
         if (currentQ?.audio_url) { 
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
-            // Reprendre à la position exacte où on s'était arrêté
-            await audioEngine.loadAndPlay(s, audioPositionWhenBuzzed);
-            console.log('🎵 Reprise musique à', audioPositionWhenBuzzed);
+            // Reprendre à la position absolue = CUE1 + position relative sauvegardée
+            const cue1Time = s.cues[0]?.time || 0;
+            const resumePosition = cue1Time + audioPositionWhenBuzzed;
+            await audioEngine.loadAndPlay(s, resumePosition);
+            console.log('🎵 Reprise musique: CUE1 =', cue1Time, ', position relative =', audioPositionWhenBuzzed, ', position absolue =', resumePosition);
             
             // Arrêter la musique automatiquement après le temps restant
             if (timerWhenBuzzed !== null) {
@@ -441,7 +448,7 @@ const Regie = () => {
               }, timerWhenBuzzed * 1000);
             }
           }
-        } 
+        }
         
         // Reprendre avec le timer sauvegardé au moment du buzz
         setTimerRemaining(timerWhenBuzzed);
