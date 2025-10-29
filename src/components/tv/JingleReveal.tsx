@@ -13,7 +13,7 @@ interface JingleRevealProps {
   duration?: number;
 }
 
-export const JingleReveal = ({ result, onComplete, duration = 10000 }: JingleRevealProps) => {
+export const JingleReveal = ({ result, onComplete, duration = 12000 }: JingleRevealProps) => {
   const isCorrect = result === 'correct';
 
   useEffect(() => {
