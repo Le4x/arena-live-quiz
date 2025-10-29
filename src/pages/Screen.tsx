@@ -315,7 +315,7 @@ const Screen = () => {
       {showRevealAnimation && revealResult && (
         <JingleReveal
           result={revealResult}
-          duration={10000}
+          duration={12000}
           onComplete={() => setShowRevealAnimation(false)}
         />
       )}
