@@ -69,31 +69,39 @@ const Client = () => {
       })
       .subscribe();
 
-    // Heartbeat présence immédiat puis toutes les 3s
-    const sendHeartbeat = async () => {
-      if (teamId) {
-        console.log('💓 Client: Heartbeat pour équipe', teamId);
-        const { error } = await supabase.from('teams').update({ 
-          last_seen_at: new Date().toISOString(),
-          is_active: true 
-        }).eq('id', teamId);
-        if (error) {
-          console.error('❌ Client: Erreur heartbeat', error);
-        } else {
-          console.log('✅ Client: Heartbeat envoyé');
+    // Utiliser Supabase Realtime Presence (fiable sur mobile)
+    const presenceChannel = supabase.channel(`team_presence_${teamId}`, {
+      config: {
+        presence: {
+          key: teamId || '',
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        console.log('✅ Client: Présence synchronisée');
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && teamId) {
+          console.log('💓 Client: Canal de présence connecté pour', teamId);
+          // Track presence
+          await presenceChannel.track({
+            team_id: teamId,
+            online_at: new Date().toISOString(),
+          });
+          // Mettre à jour last_seen_at une fois
+          await supabase.from('teams').update({ 
+            last_seen_at: new Date().toISOString(),
+            is_active: true 
+          }).eq('id', teamId);
         }
-      }
-    };
-
-    // Premier heartbeat immédiat
-    sendHeartbeat();
-
-    // Puis interval toutes les 3s
-    const heartbeatInterval = setInterval(sendHeartbeat, 3000);
+      });
 
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
       if (teamId) {
+        await presenceChannel.untrack();
         await supabase.from('teams').update({ 
           is_active: false,
           connected_device_id: null 
@@ -183,7 +191,7 @@ const Client = () => {
     });
 
     return () => {
-      clearInterval(heartbeatInterval);
+      presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
       // Déconnecter proprement
@@ -193,6 +201,7 @@ const Client = () => {
         }).eq('id', teamId);
       }
       
+      supabase.removeChannel(presenceChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);

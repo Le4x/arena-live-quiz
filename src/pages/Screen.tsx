@@ -208,12 +208,31 @@ const Screen = () => {
 
     if (teamsRes.data) {
       setTeams(teamsRes.data);
-      // Calculer les équipes connectées (last_seen < 10s pour meilleure réactivité)
-      const now = new Date();
-      const connected = teamsRes.data.filter(t => 
-        t.last_seen_at && (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000
-      );
-      setConnectedTeamsCount(connected.length);
+      
+      // Vérifier la présence via Realtime
+      const presencePromises = teamsRes.data.map(async (team) => {
+        const channel = supabase.channel(`team_presence_${team.id}`);
+        return new Promise<boolean>((resolve) => {
+          channel
+            .on('presence', { event: 'sync' }, () => {
+              const state = channel.presenceState();
+              const isPresent = Object.keys(state).length > 0;
+              resolve(isPresent);
+              supabase.removeChannel(channel);
+            })
+            .subscribe();
+          // Timeout après 2s
+          setTimeout(() => {
+            resolve(false);
+            supabase.removeChannel(channel);
+          }, 2000);
+        });
+      });
+
+      const presenceResults = await Promise.all(presencePromises);
+      const connectedCount = presenceResults.filter(Boolean).length;
+      console.log(`📊 Screen: ${connectedCount} équipes connectées sur ${teamsRes.data.length}`);
+      setConnectedTeamsCount(connectedCount);
     }
     
     if (gameStateRes.data) {

@@ -205,18 +205,33 @@ const Regie = () => {
   const loadTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
-      // Calculer présence (< 10s = connecté pour meilleure réactivité)
-      const now = new Date();
-      const withPresence = data.map(t => {
-        const lastSeen = t.last_seen_at ? new Date(t.last_seen_at).getTime() : 0;
-        const diffMs = now.getTime() - lastSeen;
-        const isConnected = t.last_seen_at ? diffMs < 10000 : false;
-        console.log(`👥 Regie: Équipe ${t.name} - last_seen: ${t.last_seen_at}, diff: ${diffMs}ms, connected: ${isConnected}`);
-        return {
-          ...t,
-          is_connected: isConnected
-        };
+      // Vérifier la présence via Realtime
+      const presencePromises = data.map(async (team) => {
+        const channel = supabase.channel(`team_presence_${team.id}`);
+        return new Promise<boolean>((resolve) => {
+          channel
+            .on('presence', { event: 'sync' }, () => {
+              const state = channel.presenceState();
+              const isPresent = Object.keys(state).length > 0;
+              console.log(`👥 Regie: Équipe ${team.name} - présence:`, isPresent);
+              resolve(isPresent);
+              supabase.removeChannel(channel);
+            })
+            .subscribe();
+          // Timeout après 2s
+          setTimeout(() => {
+            resolve(false);
+            supabase.removeChannel(channel);
+          }, 2000);
+        });
       });
+
+      const presenceResults = await Promise.all(presencePromises);
+      const withPresence = data.map((t, i) => ({
+        ...t,
+        is_connected: presenceResults[i]
+      }));
+
       const connectedCount = withPresence.filter(t => t.is_connected).length;
       console.log(`📊 Regie: ${connectedCount} équipes connectées sur ${withPresence.length}`);
       setConnectedTeams(withPresence);
