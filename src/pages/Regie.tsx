@@ -347,6 +347,14 @@ const Regie = () => {
             // Reprendre à la position exacte où on s'était arrêté
             await audioEngine.loadAndPlay(s, audioPositionWhenBuzzed);
             console.log('🎵 Reprise musique à', audioPositionWhenBuzzed);
+            
+            // Arrêter la musique automatiquement après le temps restant
+            if (timerWhenBuzzed !== null) {
+              setTimeout(() => {
+                audioEngine.stopWithFade(500);
+                console.log('🎵 Fin de l\'extrait - Arrêt automatique après', timerWhenBuzzed, 'secondes');
+              }, timerWhenBuzzed * 1000);
+            }
           }
         } 
         
