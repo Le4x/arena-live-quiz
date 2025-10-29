@@ -76,7 +76,17 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
-  // Pas de polling - uniquement real-time
+  // Polling de secours pour les buzzers (500ms pour réactivité sans surcharge)
+  useEffect(() => {
+    if (!currentQuestionId || !sessionId) return;
+    
+    const interval = setInterval(() => {
+      console.log('🔄 Regie: Polling buzzers');
+      loadBuzzers();
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, [currentQuestionId, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -193,7 +203,7 @@ const Regie = () => {
     const qId = currentQuestionId;
     const sId = sessionId;
     
-    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId });
+    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId, currentBuzzersCount: buzzers.length });
     
     if (!qId || !sId) {
       console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
@@ -212,9 +222,10 @@ const Regie = () => {
       return;
     }
     
-    console.log('📥 Regie: Buzzers chargés', data?.length || 0, data);
+    console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
     if (data) {
       setBuzzers(data);
+      console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
     }
   };
 

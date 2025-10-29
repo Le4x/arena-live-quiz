@@ -39,7 +39,12 @@ export const BuzzerMonitor = ({ currentQuestionId, gameState, buzzers }: { curre
     toast({ title: "Buzzers réinitialisés" });
   };
 
-  if (!currentQuestionId || buzzers.length === 0) return null;
+  console.log('🎯 BuzzerMonitor: Rendu avec', buzzers.length, 'buzzers');
+  
+  if (!currentQuestionId || buzzers.length === 0) {
+    console.log('⚠️ BuzzerMonitor: Pas de question ou pas de buzzers');
+    return null;
+  }
 
   return (
     <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
