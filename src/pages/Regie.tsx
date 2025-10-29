@@ -275,6 +275,7 @@ const Regie = () => {
       timer_remaining: timerDuration,
       show_leaderboard: false,
       show_waiting_screen: false,
+      show_answer: false, // Réinitialiser le reveal pour éviter les révélations accidentelles
       answer_result: null 
     }).eq('game_session_id', sessionId);
     

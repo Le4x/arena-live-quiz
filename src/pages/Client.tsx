@@ -210,15 +210,25 @@ const Client = () => {
   };
 
   const checkIfAnswered = async () => {
-    if (!team || !currentQuestion?.id || !gameState?.game_session_id) return;
+    if (!team || !currentQuestion?.id || !currentQuestionInstanceId || !gameState?.game_session_id) return;
     
+    console.log('🔍 Checking if answered:', { 
+      teamId: team.id, 
+      questionId: currentQuestion.id,
+      instanceId: currentQuestionInstanceId,
+      sessionId: gameState.game_session_id 
+    });
+    
+    // IMPORTANT : Vérifier avec question_instance_id pour distinguer les relances
     const { data } = await supabase
       .from('team_answers')
       .select('*')
       .eq('team_id', team.id)
-      .eq('question_id', currentQuestion.id)
+      .eq('question_instance_id', currentQuestionInstanceId) // Utiliser l'instance, pas juste la question
       .eq('game_session_id', gameState.game_session_id)
       .maybeSingle();
+    
+    console.log('🔍 Answer found:', data ? 'yes' : 'no');
     
     if (data) {
       setHasAnswered(true);
