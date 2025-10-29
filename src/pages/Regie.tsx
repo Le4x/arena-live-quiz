@@ -273,11 +273,11 @@ const Regie = () => {
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
         await audioEngine.preloadTrack(track);
-        setCurrentTrack(track); // Définir uniquement le track de la question
+        setCurrentTrack(track);
         toast({ title: '🎵 Son préchargé', description: track.name });
       }
     } else {
-      setCurrentTrack(null); // Pas de track pour les questions non-blind test
+      setCurrentTrack(null);
     }
     
     await supabase.from('question_instances').insert({
@@ -290,26 +290,49 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
     
+    // NE PAS envoyer aux clients encore - juste préparer en régie
     await supabase.from('game_state').update({ 
-      current_question_id: question.id, 
       current_question_instance_id: instanceId, 
-      current_round_id: question.round_id, 
-      is_buzzer_active: question.question_type === 'blind_test', // Buzzer actif uniquement pour blind test
-      timer_active: false, // Timer ne démarre pas automatiquement pour que la régie lance l'extrait
+      current_round_id: question.round_id,
       timer_remaining: timerDuration,
       show_leaderboard: false,
       show_waiting_screen: false,
-      show_answer: false, // Réinitialiser le reveal pour éviter les révélations accidentelles
-      answer_result: null 
+      show_answer: false,
+      answer_result: null,
+      // NE PAS définir current_question_id pour que les clients ne voient pas encore la question
+      is_buzzer_active: false,
+      timer_active: false
     }).eq('game_session_id', sessionId);
     
     setBuzzerLocked(false);
     setBuzzers([]);
     setTimerRemaining(timerDuration);
-    setTimerActive(false); // Ne pas démarrer le timer automatiquement
+    setTimerActive(false);
     
-    await gameEvents.startQuestion(question.id, instanceId, sessionId!);
-    toast({ title: '🎬 Question chargée - Lancez l\'extrait quand prêt' });
+    toast({ title: '📝 Question préparée', description: 'Envoyez-la aux clients quand vous êtes prêt' });
+  };
+
+  const sendQuestionToClients = async () => {
+    if (!currentQuestionId || !sessionId) {
+      toast({ title: '❌ Aucune question préparée', variant: 'destructive' });
+      return;
+    }
+
+    const question = questions.find(q => q.id === currentQuestionId);
+    if (!question) return;
+
+    // Envoyer la question aux clients et démarrer le chrono
+    await supabase.from('game_state').update({
+      current_question_id: currentQuestionId,
+      is_buzzer_active: question.question_type === 'blind_test',
+      timer_active: true,
+      timer_remaining: timerRemaining
+    }).eq('game_session_id', sessionId);
+
+    setTimerActive(true);
+    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
+    
+    toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
   };
 
   const handleWrongAnswer = async (teamId: string) => {
@@ -732,6 +755,17 @@ const Regie = () => {
           {/* Contrôles compacts Buzzer + Reveal */}
           <Card className="flex-shrink-0 p-2 bg-card/95 backdrop-blur">
             <div className="flex items-center justify-between gap-2">
+              {/* Envoyer question aux clients */}
+              {currentQuestionId && (
+                <Button 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={sendQuestionToClients}
+                >
+                  🚀 Envoyer aux clients
+                </Button>
+              )}
+              
               {/* Buzzers */}
               <div className="flex items-center gap-1">
                 <Radio className="h-3 w-3 text-muted-foreground" />
