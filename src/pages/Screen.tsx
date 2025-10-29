@@ -91,11 +91,11 @@ const Screen = () => {
   }, [teams]);
 
   useEffect(() => {
-    console.log('📌 Question or session changed, loading buzzers');
+    console.log('📌 Game state changed, reloading buzzers');
     loadBuzzers();
     loadQcmAnswers();
     loadTextAnswers();
-  }, [currentQuestion?.id, gameState?.game_session_id]);
+  }, [gameState?.current_question_id, gameState?.game_session_id]);
 
   // Pas de polling - uniquement real-time
 
@@ -193,15 +193,24 @@ const Screen = () => {
   };
 
   const loadBuzzers = async () => {
-    const qId = currentQuestion?.id;
+    // Utiliser gameState directement au lieu de dépendre de currentQuestion
+    const qId = gameState?.current_question_id;
     const sId = gameState?.game_session_id;
     
-    console.log('🔍 Screen: loadBuzzers appelé', { qId, sId, currentBuzzersCount: buzzers.length });
+    console.log('🔍 Screen: loadBuzzers appelé', { 
+      qId, 
+      sId, 
+      currentBuzzersCount: buzzers.length,
+      gameState: gameState ? 'présent' : 'absent'
+    });
     
     if (!qId || !sId) {
-      console.log('⚠️ Screen: Pas de question ou session');
-      setBuzzers([]);
-      setShowBuzzerNotif(false);
+      console.log('⚠️ Screen: Pas de question ou session', { qId, sId });
+      // Ne pas réinitialiser si on avait déjà des buzzers
+      if (buzzers.length === 0) {
+        setBuzzers([]);
+        setShowBuzzerNotif(false);
+      }
       return;
     }
     
@@ -232,7 +241,8 @@ const Screen = () => {
           setShowBuzzerNotif(false);
         }, 5000);
       }
-    } else {
+    } else if (data && data.length === 0) {
+      // Réinitialisation explicite
       setBuzzers([]);
       setShowBuzzerNotif(false);
     }
