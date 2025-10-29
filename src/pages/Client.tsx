@@ -226,13 +226,15 @@ const Client = () => {
     setIsBlockedForQuestion(false);
     
     // Réinitialiser le timer actif depuis gameState
-    if (gameState?.timer_active !== undefined) {
-      setIsTimerActive(gameState.timer_active);
-    }
+    const isActive = gameState?.timer_active || false;
+    setIsTimerActive(isActive);
 
-    // Synchroniser timer_remaining et timer_duration
-    if (gameState?.timer_remaining !== undefined) {
+    // Synchroniser timer_remaining UNIQUEMENT si actif
+    if (isActive && gameState?.timer_remaining !== undefined && gameState?.timer_remaining !== null) {
       setTimerRemaining(gameState.timer_remaining);
+    } else {
+      // Timer inactif : reset à 0
+      setTimerRemaining(0);
     }
     
     // Charger l'instance ID depuis game_state
@@ -361,11 +363,16 @@ const Client = () => {
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
-      setIsTimerActive(data.timer_active || false);
       
-      // Synchroniser le timer
-      if (data.timer_remaining !== undefined) {
+      // Synchroniser le timer UNIQUEMENT s'il est actif
+      const isActive = data.timer_active || false;
+      setIsTimerActive(isActive);
+      
+      if (isActive && data.timer_remaining !== undefined && data.timer_remaining !== null) {
         setTimerRemaining(data.timer_remaining);
+      } else {
+        // Timer inactif : reset à 0
+        setTimerRemaining(0);
       }
       
       // Définir la durée du timer depuis le round

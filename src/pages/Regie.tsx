@@ -545,10 +545,11 @@ const Regie = () => {
     await supabase.from('game_state').update({ 
       show_answer: true,
       timer_active: false,
-      timer_remaining: null
+      timer_remaining: 0  // Reset à 0 au lieu de null
     }).eq('game_session_id', sessionId);
     
     setTimerActive(false);
+    setTimerRemaining(0);
     
     // Attribution automatique des points
     const currentQ = questions.find(q => q.id === currentQuestionId);
@@ -648,7 +649,7 @@ const Regie = () => {
   const hideReveal = async () => {
     await supabase.from('game_state').update({ 
       show_answer: false,
-      timer_remaining: null
+      timer_remaining: 0  // Reset à 0
     }).eq('game_session_id', sessionId);
     toast({ title: '🙈 Réponse cachée' });
   };
