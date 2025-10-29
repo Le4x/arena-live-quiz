@@ -183,13 +183,11 @@ const Screen = () => {
       playSound('correct');
       setRevealResult('correct');
       setShowRevealAnimation(true);
-      setBuzzerNotification(null); // Cacher la notification de buzzer
       setTimeout(() => setShowRevealAnimation(false), 3000);
     } else if (gameState?.answer_result === 'incorrect') {
       playSound('incorrect');
       setRevealResult('incorrect');
       setShowRevealAnimation(true);
-      setBuzzerNotification(null); // Cacher la notification de buzzer
       setTimeout(() => setShowRevealAnimation(false), 2000);
     }
   }, [gameState?.answer_result]);
@@ -318,7 +316,10 @@ const Screen = () => {
         <JingleReveal
           result={revealResult}
           duration={12000}
-          onComplete={() => setShowRevealAnimation(false)}
+          onComplete={() => {
+            setShowRevealAnimation(false);
+            setBuzzerNotification(null); // Cacher la notification APRÈS l'animation
+          }}
         />
       )}
 
