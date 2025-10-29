@@ -68,9 +68,15 @@ const Regie = () => {
       })
       .subscribe();
 
+    // Polling présence toutes les 5s pour recalculer les équipes connectées
+    const presenceInterval = setInterval(() => {
+      loadTeams();
+    }, 5000);
+
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(buzzersChannel);
+      clearInterval(presenceInterval);
     };
   }, []);
 
@@ -199,11 +205,11 @@ const Regie = () => {
   const loadTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
-      // Calculer présence (< 30s = connecté)
+      // Calculer présence (< 10s = connecté pour meilleure réactivité)
       const now = new Date();
       const withPresence = data.map(t => ({
         ...t,
-        is_connected: t.last_seen_at ? (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000 : false
+        is_connected: t.last_seen_at ? (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000 : false
       }));
       setConnectedTeams(withPresence);
     }

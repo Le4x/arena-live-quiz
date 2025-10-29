@@ -44,6 +44,11 @@ const Screen = () => {
       })
       .subscribe();
 
+    // Polling présence toutes les 5s pour recalculer les équipes connectées
+    const presenceInterval = setInterval(() => {
+      loadData();
+    }, 5000);
+
     const gameStateChannel = supabase
       .channel('screen-game-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
@@ -127,6 +132,7 @@ const Screen = () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
+      clearInterval(presenceInterval);
     };
   }, []); // IMPORTANT: Pas de dépendances pour éviter les reconnexions
 
@@ -202,10 +208,10 @@ const Screen = () => {
 
     if (teamsRes.data) {
       setTeams(teamsRes.data);
-      // Calculer les équipes connectées (last_seen < 30s)
+      // Calculer les équipes connectées (last_seen < 10s pour meilleure réactivité)
       const now = new Date();
       const connected = teamsRes.data.filter(t => 
-        t.last_seen_at && (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000
+        t.last_seen_at && (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000
       );
       setConnectedTeamsCount(connected.length);
     }
@@ -311,7 +317,7 @@ const Screen = () => {
             .filter(t => {
               if (!t.last_seen_at) return false;
               const now = new Date();
-              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 30000;
+              return (now.getTime() - new Date(t.last_seen_at).getTime()) < 10000;
             })
             .map(t => ({ id: t.id, name: t.name, color: t.color }))
           }

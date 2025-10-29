@@ -69,7 +69,7 @@ const Client = () => {
       })
       .subscribe();
 
-    // Heartbeat présence (toutes les 10s)
+    // Heartbeat présence (toutes les 3s pour réactivité)
     const heartbeatInterval = setInterval(async () => {
       if (teamId) {
         await supabase.from('teams').update({ 
@@ -77,7 +77,7 @@ const Client = () => {
           is_active: true 
         }).eq('id', teamId);
       }
-    }, 10000);
+    }, 3000);
 
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
