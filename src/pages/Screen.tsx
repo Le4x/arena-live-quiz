@@ -44,10 +44,19 @@ const Screen = () => {
       })
       .subscribe();
 
-    // Polling présence toutes les 5s pour recalculer les équipes connectées
-    const presenceInterval = setInterval(() => {
-      loadData();
-    }, 5000);
+    // Canal de présence GLOBAL - écoute toutes les équipes connectées
+    const presenceChannel = supabase.channel('team_presence')
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = presenceChannel.presenceState();
+        const connectedCount = Object.values(presenceState)
+          .flat()
+          .filter((p: any) => p.team_id)
+          .length;
+        
+        console.log(`📊 Screen: ${connectedCount} équipes connectées`);
+        setConnectedTeamsCount(connectedCount);
+      })
+      .subscribe();
 
     const gameStateChannel = supabase
       .channel('screen-game-state')
@@ -129,10 +138,10 @@ const Screen = () => {
     return () => {
       console.log('🧹 Screen: Nettoyage des canaux realtime');
       supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(presenceChannel);
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
-      clearInterval(presenceInterval);
     };
   }, []); // IMPORTANT: Pas de dépendances pour éviter les reconnexions
 
@@ -208,31 +217,7 @@ const Screen = () => {
 
     if (teamsRes.data) {
       setTeams(teamsRes.data);
-      
-      // Vérifier la présence via Realtime
-      const presencePromises = teamsRes.data.map(async (team) => {
-        const channel = supabase.channel(`team_presence_${team.id}`);
-        return new Promise<boolean>((resolve) => {
-          channel
-            .on('presence', { event: 'sync' }, () => {
-              const state = channel.presenceState();
-              const isPresent = Object.keys(state).length > 0;
-              resolve(isPresent);
-              supabase.removeChannel(channel);
-            })
-            .subscribe();
-          // Timeout après 2s
-          setTimeout(() => {
-            resolve(false);
-            supabase.removeChannel(channel);
-          }, 2000);
-        });
-      });
-
-      const presenceResults = await Promise.all(presencePromises);
-      const connectedCount = presenceResults.filter(Boolean).length;
-      console.log(`📊 Screen: ${connectedCount} équipes connectées sur ${teamsRes.data.length}`);
-      setConnectedTeamsCount(connectedCount);
+      // Le compteur de connectés sera mis à jour par le canal de présence
     }
     
     if (gameStateRes.data) {

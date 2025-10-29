@@ -51,7 +51,7 @@ const Regie = () => {
     loadTeams();
     loadAudioTracks();
 
-    // Abonnement présence temps réel
+    // Abonnement changements de teams (score, etc)
     const teamsChannel = supabase.channel('regie-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadTeams)
       .subscribe();
@@ -68,15 +68,33 @@ const Regie = () => {
       })
       .subscribe();
 
-    // Polling présence toutes les 5s pour recalculer les équipes connectées
-    const presenceInterval = setInterval(() => {
-      loadTeams();
-    }, 5000);
+    // Canal de présence GLOBAL - écoute toutes les équipes connectées
+    const presenceChannel = supabase.channel('team_presence')
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = presenceChannel.presenceState();
+        const connectedTeamIds = new Set(
+          Object.values(presenceState)
+            .flat()
+            .map((p: any) => p.team_id)
+            .filter(Boolean)
+        );
+        
+        console.log(`📊 Regie: ${connectedTeamIds.size} équipes connectées`, Array.from(connectedTeamIds));
+        
+        // Mettre à jour les équipes avec le statut de connexion
+        setConnectedTeams(prev => 
+          prev.map(t => ({
+            ...t,
+            is_connected: connectedTeamIds.has(t.id)
+          }))
+        );
+      })
+      .subscribe();
 
     return () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(buzzersChannel);
-      clearInterval(presenceInterval);
+      supabase.removeChannel(presenceChannel);
     };
   }, []);
 
@@ -205,36 +223,8 @@ const Regie = () => {
   const loadTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
-      // Vérifier la présence via Realtime
-      const presencePromises = data.map(async (team) => {
-        const channel = supabase.channel(`team_presence_${team.id}`);
-        return new Promise<boolean>((resolve) => {
-          channel
-            .on('presence', { event: 'sync' }, () => {
-              const state = channel.presenceState();
-              const isPresent = Object.keys(state).length > 0;
-              console.log(`👥 Regie: Équipe ${team.name} - présence:`, isPresent);
-              resolve(isPresent);
-              supabase.removeChannel(channel);
-            })
-            .subscribe();
-          // Timeout après 2s
-          setTimeout(() => {
-            resolve(false);
-            supabase.removeChannel(channel);
-          }, 2000);
-        });
-      });
-
-      const presenceResults = await Promise.all(presencePromises);
-      const withPresence = data.map((t, i) => ({
-        ...t,
-        is_connected: presenceResults[i]
-      }));
-
-      const connectedCount = withPresence.filter(t => t.is_connected).length;
-      console.log(`📊 Regie: ${connectedCount} équipes connectées sur ${withPresence.length}`);
-      setConnectedTeams(withPresence);
+      // Charger les équipes sans présence (sera mise à jour par le canal)
+      setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
     }
   };
 

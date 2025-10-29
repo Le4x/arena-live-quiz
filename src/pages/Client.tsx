@@ -69,8 +69,8 @@ const Client = () => {
       })
       .subscribe();
 
-    // Utiliser Supabase Realtime Presence (fiable sur mobile)
-    const presenceChannel = supabase.channel(`team_presence_${teamId}`, {
+    // Canal de présence GLOBAL partagé par toutes les équipes
+    const presenceChannel = supabase.channel('team_presence', {
       config: {
         presence: {
           key: teamId || '',
@@ -80,14 +80,15 @@ const Client = () => {
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
-        console.log('✅ Client: Présence synchronisée');
+        console.log('✅ Client: Présence synchronisée sur canal global');
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && teamId) {
-          console.log('💓 Client: Canal de présence connecté pour', teamId);
-          // Track presence
+          console.log('💓 Client: Track présence pour équipe', teamId);
+          // Track presence avec team_id
           await presenceChannel.track({
             team_id: teamId,
+            team_name: team?.name || 'Unknown',
             online_at: new Date().toISOString(),
           });
           // Mettre à jour last_seen_at une fois
