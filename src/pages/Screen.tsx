@@ -239,7 +239,7 @@ const Screen = () => {
     if (!qId || !sId) {
       console.log('⚠️ Screen: Pas de question ou session');
       setBuzzers([]);
-      setBuzzerNotification(null);
+      // NE PAS réinitialiser buzzerNotification ici car ça écrase l'animation!
       return;
     }
     
