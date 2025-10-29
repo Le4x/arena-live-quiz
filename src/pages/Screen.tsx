@@ -24,6 +24,11 @@ const Screen = () => {
   const [buzzerNotification, setBuzzerNotification] = useState<{show: boolean, team: any} | null>(null);
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
 
+  // Debug: log buzzerNotification changes
+  useEffect(() => {
+    console.log('🔔 Screen: buzzerNotification changed:', buzzerNotification);
+  }, [buzzerNotification]);
+
   useEffect(() => {
     console.log('🚀 Screen: Initialisation des canaux realtime');
     loadData();
