@@ -13,6 +13,7 @@ import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@
 import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
+import { motion } from "framer-motion";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -608,10 +609,15 @@ const Client = () => {
 
       console.log('🎯 Réponses à éliminer (seed:', timestamp, '):', toEliminate);
 
-      setEliminatedOptions(prev => {
-        const newEliminated = [...prev, ...toEliminate];
-        console.log('🎯 Nouvelles options éliminées:', newEliminated);
-        return newEliminated;
+      // Jouer le son d'élimination
+      playSound('eliminate');
+
+      // Animation d'élimination progressive
+      toEliminate.forEach((answer, i) => {
+        setTimeout(() => {
+          setEliminatedOptions(prev => [...prev, answer]);
+          console.log('🎯 Éliminé:', answer);
+        }, i * 800); // 800ms entre chaque élimination
       });
 
       if (toEliminate.length > 0) {
@@ -1218,16 +1224,27 @@ const Client = () => {
                       : currentQuestion.options;
                     // Filtrer les options vides ET les options éliminées
                     return Object.entries(options || {})
-                      .filter(([_, value]) => {
-                        const optionValue = String(value).trim();
-                        return optionValue !== '' && !eliminatedOptions.includes(String(value));
-                      })
                       .map(([key, value]) => {
-                      const optionValue = value as string;
+                        const optionValue = value as string;
+                        const isEliminated = eliminatedOptions.includes(String(value));
+                        if (optionValue.trim() === '') return null;
+                      
                       const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
                       const isSelectedOption = showReveal && answer === optionValue;
                       
                       return (
+                        <motion.div
+                          key={key}
+                          initial={{ opacity: 1, scale: 1 }}
+                          animate={{ 
+                            opacity: isEliminated ? 0 : 1,
+                            scale: isEliminated ? 0.8 : 1,
+                            height: isEliminated ? 0 : 'auto',
+                            marginBottom: isEliminated ? 0 : undefined
+                          }}
+                          transition={{ duration: 0.8, ease: "easeOut" }}
+                        >
+                          {!isEliminated && (
                         <Button
                           key={key}
                           variant="outline"
@@ -1255,8 +1272,10 @@ const Client = () => {
                             <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
                           )}
                         </Button>
+                          )}
+                        </motion.div>
                       );
-                    });
+                    }).filter(Boolean);
                   } catch (e) {
                     return <p className="text-destructive text-sm sm:text-base">Erreur de chargement des options</p>;
                   }

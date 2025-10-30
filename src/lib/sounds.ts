@@ -1,6 +1,6 @@
 // Helper functions for playing game sounds
 
-export const playSound = (soundType: 'buzz' | 'correct' | 'incorrect') => {
+export const playSound = (soundType: 'buzz' | 'correct' | 'incorrect' | 'eliminate') => {
   const sounds = localStorage.getItem('arena_sounds');
   if (!sounds) return;
 

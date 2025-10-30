@@ -529,7 +529,16 @@ const Screen = () => {
 
       console.log('🎯 Screen: Réponses à éliminer:', toEliminate);
 
-      setEliminatedOptions(prev => [...prev, ...toEliminate]);
+      // Jouer le son d'élimination
+      playSound('eliminate');
+
+      // Animation d'élimination progressive
+      toEliminate.forEach((answer, i) => {
+        setTimeout(() => {
+          setEliminatedOptions(prev => [...prev, answer]);
+          console.log('🎯 Screen: Éliminé:', answer);
+        }, i * 800); // 800ms entre chaque élimination
+      });
     } catch (error) {
       console.error('❌ Screen: Erreur élimination:', error);
     }
@@ -1057,11 +1066,16 @@ const Screen = () => {
                               key={key}
                               initial={{ opacity: 0, scale: 0.9, y: 20 }}
                               animate={{ 
-                                opacity: isEliminated ? 0.3 : 1, 
-                                scale: isEliminated ? 0.95 : 1, 
+                                opacity: isEliminated ? 0 : 1, 
+                                scale: isEliminated ? 0.8 : 1,
+                                filter: isEliminated ? 'blur(4px)' : 'blur(0px)',
                                 y: 0 
                               }}
-                              transition={{ delay: index * 0.1, duration: 0.4 }}
+                              transition={{ 
+                                delay: index * 0.1, 
+                                duration: isEliminated ? 0.8 : 0.4,
+                                ease: isEliminated ? "easeOut" : "easeInOut"
+                              }}
                               className="relative"
                             >
                               {/* Glow for correct answer */}
