@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Zap, Trophy, Shield, Target, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { gameEvents } from "@/lib/runtime/GameEvents";
 
 interface JokerPanelProps {
   teamId: string;
@@ -101,6 +102,10 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
       console.log('🃏 Résultat update:', { updated, error: updateError });
 
       if (updateError) throw updateError;
+
+      // Émettre l'événement pour tous les clients
+      await gameEvents.activateJoker(teamId, jokerTypeName, finalId);
+      console.log('🃏 Événement émis:', { teamId, jokerTypeName, finalId });
 
       toast({
         title: "⚡ Joker activé !",

@@ -98,18 +98,13 @@ const Client = () => {
       })
       .subscribe();
 
-    // Écouter les changements de jokers pour appliquer leurs effets
-    const jokersChannel = supabase
-      .channel('client-jokers-effects')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'final_jokers',
-        filter: `team_id=eq.${teamId}`
-      }, (payload) => {
-        handleJokerEffect(payload.new);
-      })
-      .subscribe();
+    // Écouter les événements de jokers via GameEvents
+    const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
+      console.log('🃏 Effet joker reçu:', event);
+      if (event.data?.teamId === teamId) {
+        handleJokerEffect(event.data.jokerType);
+      }
+    });
 
     // Canal de présence GLOBAL partagé par toutes les équipes
     const presenceChannel = supabase.channel('team_presence', {
@@ -260,7 +255,6 @@ const Client = () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
       supabase.removeChannel(finalsChannel);
-      supabase.removeChannel(jokersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
@@ -268,6 +262,7 @@ const Client = () => {
       unsubResetAll();
       unsubKick();
       unsubKickTeam();
+      unsubJoker();
     };
   }, [teamId, currentQuestionInstanceId]);
 
@@ -547,34 +542,15 @@ const Client = () => {
     }
   };
 
-  const handleJokerEffect = async (joker: any) => {
-    console.log('🃏 Joker effect triggered:', joker);
+  const handleJokerEffect = (jokerType: string) => {
+    console.log('🃏 Effet joker reçu:', { jokerType, questionType: currentQuestion?.question_type });
     
-    // Charger le type de joker
-    const { data: jokerType } = await supabase
-      .from('joker_types')
-      .select('*')
-      .eq('id', joker.joker_type_id)
-      .single();
-
-    console.log('🃏 Joker type:', jokerType);
-
-    if (!jokerType) {
-      console.log('❌ Type de joker non trouvé');
-      return;
-    }
-
     // Appliquer l'effet selon le type
-    console.log('🃏 Vérification effet:', { 
-      typeName: jokerType.name, 
-      questionType: currentQuestion?.question_type,
-      shouldEliminate: jokerType.name === 'eliminate_answer' && currentQuestion?.question_type === 'qcm'
-    });
-    
-    if (jokerType.name === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
+    if (jokerType === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
       console.log('🎯 Élimination de réponses...');
       eliminateTwoWrongAnswers();
     }
+    // Ajouter d'autres types de jokers ici si besoin
   };
 
   const eliminateTwoWrongAnswers = () => {

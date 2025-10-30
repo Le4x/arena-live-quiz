@@ -22,7 +22,8 @@ export type GameEventType =
   | 'REVEAL_ANSWER'
   | 'TEAM_BLOCKED'
   | 'SHOW_PUBLIC_VOTES'
-  | 'HIDE_PUBLIC_VOTES';
+  | 'HIDE_PUBLIC_VOTES'
+  | 'JOKER_ACTIVATED';
 
 export interface GameEvent {
   type: GameEventType;
@@ -50,6 +51,15 @@ export interface KickTeamEvent extends GameEvent {
   type: 'KICK_TEAM';
   data: {
     teamId: string;
+  };
+}
+
+export interface JokerActivatedEvent extends GameEvent {
+  type: 'JOKER_ACTIVATED';
+  data: {
+    teamId: string;
+    jokerType: string;
+    finalId: string;
   };
 }
 
@@ -210,6 +220,13 @@ export const gameEvents = {
     await getGameEvents().emit({
       type: 'TEAM_BLOCKED',
       data: { teamId },
+    });
+  },
+
+  activateJoker: async (teamId: string, jokerType: string, finalId: string) => {
+    await getGameEvents().emit({
+      type: 'JOKER_ACTIVATED',
+      data: { teamId, jokerType, finalId },
     });
   },
 };
