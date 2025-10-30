@@ -567,7 +567,12 @@ const Regie = () => {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
       
-      toast({ title: '❌ Mauvaise - Reprise' });
+      const penaltyPoints = currentQ?.penalty_points || 0;
+      if (penaltyPoints > 0) {
+        toast({ title: `❌ Mauvaise réponse - ${penaltyPoints} points perdus` });
+      } else {
+        toast({ title: '❌ Mauvaise réponse - Reprise' });
+      }
     }, 2000);
   };
 
