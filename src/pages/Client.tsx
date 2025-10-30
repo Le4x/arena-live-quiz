@@ -39,6 +39,7 @@ const Client = () => {
   const [activeSession, setActiveSession] = useState<any>(null);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
+  const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -164,18 +165,27 @@ const Client = () => {
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
-      console.log('🎭 Reveal reçu', event);
+      console.log('🎭 Client: Reveal reçu', event);
       
       // Vérifier si ce reveal est pour cette équipe
       if (event.data?.teamId === teamId) {
+        // Annuler tout timeout précédent
+        if (revealTimeoutRef.current) {
+          clearTimeout(revealTimeoutRef.current);
+        }
+        
         setShowReveal(true);
         const isCorrect = event.data?.isCorrect;
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
         playSound(isCorrect ? 'correct' : 'incorrect');
         
-        // Cacher le reveal après 6 secondes pour laisser le temps de voir
-        setTimeout(() => {
+        console.log('🎭 Client: Animation reveal démarrée, durée 6s');
+        
+        // Cacher le reveal après 6 secondes
+        revealTimeoutRef.current = setTimeout(() => {
+          console.log('🎭 Client: Animation reveal terminée');
           setShowReveal(false);
+          revealTimeoutRef.current = null;
         }, 6000);
       }
     });
@@ -231,6 +241,18 @@ const Client = () => {
   }, [teamId, currentQuestionInstanceId]);
 
   useEffect(() => {
+    console.log('🔄 Client: Question change detected', {
+      questionId: currentQuestion?.id,
+      instanceId: gameState?.current_question_instance_id
+    });
+    
+    // Annuler l'animation reveal en cours seulement si on change de question
+    if (revealTimeoutRef.current) {
+      console.log('🎭 Client: Annulation reveal timeout (changement de question)');
+      clearTimeout(revealTimeoutRef.current);
+      revealTimeoutRef.current = null;
+    }
+    
     // Reset buzzer state when question changes
     setHasBuzzed(false);
     setAnswer("");

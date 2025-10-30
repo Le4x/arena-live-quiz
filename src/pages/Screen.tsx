@@ -344,17 +344,19 @@ const Screen = () => {
   const loadQcmAnswers = async () => {
     const questionId = currentQuestion?.id || gameState?.current_question_id;
     const sessionId = gameState?.game_session_id;
+    const instanceId = gameState?.current_question_instance_id;
     
-    if (!questionId || !sessionId) {
+    if (!questionId || !sessionId || !instanceId) {
       setQcmAnswers([]);
       return;
     }
     
-    // Charger pour n'importe quel type de question, pas seulement QCM
+    // Charger UNIQUEMENT pour l'instance actuelle de la question
     const { data, error } = await supabase
       .from('team_answers')
       .select('*')
       .eq('question_id', questionId)
+      .eq('question_instance_id', instanceId)
       .eq('game_session_id', sessionId);
     
     if (error) {
@@ -362,24 +364,26 @@ const Screen = () => {
       return;
     }
     
-    console.log('📥 Screen: Réponses QCM chargées', data?.length || 0);
+    console.log('📥 Screen: Réponses QCM chargées (instance:', instanceId, '):', data?.length || 0);
     if (data) setQcmAnswers(data);
   };
 
   const loadTextAnswers = async () => {
     const questionId = currentQuestion?.id || gameState?.current_question_id;
     const sessionId = gameState?.game_session_id;
+    const instanceId = gameState?.current_question_instance_id;
     
-    if (!questionId || !sessionId) {
+    if (!questionId || !sessionId || !instanceId) {
       setTextAnswers([]);
       return;
     }
     
-    // Charger pour n'importe quel type de question, pas seulement free_text
+    // Charger UNIQUEMENT pour l'instance actuelle de la question
     const { data, error } = await supabase
       .from('team_answers')
       .select('*')
       .eq('question_id', questionId)
+      .eq('question_instance_id', instanceId)
       .eq('game_session_id', sessionId);
     
     if (error) {
@@ -387,7 +391,7 @@ const Screen = () => {
       return;
     }
     
-    console.log('📥 Screen: Réponses texte chargées', data?.length || 0);
+    console.log('📥 Screen: Réponses texte chargées (instance:', instanceId, '):', data?.length || 0);
     if (data) setTextAnswers(data);
   };
 
