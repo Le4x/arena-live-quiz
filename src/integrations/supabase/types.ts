@@ -466,6 +466,7 @@ export type Database = {
           avatar: string | null
           color: string
           connected_device_id: string | null
+          connection_pin: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
@@ -477,6 +478,7 @@ export type Database = {
           avatar?: string | null
           color: string
           connected_device_id?: string | null
+          connection_pin?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -488,6 +490,7 @@ export type Database = {
           avatar?: string | null
           color?: string
           connected_device_id?: string | null
+          connection_pin?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -566,6 +569,7 @@ export type Database = {
       }
     }
     Functions: {
+      generate_team_pin: { Args: never; Returns: string }
       is_admin: { Args: { check_user_id: string }; Returns: boolean }
       reset_game_session: { Args: { session_id: string }; Returns: undefined }
     }
