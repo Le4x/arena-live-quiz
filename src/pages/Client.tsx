@@ -996,6 +996,7 @@ const Client = () => {
             teamId={teamId!} 
             finalId={final.id}
             currentQuestionInstanceId={currentQuestionInstanceId}
+            currentQuestion={currentQuestion}
             isEliminated={true}
           />
         )}

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Heart, Trophy } from "lucide-react";
+import { Users, Heart, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -11,45 +11,61 @@ interface PublicVotePanelProps {
   teamId: string;
   finalId: string;
   currentQuestionInstanceId: string | null;
-  isEliminated: boolean; // true si l'équipe n'est pas dans les finalistes
+  currentQuestion: any;
+  isEliminated: boolean;
 }
 
 export const PublicVotePanel = ({ 
   teamId, 
   finalId, 
   currentQuestionInstanceId,
+  currentQuestion,
   isEliminated 
 }: PublicVotePanelProps) => {
   const { toast } = useToast();
-  const [finalists, setFinalists] = useState<any[]>([]);
+  const [answerOptions, setAnswerOptions] = useState<any[]>([]);
   const [hasVoted, setHasVoted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isEliminated && currentQuestionInstanceId) {
-      loadFinalists();
+    if (isEliminated && currentQuestionInstanceId && currentQuestion) {
+      loadAnswerOptions();
       checkIfVoted();
     }
-  }, [isEliminated, currentQuestionInstanceId, finalId]);
+  }, [isEliminated, currentQuestionInstanceId, finalId, currentQuestion]);
 
-  const loadFinalists = async () => {
-    // Charger la finale pour avoir la liste des finalistes
-    const { data: finalData } = await supabase
-      .from('finals')
-      .select('*')
-      .eq('id', finalId)
-      .single();
+  const loadAnswerOptions = async () => {
+    if (!currentQuestion) return;
 
-    if (finalData?.finalist_teams) {
-      // Charger les équipes finalistes (cast le JSONB en tableau de strings)
-      const finalistIds = finalData.finalist_teams as string[];
-      const { data: teamsData } = await supabase
-        .from('teams')
-        .select('*')
-        .in('id', finalistIds)
-        .order('score', { ascending: false });
-      
-      if (teamsData) setFinalists(teamsData);
+    if (currentQuestion.question_type === 'qcm') {
+      // Pour QCM : afficher les options A, B, C, D
+      const options = currentQuestion.options || {};
+      const optionsList = Object.entries(options)
+        .filter(([_, value]) => value)
+        .map(([key, value]) => ({
+          id: key,
+          text: value as string,
+          type: 'option'
+        }));
+      setAnswerOptions(optionsList);
+    } else if (currentQuestion.question_type === 'free_text') {
+      // Pour free text : charger les réponses des finalistes
+      const { data: answers } = await supabase
+        .from('team_answers')
+        .select('*, teams(name, color)')
+        .eq('question_instance_id', currentQuestionInstanceId)
+        .not('answer', 'is', null);
+
+      if (answers) {
+        const answersList = answers.map((a: any) => ({
+          id: a.id,
+          text: a.answer,
+          teamName: a.teams?.name,
+          teamColor: a.teams?.color,
+          type: 'answer'
+        }));
+        setAnswerOptions(answersList);
+      }
     }
   };
 
@@ -67,7 +83,7 @@ export const PublicVotePanel = ({
     setHasVoted(!!data);
   };
 
-  const voteForTeam = async (votedForTeamId: string) => {
+  const voteForAnswer = async (answer: string) => {
     if (!currentQuestionInstanceId) {
       toast({
         title: "Impossible de voter",
@@ -103,7 +119,7 @@ export const PublicVotePanel = ({
         final_id: finalId,
         question_instance_id: currentQuestionInstanceId,
         voter_team_id: teamId,
-        voted_for_team_id: votedForTeamId
+        voted_answer: answer
       });
 
       toast({
@@ -124,7 +140,7 @@ export const PublicVotePanel = ({
   };
 
   // Ne rien afficher si pas éliminé ou pas de question active
-  if (!isEliminated || !currentQuestionInstanceId || finalists.length === 0) {
+  if (!isEliminated || !currentQuestionInstanceId || answerOptions.length === 0) {
     return null;
   }
 
@@ -152,33 +168,44 @@ export const PublicVotePanel = ({
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            Votez pour l'équipe que vous souhaitez soutenir pour cette question :
+            Votez pour la réponse que vous pensez être la bonne :
           </p>
 
           <div className="grid grid-cols-1 gap-2">
-            {finalists.map((team) => (
+            {answerOptions.map((option) => (
               <motion.div
-                key={team.id}
+                key={option.id}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <Button
                   variant="outline"
-                  onClick={() => voteForTeam(team.id)}
+                  onClick={() => voteForAnswer(option.text)}
                   disabled={loading}
                   className="w-full justify-start h-auto py-3 border-2 hover:border-purple-500"
                 >
-                  <div 
-                    className="w-4 h-4 rounded-full mr-3"
-                    style={{ backgroundColor: team.color }}
-                  />
-                  <div className="flex-1 text-left">
-                    <p className="font-bold">{team.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {team.score} points
-                    </p>
-                  </div>
-                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  {option.type === 'option' ? (
+                    <>
+                      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold mr-3">
+                        {option.id}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-semibold">{option.text}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div 
+                        className="w-4 h-4 rounded-full mr-3"
+                        style={{ backgroundColor: option.teamColor }}
+                      />
+                      <div className="flex-1 text-left">
+                        <p className="text-xs text-muted-foreground mb-1">{option.teamName}</p>
+                        <p className="font-semibold">{option.text}</p>
+                      </div>
+                    </>
+                  )}
+                  <CheckCircle2 className="h-4 w-4 text-green-500 ml-2" />
                 </Button>
               </motion.div>
             ))}

@@ -428,7 +428,7 @@ export type Database = {
           final_id: string
           id: string
           question_instance_id: string
-          voted_for_team_id: string
+          voted_answer: string
           voter_team_id: string
         }
         Insert: {
@@ -436,7 +436,7 @@ export type Database = {
           final_id: string
           id?: string
           question_instance_id: string
-          voted_for_team_id: string
+          voted_answer: string
           voter_team_id: string
         }
         Update: {
@@ -444,7 +444,7 @@ export type Database = {
           final_id?: string
           id?: string
           question_instance_id?: string
-          voted_for_team_id?: string
+          voted_answer?: string
           voter_team_id?: string
         }
         Relationships: [
@@ -460,13 +460,6 @@ export type Database = {
             columns: ["question_instance_id"]
             isOneToOne: false
             referencedRelation: "question_instances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "public_votes_voted_for_team_id_fkey"
-            columns: ["voted_for_team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
