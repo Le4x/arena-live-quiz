@@ -904,6 +904,25 @@ const Screen = () => {
                   </h2>
                 </div>
                 
+                {/* Image de la question si présente */}
+                {currentQuestion.image_url && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="mb-8 flex justify-center"
+                  >
+                    <img 
+                      src={currentQuestion.image_url} 
+                      alt="Question" 
+                      className="max-w-full max-h-[500px] object-contain rounded-2xl border-4 border-primary/30 shadow-2xl"
+                      style={{
+                        boxShadow: '0 0 40px hsl(var(--primary) / 0.3)',
+                      }}
+                    />
+                  </motion.div>
+                )}
+                
                 {/* QCM Options avec design premium */}
                 {currentQuestion.options && (() => {
                   try {

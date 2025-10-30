@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Music } from "lucide-react";
+import { Loader2, Music, Image as ImageIcon, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SoundWithCues } from "@/pages/AdminSounds";
 
@@ -44,6 +44,10 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
   const [availableSounds, setAvailableSounds] = useState<SoundWithCues[]>([]);
   const [options, setOptions] = useState({ A: "", B: "", C: "", D: "" });
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Charger les sons depuis localStorage
@@ -67,6 +71,8 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       setPoints(question.points || 10);
       setPenaltyPoints(question.penalty_points || 0);
       setAudioUrl(question.audio_url || "");
+      setExistingImageUrl(question.image_url || null);
+      setImagePreview(question.image_url || null);
       
       // Trouver le son correspondant
       if (question.audio_url) {
@@ -98,8 +104,48 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       setAudioUrl("");
       setSelectedSoundId("");
       setOptions({ A: "", B: "", C: "", D: "" });
+      setImageFile(null);
+      setImagePreview(null);
+      setExistingImageUrl(null);
     }
   }, [question, open, availableSounds]);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({ title: "Erreur", description: "Veuillez sélectionner une image", variant: "destructive" });
+        return;
+      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return existingImageUrl;
+
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      toast({ title: "Erreur", description: "Impossible d'uploader l'image", variant: "destructive" });
+      return existingImageUrl;
+    }
+  };
 
   const handleSave = async () => {
     if (!roundId || !questionText.trim()) {
@@ -113,6 +159,9 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
 
     setSaving(true);
     try {
+      // Upload image si présente
+      const imageUrl = await uploadImage();
+
       // Récupérer les cue points si un son est sélectionné
       const selectedSound = availableSounds.find(s => s.id === selectedSoundId);
       const cuePoints = selectedSound ? {
@@ -128,6 +177,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         points,
         penalty_points: penaltyPoints,
         audio_url: selectedSound?.url || audioUrl || null,
+        image_url: imageUrl,
         cue_points: cuePoints ? JSON.stringify(cuePoints) : null,
         options: questionType === 'qcm' ? JSON.stringify(options) : null
       };
@@ -257,15 +307,62 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
             />
           </div>
 
-          {questionType === 'blind_test' && availableSounds.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="sound">Son depuis la banque</Label>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Image (optionnelle)
+            </Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            {imagePreview ? (
+              <div className="relative">
+                <img src={imagePreview} alt="Aperçu" className="w-full h-48 object-cover rounded-lg border border-border" />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    setExistingImageUrl(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+                disabled={saving}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Choisir une image
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Music className="h-4 w-4" />
+              Son (optionnel)
+            </Label>
+            {availableSounds.length > 0 && (
               <Select value={selectedSoundId} onValueChange={(id) => {
                 setSelectedSoundId(id);
                 const sound = availableSounds.find(s => s.id === id);
                 if (sound) setAudioUrl(sound.url);
               }} disabled={saving}>
-                <SelectTrigger id="sound">
+                <SelectTrigger>
                   <SelectValue placeholder="🎵 Choisir un son..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -279,8 +376,13 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+            {questionType === 'blind_test' && selectedSoundId && (
+              <p className="text-xs text-muted-foreground">
+                💡 Les CUE points seront automatiquement appliqués
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

@@ -324,6 +324,7 @@ export type Database = {
           cue_points: Json | null
           display_order: number | null
           id: string
+          image_url: string | null
           options: Json | null
           penalty_points: number | null
           points: number | null
@@ -338,6 +339,7 @@ export type Database = {
           cue_points?: Json | null
           display_order?: number | null
           id?: string
+          image_url?: string | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null
@@ -352,6 +354,7 @@ export type Database = {
           cue_points?: Json | null
           display_order?: number | null
           id?: string
+          image_url?: string | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null

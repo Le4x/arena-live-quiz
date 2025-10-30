@@ -1022,6 +1022,17 @@ const Client = () => {
                 {currentQuestion.question_text}
               </h3>
 
+              {/* Affichage de l'image si présente */}
+              {currentQuestion.image_url && (
+                <div className="mb-4 sm:mb-6">
+                  <img 
+                    src={currentQuestion.image_url} 
+                    alt="Question" 
+                    className="w-full max-h-64 sm:max-h-96 object-contain rounded-lg border-2 border-secondary/30"
+                  />
+                </div>
+              )}
+
             {currentQuestion.question_type === 'qcm' && currentQuestion.options && (
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                 {(() => {
