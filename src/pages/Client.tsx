@@ -600,16 +600,11 @@ const Client = () => {
       // Jouer le son d'élimination
       playSound('eliminate');
 
-      // Animation d'élimination progressive
-      toEliminate.forEach((answer, i) => {
-        setTimeout(() => {
-          console.log(`🎯 [Client] Eliminating option ${i+1}/2: "${answer}"`);
-          setEliminatedOptions(prev => {
-            const newEliminated = [...prev, answer];
-            console.log('🎯 [Client] New eliminatedOptions state:', newEliminated);
-            return newEliminated;
-          });
-        }, i * 800);
+      // Mettre à jour le state immédiatement avec toutes les options à éliminer
+      setEliminatedOptions(prev => {
+        const newEliminated = [...prev, ...toEliminate];
+        console.log('🎯 [Client] New eliminatedOptions state:', newEliminated);
+        return newEliminated;
       });
     } catch (error) {
       console.error('❌ [Client] Erreur élimination:', error);
