@@ -173,10 +173,10 @@ const Client = () => {
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
         playSound(isCorrect ? 'correct' : 'incorrect');
         
-        // Cacher le reveal après 3 secondes
+        // Cacher le reveal après 6 secondes pour laisser le temps de voir
         setTimeout(() => {
           setShowReveal(false);
-        }, 3000);
+        }, 6000);
       }
     });
 
@@ -940,21 +940,41 @@ const Client = () => {
             {showReveal && answerResult && (
               <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
                 answerResult === 'correct' 
-                  ? 'from-green-500/95 to-emerald-600/95' 
-                  : 'from-red-500/95 to-rose-600/95'
-              } rounded-lg animate-scale-in z-10 backdrop-blur-sm`}>
-                <div className="text-center animate-bounce p-4">
+                  ? 'from-green-500/98 to-emerald-600/98' 
+                  : 'from-red-500/98 to-rose-600/98'
+              } rounded-lg animate-scale-in z-50 backdrop-blur-md shadow-2xl border-4 ${
+                answerResult === 'correct' ? 'border-green-300' : 'border-red-300'
+              }`}
+              style={{
+                animation: 'scale-in 0.5s ease-out, pulse 2s ease-in-out infinite'
+              }}>
+                <div className="text-center p-6 sm:p-8">
+                  <div className="animate-bounce mb-4">
+                    {answerResult === 'correct' ? (
+                      <Check className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
+                             style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                    ) : (
+                      <X className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
+                         style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                    )}
+                  </div>
                   {answerResult === 'correct' ? (
                     <>
-                      <Check className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-2 sm:mb-4 text-white drop-shadow-glow" />
-                      <p className="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg">BONNE RÉPONSE !</p>
-                      <p className="text-base sm:text-xl text-white/80 mt-1 sm:mt-2">🎉 Félicitations !</p>
+                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                        BONNE RÉPONSE !
+                      </p>
+                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
+                        🎉 Félicitations ! 🎉
+                      </p>
                     </>
                   ) : (
                     <>
-                      <X className="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-2 sm:mb-4 text-white drop-shadow-glow" />
-                      <p className="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg">MAUVAISE RÉPONSE</p>
-                      <p className="text-base sm:text-xl text-white/80 mt-1 sm:mt-2">Dommage... Tentez votre chance !</p>
+                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                        MAUVAISE RÉPONSE
+                      </p>
+                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
+                        💪 Continuez à jouer !
+                      </p>
                     </>
                   )}
                 </div>
