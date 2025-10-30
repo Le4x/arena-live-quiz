@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key } from "lucide-react";
+import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
@@ -450,6 +450,28 @@ const Client = () => {
   const checkAnswerResult = async () => {
     // Ne rien faire ici - le reveal se fera via l'événement REVEAL_ANSWER
     return;
+  };
+
+  const handleDisconnect = async () => {
+    if (!teamId) return;
+    
+    // Déconnecter proprement l'équipe
+    await supabase
+      .from('teams')
+      .update({ 
+        is_active: false,
+        connected_device_id: null 
+      })
+      .eq('id', teamId);
+    
+    toast({
+      title: "Déconnexion réussie",
+      description: "À bientôt !",
+    });
+    
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 1000);
   };
 
   const loadTeam = async () => {
@@ -1060,6 +1082,15 @@ const Client = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
+      {/* Bouton de déconnexion très discret */}
+      <button
+        onClick={handleDisconnect}
+        className="fixed top-2 right-2 p-1.5 rounded-md bg-muted/30 hover:bg-destructive/80 text-muted-foreground hover:text-destructive-foreground opacity-30 hover:opacity-100 transition-all duration-300 backdrop-blur-sm z-50"
+        title="Se déconnecter"
+      >
+        <LogOut className="h-3 w-3" />
+      </button>
+
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Logo configurable en haut */}
         <div className="flex justify-center pt-2 sm:pt-4">
