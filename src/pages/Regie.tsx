@@ -1130,15 +1130,29 @@ const Regie = () => {
               <h3 className="font-bold text-sm">Questions ({roundQuestions.length})</h3>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {roundQuestions.map(q => (
-                <div key={q.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-xs truncate">{q.question_text}</div>
-                    <div className="text-xs text-muted-foreground">{q.points} pts</div>
+              {roundQuestions.map(q => {
+                const typeLabels: Record<string, string> = {
+                  'blind_test': 'Buzzer',
+                  'qcm': 'QCM',
+                  'free_text': 'Texte libre'
+                };
+                const typeLabel = typeLabels[q.question_type] || q.question_type;
+                
+                return (
+                  <div key={q.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-xs truncate">{q.question_text}</div>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 flex-shrink-0">
+                          {typeLabel}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{q.points} pts</div>
+                    </div>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => startQuestion(q)}>Lancer</Button>
                   </div>
-                  <Button size="sm" className="h-7 text-xs" onClick={() => startQuestion(q)}>Lancer</Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </div>
