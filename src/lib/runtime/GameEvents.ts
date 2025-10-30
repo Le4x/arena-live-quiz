@@ -24,7 +24,8 @@ export type GameEventType =
   | 'TEAM_BUZZED'
   | 'SHOW_PUBLIC_VOTES'
   | 'HIDE_PUBLIC_VOTES'
-  | 'JOKER_ACTIVATED';
+  | 'JOKER_ACTIVATED'
+  | 'PRESENCE_UPDATE';
 
 export interface GameEvent {
   type: GameEventType;
@@ -72,6 +73,23 @@ export interface TeamBuzzedEvent extends GameEvent {
     teamId: string;
     teamName: string;
     teamColor: string;
+  };
+}
+
+export interface SyncStateEvent extends GameEvent {
+  type: 'SYNC_STATE';
+  data: {
+    gameState: any;
+    teams: any[];
+    currentQuestion: any | null;
+    buzzers: any[];
+  };
+}
+
+export interface PresenceUpdateEvent extends GameEvent {
+  type: 'PRESENCE_UPDATE';
+  data: {
+    presences: Record<string, any>;
   };
 }
 

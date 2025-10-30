@@ -36,6 +36,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 export class SupabaseTransport implements Transport {
   private channels: Map<string, any> = new Map();
+  private heartbeatInterval: number | null = null;
+  private presenceChannel: any = null;
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
     const ch = this.getOrCreateChannel(channel);
@@ -68,10 +70,66 @@ export class SupabaseTransport implements Transport {
       handler(data.payload);
     }).subscribe();
 
+    // Démarrer le heartbeat si pas déjà actif
+    this.startHeartbeat(channel);
+
     return () => {
       supabase.removeChannel(ch);
       this.channels.delete(channel);
+      this.stopHeartbeat();
     };
+  }
+
+  /**
+   * Démarrer le heartbeat pour la présence (track toutes les 3s)
+   */
+  private startHeartbeat(sessionId: string): void {
+    if (this.heartbeatInterval) return;
+
+    // Créer canal de présence global
+    this.presenceChannel = supabase.channel('presence:global');
+    
+    this.presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = this.presenceChannel.presenceState();
+        console.log('👥 [Transport] Présence sync:', state);
+      })
+      .subscribe(async (status: string) => {
+        if (status === 'SUBSCRIBED') {
+          // Track immédiatement
+          await this.presenceChannel.track({
+            last_seen_at: Date.now(),
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    // Heartbeat toutes les 3 secondes
+    this.heartbeatInterval = window.setInterval(async () => {
+      if (this.presenceChannel) {
+        await this.presenceChannel.track({
+          last_seen_at: Date.now(),
+          online_at: new Date().toISOString(),
+        });
+      }
+    }, 3000);
+
+    console.log('💓 [Transport] Heartbeat démarré');
+  }
+
+  /**
+   * Arrêter le heartbeat
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.presenceChannel) {
+      supabase.removeChannel(this.presenceChannel);
+      this.presenceChannel = null;
+    }
+    console.log('💔 [Transport] Heartbeat arrêté');
   }
 
   now(): number {
