@@ -11,12 +11,31 @@ interface Team {
   color: string;
 }
 
+interface Sponsor {
+  id: string;
+  name: string;
+  logo_url: string;
+}
+
 interface WaitingScreenProps {
   sessionName?: string;
   connectedTeams: Team[];
+  sponsors?: Sponsor[];
 }
 
-export const WaitingScreen = ({ sessionName, connectedTeams }: WaitingScreenProps) => {
+export const WaitingScreen = ({ sessionName, connectedTeams, sponsors = [] }: WaitingScreenProps) => {
+  // Générer des positions aléatoires pour les pop-ups
+  const generateRandomPosition = () => ({
+    x: Math.random() * 80 + 10, // Entre 10% et 90%
+    y: Math.random() * 80 + 10,
+  });
+
+  // Créer une liste mixte d'équipes et sponsors
+  const allItems = [
+    ...connectedTeams.map(team => ({ type: 'team' as const, data: team })),
+    ...sponsors.map(sponsor => ({ type: 'sponsor' as const, data: sponsor })),
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
          style={{
@@ -36,6 +55,67 @@ export const WaitingScreen = ({ sessionName, connectedTeams }: WaitingScreenProp
         }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
+
+      {/* Pop-up équipes et sponsors aléatoires */}
+      {allItems.length > 0 && (
+        <div className="absolute inset-0 pointer-events-none">
+          {allItems.map((item, index) => {
+            const position = generateRandomPosition();
+            const delay = index * 0.8;
+            const duration = 3 + Math.random() * 2;
+            
+            return (
+              <motion.div
+                key={`popup-${item.type}-${item.data.id}-${index}`}
+                className="absolute"
+                style={{
+                  left: `${position.x}%`,
+                  top: `${position.y}%`,
+                }}
+                initial={{ opacity: 0, scale: 0, rotate: -20 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: [0, 1.2, 1, 0],
+                  rotate: [0, 5, -5, 0],
+                  y: [0, -20, 0],
+                }}
+                transition={{
+                  duration: duration,
+                  repeat: Infinity,
+                  delay: delay,
+                  ease: "easeInOut",
+                }}
+              >
+                {item.type === 'team' ? (
+                  <div 
+                    className="bg-card/90 backdrop-blur-xl rounded-2xl px-6 py-3 border-2 shadow-2xl flex items-center gap-3"
+                    style={{ 
+                      borderColor: item.data.color,
+                      boxShadow: `0 0 30px ${item.data.color}60`,
+                    }}
+                  >
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-black text-lg"
+                      style={{ backgroundColor: item.data.color }}
+                    >
+                      {item.data.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-bold text-xl whitespace-nowrap">{item.data.name}</span>
+                  </div>
+                ) : (
+                  <div className="bg-card/90 backdrop-blur-xl rounded-2xl p-4 border-2 border-primary/30 shadow-2xl">
+                    <img 
+                      src={item.data.logo_url} 
+                      alt={item.data.name}
+                      className="h-16 w-auto object-contain"
+                    />
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Premium light rays */}
       {[...Array(12)].map((_, i) => (
