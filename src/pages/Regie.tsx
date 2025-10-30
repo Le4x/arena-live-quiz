@@ -28,6 +28,7 @@ const Regie = () => {
   const previousBuzzersCount = useRef(0);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentSession, setCurrentSession] = useState<any>(null);
   const [gameState, setGameState] = useState<any>(null);
   const [connectedTeams, setConnectedTeams] = useState<any[]>([]);
   const [rounds, setRounds] = useState<any[]>([]);
@@ -204,7 +205,10 @@ const Regie = () => {
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
-    if (data) setSessionId(data.id);
+    if (data) {
+      setSessionId(data.id);
+      setCurrentSession(data);
+    }
   };
 
   const loadGameState = async () => {
@@ -826,13 +830,24 @@ const Regie = () => {
       <div className="p-3 border-b border-primary/20 bg-card/90 backdrop-blur flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent">Régie TV</h1>
+            <h1 className="text-2xl font-bold bg-gradient-arena bg-clip-text text-transparent">Arena TV</h1>
             <Badge variant="outline" className="gap-2">
               <Users className="h-3 w-3" />
               {connectedCount}/{connectedTeams.length}
             </Badge>
           </div>
+          
+          {/* Centre - Titre de session */}
+          <div className="flex-1 text-center">
+            <h2 className="text-lg font-semibold text-foreground">
+              Régie: {currentSession?.name || 'Aucune session'}
+            </h2>
+          </div>
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => window.location.href = '/'}>
+              <Home className="h-3 w-3 mr-1" />
+              Menu
+            </Button>
             <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>
               <Monitor className="h-3 w-3 mr-1" />
               Écran
