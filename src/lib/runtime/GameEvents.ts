@@ -92,7 +92,8 @@ export class GameEventsManager {
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
     const fullEvent: GameEvent = {
-      ...event,
+      type: event.type,
+      data: event.data || {},
       timestamp: this.transport.now(),
     };
     await this.transport.publish(this.channel, fullEvent);
