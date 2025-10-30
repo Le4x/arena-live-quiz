@@ -47,6 +47,7 @@ const Client = () => {
   const [final, setFinal] = useState<any>(null);
   const [isFinalist, setIsFinalist] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const previousQuestionIdRef = useRef<string | null>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -102,8 +103,17 @@ const Client = () => {
     // Écouter les événements de jokers via GameEvents
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
       console.log('🎯 [Client] JOKER_ACTIVATED reçu:', event);
+      console.log('🎯 [Client] event.data:', event.data);
+      console.log('🎯 [Client] event.data.jokerType:', event.data?.jokerType);
+      console.log('🎯 [Client] event.data.questionOptions:', event.data?.questionOptions);
+      console.log('🎯 [Client] event.data.correctAnswer:', event.data?.correctAnswer);
+      console.log('🎯 [Client] event.timestamp:', event.timestamp);
+      
       if (event.data?.jokerType === 'fifty_fifty') {
-        console.log('🎯 [Client] Activation fifty_fifty');
+        console.log('🎯 [Client] Activation fifty_fifty avec données:', {
+          questionOptions: event.data.questionOptions,
+          correctAnswer: event.data.correctAnswer
+        });
         eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
       }
     });
@@ -269,24 +279,31 @@ const Client = () => {
   }, [teamId, currentQuestionInstanceId]);
 
   useEffect(() => {
+    const newQuestionId = currentQuestion?.id;
     console.log('🔄 Client: Question change detected', {
-      questionId: currentQuestion?.id,
+      questionId: newQuestionId,
+      previousQuestionId: previousQuestionIdRef.current,
       instanceId: gameState?.current_question_instance_id
     });
     
-    // Ne PAS annuler le reveal si une animation est en cours
-    // L'animation doit se terminer naturellement
-    if (!showReveal) {
-    // Reset buzzer state when question changes
-    setHasBuzzed(false);
-    setAnswer("");
-    setHasAnswered(false);
-    setAnswerResult(null);
-    setIsBlockedForQuestion(false);
-    setEliminatedOptions([]); // Reset les options éliminées
-    
-    // Reset le flag de notification de timeout
-    hasShownTimeoutToast.current = false;
+    // Ne réinitialiser QUE si la question a vraiment changé
+    if (newQuestionId !== previousQuestionIdRef.current) {
+      console.log('🔄 Client: Question vraiment changée, reset states');
+      previousQuestionIdRef.current = newQuestionId || null;
+      
+      // Ne PAS annuler le reveal si une animation est en cours
+      if (!showReveal) {
+        // Reset buzzer state when question changes
+        setHasBuzzed(false);
+        setAnswer("");
+        setHasAnswered(false);
+        setAnswerResult(null);
+        setIsBlockedForQuestion(false);
+        setEliminatedOptions([]); // Reset les options éliminées
+        
+        // Reset le flag de notification de timeout
+        hasShownTimeoutToast.current = false;
+      }
     }
     
     // Ne rien faire si pas de team (page de login)
@@ -307,7 +324,7 @@ const Client = () => {
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id, team]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, team, showReveal]);
 
   // Calcul du timer en temps réel basé sur timer_started_at
   useEffect(() => {
@@ -1202,15 +1219,12 @@ const Client = () => {
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
                     // Filtrer les options vides
-                    console.log('🎯 [Client RENDER] eliminatedOptions:', eliminatedOptions);
                     return Object.entries(options || {})
                       .map(([key, value]) => {
                         const optionValue = String(value);
                         if (optionValue.trim() === '') return null;
                         
                         const isEliminated = eliminatedOptions.includes(optionValue);
-                        console.log(`🎯 [Client RENDER] Option ${key}: "${optionValue}", isEliminated:`, isEliminated);
-                        
                         const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
                         const isSelectedOption = showReveal && answer === optionValue;
                       
