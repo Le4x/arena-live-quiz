@@ -128,14 +128,14 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
-  // Polling de secours pour les buzzers (500ms pour réactivité sans surcharge)
+  // Polling de secours pour les buzzers (1000ms = équilibre entre réactivité et charge serveur)
   useEffect(() => {
     if (!currentQuestionId || !sessionId) return;
     
     const interval = setInterval(() => {
       console.log('🔄 Regie: Polling buzzers');
       loadBuzzers();
-    }, 500);
+    }, 1000); // Réduit de 500ms à 1000ms pour alléger la charge
     
     return () => clearInterval(interval);
   }, [currentQuestionId, sessionId]);
@@ -228,39 +228,84 @@ const Regie = () => {
   }, [buzzers]);
 
   const loadActiveSession = async () => {
-    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
-    if (data) {
-      setSessionId(data.id);
-      setCurrentSession(data);
-      
-      // S'assurer que le game_state est lié à cette session
-      await supabase.from('game_state').update({
-        game_session_id: data.id
-      }).eq('id', '00000000-0000-0000-0000-000000000001');
+    try {
+      const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
+      if (error) {
+        console.error('❌ Erreur chargement session active:', error);
+        return;
+      }
+      if (data) {
+        setSessionId(data.id);
+        setCurrentSession(data);
+        
+        // S'assurer que le game_state est lié à cette session
+        await supabase.from('game_state').update({
+          game_session_id: data.id
+        }).eq('id', '00000000-0000-0000-0000-000000000001');
+      }
+    } catch (error) {
+      console.error('❌ Exception lors du chargement de la session:', error);
+      toast({ 
+        title: '⚠️ Erreur de connexion', 
+        description: 'Impossible de charger la session',
+        variant: 'destructive'
+      });
     }
   };
 
   const loadGameState = async () => {
     if (!sessionId) return;
-    const { data } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
-    if (data) setGameState(data);
+    try {
+      const { data, error } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
+      if (error) {
+        console.error('❌ Erreur chargement game state:', error);
+        return;
+      }
+      if (data) setGameState(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement du game state:', error);
+    }
   };
 
   const loadRounds = async () => {
-    const { data } = await supabase.from('rounds').select('*').order('created_at');
-    if (data) setRounds(data);
+    try {
+      const { data, error } = await supabase.from('rounds').select('*').order('created_at');
+      if (error) {
+        console.error('❌ Erreur chargement rounds:', error);
+        return;
+      }
+      if (data) setRounds(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des rounds:', error);
+    }
   };
 
   const loadQuestions = async () => {
-    const { data } = await supabase.from('questions').select('*').order('display_order');
-    if (data) setQuestions(data);
+    try {
+      const { data, error } = await supabase.from('questions').select('*').order('display_order');
+      if (error) {
+        console.error('❌ Erreur chargement questions:', error);
+        return;
+      }
+      if (data) setQuestions(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des questions:', error);
+    }
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
-    if (data) {
-      // Charger les équipes sans présence (sera mise à jour par le canal)
-      setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
+    try {
+      const { data, error } = await supabase.from('teams').select('*').order('score', { ascending: false });
+      if (error) {
+        console.error('❌ Erreur chargement teams:', error);
+        return;
+      }
+      if (data) {
+        // Charger les équipes sans présence (sera mise à jour par le canal)
+        setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
+      }
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des équipes:', error);
     }
   };
 
@@ -277,21 +322,27 @@ const Regie = () => {
       return;
     }
     
-    const { data, error } = await supabase.from('buzzer_attempts')
-      .select('*, teams(*)')
-      .eq('question_id', qId)
-      .eq('game_session_id', sId)
-      .order('buzzed_at', { ascending: true });
-    
-    if (error) {
-      console.error('❌ Regie: Erreur chargement buzzers', error);
-      return;
-    }
-    
-    console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
-    if (data) {
-      setBuzzers(data);
-      console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
+    try {
+      const { data, error } = await supabase.from('buzzer_attempts')
+        .select('*, teams(*)')
+        .eq('question_id', qId)
+        .eq('game_session_id', sId)
+        .order('buzzed_at', { ascending: true });
+      
+      if (error) {
+        console.error('❌ Regie: Erreur chargement buzzers', error);
+        // Ne pas vider les buzzers en cas d'erreur réseau temporaire
+        return;
+      }
+      
+      console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
+      if (data) {
+        setBuzzers(data);
+        console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
+      }
+    } catch (error) {
+      console.error('❌ Regie: Exception lors du chargement des buzzers', error);
+      // En cas d'erreur critique, on garde les buzzers existants
     }
   };
 

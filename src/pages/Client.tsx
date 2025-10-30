@@ -160,11 +160,16 @@ const Client = () => {
     // Mettre à jour last_seen_at toutes les 30 secondes pour maintenir la connexion active
     const heartbeatInterval = setInterval(async () => {
       if (teamId && team) {
-        await supabase.from('teams').update({ 
-          last_seen_at: new Date().toISOString(),
-          is_active: true 
-        }).eq('id', teamId);
-        console.log('💓 Heartbeat: last_seen_at mis à jour');
+        try {
+          await supabase.from('teams').update({ 
+            last_seen_at: new Date().toISOString(),
+            is_active: true 
+          }).eq('id', teamId);
+          console.log('💓 Heartbeat: last_seen_at mis à jour');
+        } catch (error) {
+          console.error('❌ Erreur heartbeat:', error);
+          // Continue quand même, ce n'est pas critique
+        }
       }
     }, 30000); // Toutes les 30 secondes
 
