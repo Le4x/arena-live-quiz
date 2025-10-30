@@ -196,6 +196,19 @@ const Client = () => {
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
       console.log('🎯 Nouvelle question', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
+      
+      // Charger immédiatement la nouvelle question
+      loadGameState();
+      
+      // Réinitialiser tous les états pour la nouvelle question
+      setHasBuzzed(false);
+      setAnswer("");
+      setHasAnswered(false);
+      setAnswerResult(null);
+      setShowReveal(false);
+      setIsBlockedForQuestion(false);
+      setEliminatedOptions([]);
+      hasShownTimeoutToast.current = false;
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
