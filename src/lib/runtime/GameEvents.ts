@@ -91,11 +91,13 @@ export class GameEventsManager {
    * Publier un événement
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
+    console.log('🎯 GameEvents emit received:', event);
     const fullEvent: GameEvent = {
       type: event.type,
       data: event.data || {},
       timestamp: this.transport.now(),
     };
+    console.log('🎯 GameEvents emit sending:', fullEvent);
     await this.transport.publish(this.channel, fullEvent);
   }
 
