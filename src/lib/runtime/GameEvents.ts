@@ -58,8 +58,10 @@ export interface JokerActivatedEvent extends GameEvent {
   type: 'JOKER_ACTIVATED';
   data: {
     teamId: string;
-    jokerType: string;
+    jokerType: 'fifty_fifty' | 'team_call' | 'public_vote';
     finalId: string;
+    questionOptions?: any; // Options de la question pour le 50-50
+    correctAnswer?: string; // Bonne réponse pour le 50-50
   };
 }
 
@@ -91,14 +93,14 @@ export class GameEventsManager {
    * Publier un événement
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
-    console.log('🎯 GameEvents emit received:', event);
-    const fullEvent: GameEvent = {
-      type: event.type,
-      data: event.data || {},
+    console.log('📤 [GameEvents.emit] Reçu:', event);
+    const fullEvent = {
+      ...event,
       timestamp: this.transport.now(),
-    };
-    console.log('🎯 GameEvents emit sending:', fullEvent);
+    } as GameEvent;
+    console.log('📤 [GameEvents.emit] Event complet:', fullEvent);
     await this.transport.publish(this.channel, fullEvent);
+    console.log('📤 [GameEvents.emit] Publié sur canal:', this.channel);
   }
 
   /**
@@ -226,13 +228,12 @@ export const gameEvents = {
     });
   },
 
-  activateJoker: async (teamId: string, jokerType: string, finalId: string) => {
-    console.log('🎮 activateJoker called with:', { teamId, jokerType, finalId });
-    const eventData = {
-      type: 'JOKER_ACTIVATED' as const,
-      data: { teamId, jokerType, finalId },
-    };
-    console.log('🎮 activateJoker emitting:', eventData);
-    await getGameEvents().emit(eventData);
+  activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string, questionOptions?: any, correctAnswer?: string) => {
+    console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId, questionOptions, correctAnswer });
+    await getGameEvents().emit({
+      type: 'JOKER_ACTIVATED',
+      data: { teamId, jokerType, finalId, questionOptions, correctAnswer },
+    });
+    console.log('🎮 [gameEvents.activateJoker] Emit terminé');
   },
 };

@@ -13,6 +13,8 @@ import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
 import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
+import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
+import { ThanksScreen } from "@/components/tv/ThanksScreen";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -208,9 +210,10 @@ const Screen = () => {
 
     // Écouter les événements de jokers
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🃏 Screen: Joker reçu:', event);
-      if (event.data?.jokerType === 'eliminate_answer') {
-        eliminateTwoWrongAnswers(event.timestamp);
+      console.log('🎯 [Screen] JOKER_ACTIVATED reçu:', event);
+      if (event.data?.jokerType === 'fifty_fifty') {
+        console.log('🎯 [Screen] Activation fifty_fifty');
+        eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
       }
     });
 
@@ -483,42 +486,48 @@ const Screen = () => {
     if (data) setTextAnswers(data);
   };
 
-  const eliminateTwoWrongAnswers = (timestamp: number) => {
-    console.log('🎯 Screen: eliminateTwoWrongAnswers avec timestamp:', timestamp);
+  const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
+    console.log('🎯 [Screen] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
+    console.log('🎯 [Screen] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
     
-    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
-      console.log('❌ Screen: Pas d\'options ou de réponse correcte');
+    // Utiliser les données de l'événement ou fallback sur currentQuestion
+    const opts = questionOptions || currentQuestion?.options;
+    const correct = correctAnswer || currentQuestion?.correct_answer;
+    
+    if (!opts || !correct) {
+      console.log('❌ [Screen] Pas de options ou correct_answer');
       return;
     }
 
     try {
-      const options = typeof currentQuestion.options === 'string' 
-        ? JSON.parse(currentQuestion.options) 
-        : currentQuestion.options;
+      const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
+      
+      console.log('🎯 [Screen] Options:', options);
+      console.log('🎯 [Screen] Correct answer:', correct);
 
-      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
-      const wrongAnswers = Object.entries(options)
-        .filter(([_, value]) => {
-          const optionValue = String(value).toLowerCase().trim();
-          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
-          return optionValue !== correctAnswer && optionValue !== '' && !eliminatedOptions.includes(String(value));
+      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
+      const wrongAnswers = Object.values(options)
+        .filter((value: any) => {
+          const optionValue = String(value);
+          const isWrong = optionValue !== correct;
+          const notEliminated = !eliminatedOptions.includes(optionValue);
+          return isWrong && optionValue !== '' && notEliminated;
         })
-        .map(([_, value]) => String(value))
-        .sort(); // Tri alphabétique pour garantir le même ordre partout
+        .map((value: any) => String(value))
+        .sort();
 
-      console.log('🎯 Screen: Mauvaises réponses disponibles:', wrongAnswers);
+      console.log('🎯 [Screen] Wrong answers:', wrongAnswers);
 
       if (wrongAnswers.length === 0) {
-        console.log('⚠️ Screen: Aucune mauvaise réponse disponible');
+        console.log('⚠️ [Screen] Aucune mauvaise réponse disponible');
         return;
       }
 
-      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
+      // Utiliser le timestamp comme seed
       const toEliminate: string[] = [];
       const index1 = timestamp % wrongAnswers.length;
       toEliminate.push(wrongAnswers[index1]);
 
-      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
         if (index2 === index1) {
@@ -527,7 +536,7 @@ const Screen = () => {
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 Screen: Réponses à éliminer:', toEliminate);
+      console.log('🎯 [Screen] To eliminate:', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
@@ -535,17 +544,30 @@ const Screen = () => {
       // Animation d'élimination progressive
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
-          setEliminatedOptions(prev => [...prev, answer]);
-          console.log('🎯 Screen: Éliminé:', answer);
-        }, i * 800); // 800ms entre chaque élimination
+          setEliminatedOptions(prev => {
+            const newEliminated = [...prev, answer];
+            console.log('🎯 [Screen] Eliminated options:', newEliminated);
+            return newEliminated;
+          });
+        }, i * 800);
       });
     } catch (error) {
-      console.error('❌ Screen: Erreur élimination:', error);
+      console.error('❌ [Screen] Erreur élimination:', error);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Écran des sponsors */}
+      {gameState?.show_sponsors_screen && currentSession?.id && (
+        <SponsorsScreen sessionId={currentSession.id} />
+      )}
+
+      {/* Écran de remerciements */}
+      {gameState?.show_thanks_screen && currentSession?.id && (
+        <ThanksScreen sessionId={currentSession.id} />
+      )}
+
       {/* Écran d'attente de la finale */}
       {gameState?.final_mode && final?.status === 'pending' && (
         <FinalWaitingScreen />

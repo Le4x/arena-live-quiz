@@ -47,6 +47,7 @@ const Client = () => {
   const [final, setFinal] = useState<any>(null);
   const [isFinalist, setIsFinalist] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const previousQuestionIdRef = useRef<string | null>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -101,9 +102,20 @@ const Client = () => {
 
     // Écouter les événements de jokers via GameEvents
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🃏 Effet joker reçu:', event);
-      // TOUS les clients doivent recevoir l'effet du joker
-      handleJokerEffect(event.data.jokerType, event.timestamp);
+      console.log('🎯 [Client] JOKER_ACTIVATED reçu:', event);
+      console.log('🎯 [Client] event.data:', event.data);
+      console.log('🎯 [Client] event.data.jokerType:', event.data?.jokerType);
+      console.log('🎯 [Client] event.data.questionOptions:', event.data?.questionOptions);
+      console.log('🎯 [Client] event.data.correctAnswer:', event.data?.correctAnswer);
+      console.log('🎯 [Client] event.timestamp:', event.timestamp);
+      
+      if (event.data?.jokerType === 'fifty_fifty') {
+        console.log('🎯 [Client] Activation fifty_fifty avec données:', {
+          questionOptions: event.data.questionOptions,
+          correctAnswer: event.data.correctAnswer
+        });
+        eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
+      }
     });
 
     // Canal de présence GLOBAL partagé par toutes les équipes
@@ -267,24 +279,31 @@ const Client = () => {
   }, [teamId, currentQuestionInstanceId]);
 
   useEffect(() => {
+    const newQuestionId = currentQuestion?.id;
     console.log('🔄 Client: Question change detected', {
-      questionId: currentQuestion?.id,
+      questionId: newQuestionId,
+      previousQuestionId: previousQuestionIdRef.current,
       instanceId: gameState?.current_question_instance_id
     });
     
-    // Ne PAS annuler le reveal si une animation est en cours
-    // L'animation doit se terminer naturellement
-    if (!showReveal) {
-    // Reset buzzer state when question changes
-    setHasBuzzed(false);
-    setAnswer("");
-    setHasAnswered(false);
-    setAnswerResult(null);
-    setIsBlockedForQuestion(false);
-    setEliminatedOptions([]); // Reset les options éliminées
-    
-    // Reset le flag de notification de timeout
-    hasShownTimeoutToast.current = false;
+    // Ne réinitialiser QUE si la question a vraiment changé
+    if (newQuestionId !== previousQuestionIdRef.current) {
+      console.log('🔄 Client: Question vraiment changée, reset states');
+      previousQuestionIdRef.current = newQuestionId || null;
+      
+      // Ne PAS annuler le reveal si une animation est en cours
+      if (!showReveal) {
+        // Reset buzzer state when question changes
+        setHasBuzzed(false);
+        setAnswer("");
+        setHasAnswered(false);
+        setAnswerResult(null);
+        setIsBlockedForQuestion(false);
+        setEliminatedOptions([]); // Reset les options éliminées
+        
+        // Reset le flag de notification de timeout
+        hasShownTimeoutToast.current = false;
+      }
     }
     
     // Ne rien faire si pas de team (page de login)
@@ -305,7 +324,7 @@ const Client = () => {
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id, team]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, team, showReveal]);
 
   // Calcul du timer en temps réel basé sur timer_started_at
   useEffect(() => {
@@ -542,94 +561,70 @@ const Client = () => {
     }
   };
 
-  const handleJokerEffect = (jokerType: string, timestamp: number) => {
-    console.log('🃏 Effet joker reçu:', { jokerType, questionType: currentQuestion?.question_type, timestamp });
+  const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
+    console.log('🎯 [Client] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
+    console.log('🎯 [Client] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
     
-    // Appliquer l'effet selon le type
-    if (jokerType === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
-      console.log('🎯 Élimination de réponses...');
-      eliminateTwoWrongAnswers(timestamp);
-    }
-    // Ajouter d'autres types de jokers ici si besoin
-  };
-
-  const eliminateTwoWrongAnswers = (timestamp: number) => {
-    console.log('🎯 eliminateTwoWrongAnswers appelée avec timestamp:', timestamp);
-    console.log('🎯 Question actuelle:', currentQuestion);
+    // Utiliser les données de l'événement ou fallback sur currentQuestion
+    const opts = questionOptions || currentQuestion?.options;
+    const correct = correctAnswer || currentQuestion?.correct_answer;
     
-    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
-      console.log('❌ Pas d\'options ou de réponse correcte');
+    if (!opts || !correct) {
+      console.log('❌ [Client] Pas de options ou correct_answer');
       return;
     }
 
     try {
-      const options = typeof currentQuestion.options === 'string' 
-        ? JSON.parse(currentQuestion.options) 
-        : currentQuestion.options;
+      const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
+      
+      console.log('🎯 [Client] Options parsed:', options);
+      console.log('🎯 [Client] Correct answer:', correct);
 
-      console.log('🎯 Options:', options);
-      console.log('🎯 Réponse correcte:', currentQuestion.correct_answer);
-      console.log('🎯 Options déjà éliminées:', eliminatedOptions);
-
-      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
-      const wrongAnswers = Object.entries(options)
-        .filter(([_, value]) => {
-          const optionValue = String(value).toLowerCase().trim();
-          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
-          const isWrong = optionValue !== correctAnswer;
-          const notEmpty = optionValue !== '';
-          const notEliminated = !eliminatedOptions.includes(String(value));
-          console.log(`🎯 Option "${value}":`, { isWrong, notEmpty, notEliminated });
-          return isWrong && notEmpty && notEliminated;
+      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
+      const wrongAnswers = Object.values(options)
+        .filter((value: any) => {
+          const optionValue = String(value);
+          const isWrong = optionValue !== correct;
+          const notEliminated = !eliminatedOptions.includes(optionValue);
+          console.log(`🎯 [Client] Checking "${optionValue}": isWrong=${isWrong}, notEliminated=${notEliminated}`);
+          return isWrong && optionValue !== '' && notEliminated;
         })
-        .map(([_, value]) => String(value))
-        .sort(); // Tri alphabétique pour garantir le même ordre partout
+        .map((value: any) => String(value))
+        .sort();
 
-      console.log('🎯 Mauvaises réponses disponibles (triées):', wrongAnswers);
+      console.log('🎯 [Client] Wrong answers to choose from:', wrongAnswers);
 
       if (wrongAnswers.length === 0) {
-        console.log('⚠️ Aucune mauvaise réponse disponible');
+        console.log('⚠️ [Client] Aucune mauvaise réponse disponible');
         return;
       }
 
-      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
+      // Utiliser le timestamp comme seed
       const toEliminate: string[] = [];
       const index1 = timestamp % wrongAnswers.length;
       toEliminate.push(wrongAnswers[index1]);
 
-      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
-        // S'assurer que index2 est différent de index1
         if (index2 === index1) {
           index2 = (index2 + 1) % wrongAnswers.length;
         }
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 Réponses à éliminer (seed:', timestamp, '):', toEliminate);
+      console.log('🎯 [Client] Options to eliminate:', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
 
-      // Animation d'élimination progressive
-      toEliminate.forEach((answer, i) => {
-        setTimeout(() => {
-          setEliminatedOptions(prev => [...prev, answer]);
-          console.log('🎯 Éliminé:', answer);
-        }, i * 800); // 800ms entre chaque élimination
+      // Mettre à jour le state immédiatement avec toutes les options à éliminer
+      setEliminatedOptions(prev => {
+        const newEliminated = [...prev, ...toEliminate];
+        console.log('🎯 [Client] New eliminatedOptions state:', newEliminated);
+        return newEliminated;
       });
-
-      if (toEliminate.length > 0) {
-        toast({
-          title: "🎯 Réponses éliminées !",
-          description: `${toEliminate.length} mauvaise(s) réponse(s) supprimée(s)`,
-        });
-      } else {
-        console.log('⚠️ Aucune réponse à éliminer');
-      }
     } catch (error) {
-      console.error('❌ Erreur élimination réponses:', error);
+      console.error('❌ [Client] Erreur élimination:', error);
     }
   };
 
@@ -1089,6 +1084,7 @@ const Client = () => {
             teamId={teamId!} 
             finalId={final.id} 
             isActive={final.status === 'active'}
+            currentQuestion={currentQuestion}
           />
         )}
 
@@ -1222,57 +1218,57 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    // Filtrer les options vides ET les options éliminées
+                    // Filtrer les options vides
                     return Object.entries(options || {})
                       .map(([key, value]) => {
-                        const optionValue = value as string;
-                        const isEliminated = eliminatedOptions.includes(String(value));
+                        const optionValue = String(value);
                         if (optionValue.trim() === '') return null;
-                      
-                      const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
-                      const isSelectedOption = showReveal && answer === optionValue;
+                        
+                        const isEliminated = eliminatedOptions.includes(optionValue);
+                        const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
+                        const isSelectedOption = showReveal && answer === optionValue;
                       
                       return (
                         <motion.div
                           key={key}
-                          initial={{ opacity: 1, scale: 1 }}
+                          initial={{ opacity: 1, scale: 1, height: 'auto' }}
                           animate={{ 
                             opacity: isEliminated ? 0 : 1,
                             scale: isEliminated ? 0.8 : 1,
                             height: isEliminated ? 0 : 'auto',
-                            marginBottom: isEliminated ? 0 : undefined
+                            overflow: isEliminated ? 'hidden' : 'visible'
                           }}
                           transition={{ duration: 0.8, ease: "easeOut" }}
+                          style={{ marginBottom: isEliminated ? 0 : undefined }}
                         >
-                          {!isEliminated && (
-                        <Button
-                          key={key}
-                          variant="outline"
-                          disabled={hasAnswered || !isTimerActive}
-                          className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
-                            showReveal && isCorrectOption 
-                              ? 'bg-green-500/20 border-green-500 border-2' 
-                              : showReveal && isSelectedOption && answerResult === 'incorrect'
-                              ? 'bg-red-500/20 border-red-500 border-2'
-                              : hasAnswered || !isTimerActive
-                              ? 'opacity-50' 
-                              : ''
-                          }`}
-                          onClick={() => {
-                            setAnswer(optionValue);
-                            submitAnswer(optionValue);
-                          }}
-                        >
-                          <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
-                          <span className="flex-1">{optionValue}</span>
-                          {showReveal && isCorrectOption && (
-                            <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-                          )}
-                          {showReveal && isSelectedOption && answerResult === 'incorrect' && (
-                            <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
-                          )}
-                        </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            disabled={hasAnswered || !isTimerActive || isEliminated}
+                            className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
+                              showReveal && isCorrectOption 
+                                ? 'bg-green-500/20 border-green-500 border-2' 
+                                : showReveal && isSelectedOption && answerResult === 'incorrect'
+                                ? 'bg-red-500/20 border-red-500 border-2'
+                                : hasAnswered || !isTimerActive
+                                ? 'opacity-50' 
+                                : ''
+                            }`}
+                            onClick={() => {
+                              if (!isEliminated) {
+                                setAnswer(optionValue);
+                                submitAnswer(optionValue);
+                              }
+                            }}
+                          >
+                            <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
+                            <span className="flex-1">{optionValue}</span>
+                            {showReveal && isCorrectOption && (
+                              <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
+                            )}
+                            {showReveal && isSelectedOption && answerResult === 'incorrect' && (
+                              <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
+                            )}
+                          </Button>
                         </motion.div>
                       );
                     }).filter(Boolean);

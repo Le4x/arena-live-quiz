@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi, Award, Heart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
@@ -785,6 +785,40 @@ const Regie = () => {
     toast({ title: newValue ? '📡 Écran de connexion activé' : '▶️ Retour au jeu' });
   };
 
+  const toggleSponsorsScreen = async () => {
+    const newValue = !gameState?.show_sponsors_screen;
+    
+    await supabase.from('game_state').update({ 
+      show_sponsors_screen: newValue,
+      show_welcome_screen: false,
+      show_waiting_screen: false,
+      show_thanks_screen: false,
+      current_question_id: null,
+      show_answer: false,
+      timer_active: false,
+      is_buzzer_active: false
+    }).eq('game_session_id', sessionId);
+    
+    toast({ title: newValue ? '🏆 Écran sponsors activé' : '▶️ Retour au jeu' });
+  };
+
+  const toggleThanksScreen = async () => {
+    const newValue = !gameState?.show_thanks_screen;
+    
+    await supabase.from('game_state').update({ 
+      show_thanks_screen: newValue,
+      show_welcome_screen: false,
+      show_waiting_screen: false,
+      show_sponsors_screen: false,
+      current_question_id: null,
+      show_answer: false,
+      timer_active: false,
+      is_buzzer_active: false
+    }).eq('game_session_id', sessionId);
+    
+    toast({ title: newValue ? '❤️ Écran de remerciements activé' : '▶️ Retour au jeu' });
+  };
+
   const resetSession = async () => {
     if (!sessionId || !confirm('Réinitialiser toute la session ? Cela supprimera tous les buzzers, réponses et réinitialisera les scores.')) return;
     
@@ -898,6 +932,22 @@ const Regie = () => {
             >
               <Wifi className="h-3 w-3 mr-1" />
               Équipes
+            </Button>
+            <Button 
+              size="sm" 
+              variant={gameState?.show_sponsors_screen ? "default" : "outline"}
+              onClick={toggleSponsorsScreen}
+            >
+              <Award className="h-3 w-3 mr-1" />
+              Sponsors
+            </Button>
+            <Button 
+              size="sm" 
+              variant={gameState?.show_thanks_screen ? "default" : "outline"}
+              onClick={toggleThanksScreen}
+            >
+              <Heart className="h-3 w-3 mr-1" />
+              Merci
             </Button>
             <Button 
               size="sm" 

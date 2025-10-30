@@ -222,7 +222,9 @@ export type Database = {
           show_leaderboard: boolean | null
           show_pause_screen: boolean | null
           show_round_intro: boolean | null
+          show_sponsors_screen: boolean | null
           show_team_connection_screen: boolean | null
+          show_thanks_screen: boolean | null
           show_waiting_screen: boolean | null
           show_welcome_screen: boolean | null
           timer_active: boolean | null
@@ -250,7 +252,9 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_sponsors_screen?: boolean | null
           show_team_connection_screen?: boolean | null
+          show_thanks_screen?: boolean | null
           show_waiting_screen?: boolean | null
           show_welcome_screen?: boolean | null
           timer_active?: boolean | null
@@ -278,7 +282,9 @@ export type Database = {
           show_leaderboard?: boolean | null
           show_pause_screen?: boolean | null
           show_round_intro?: boolean | null
+          show_sponsors_screen?: boolean | null
           show_team_connection_screen?: boolean | null
+          show_thanks_screen?: boolean | null
           show_waiting_screen?: boolean | null
           show_welcome_screen?: boolean | null
           timer_active?: boolean | null
@@ -586,6 +592,44 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      sponsors: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          game_session_id: string | null
+          id: string
+          logo_url: string
+          name: string
+          tier: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          game_session_id?: string | null
+          id?: string
+          logo_url: string
+          name: string
+          tier: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          game_session_id?: string | null
+          id?: string
+          logo_url?: string
+          name?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsors_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_answers: {
         Row: {
