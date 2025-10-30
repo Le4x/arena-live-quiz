@@ -208,13 +208,14 @@ const Regie = () => {
         console.log('🎵 Arrêt audio avec fade...');
         audioEngine.stopWithFade(150); // Fade rapide
         
-        // Mettre à jour le timer dans la DB IMMÉDIATEMENT
+        // Mettre à jour le timer ET désactiver le buzzer pour tous les clients
         if (sessionId) {
           supabase.from('game_state').update({ 
             timer_active: false,
-            timer_remaining: timerRemaining
+            timer_remaining: timerRemaining,
+            is_buzzer_active: false // Désactiver le buzzer pour tous les clients
           }).eq('game_session_id', sessionId).then(() => {
-            console.log('✅ DB mise à jour: timer_active=false, timer_remaining=', timerRemaining);
+            console.log('✅ DB mise à jour: timer_active=false, is_buzzer_active=false, timer_remaining=', timerRemaining);
           });
         }
       }

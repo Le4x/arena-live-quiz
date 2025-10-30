@@ -1150,22 +1150,30 @@ const Client = () => {
         )}
 
         {/* Buzzer - Uniquement pour blind test ET (pas en mode final OU finaliste) - RESPONSIVE */}
-        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (!gameState?.final_mode || isFinalist) && (
+        {currentQuestion && currentQuestion.question_type === 'blind_test' && (!gameState?.final_mode || isFinalist) && (
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
-              <Button
-                ref={buzzerButtonRef}
-                onClick={handleBuzzer}
-                disabled={hasBuzzed}
-                className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
-                style={{
-                  boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(255, 120, 0, 0.5)'
-                }}
-              >
-                <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
-                {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
-              </Button>
+              {gameState?.is_buzzer_active ? (
+                <Button
+                  ref={buzzerButtonRef}
+                  onClick={handleBuzzer}
+                  disabled={hasBuzzed}
+                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(255, 120, 0, 0.5)'
+                  }}
+                >
+                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
+                  {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
+                </Button>
+              ) : (
+                <div className="w-full h-24 sm:h-36 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-muted">
+                  <p className="text-lg sm:text-2xl font-bold text-muted-foreground text-center px-4">
+                    🔒 Une autre équipe a buzzé !
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         )}
