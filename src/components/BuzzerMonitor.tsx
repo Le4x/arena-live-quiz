@@ -50,10 +50,13 @@ export const BuzzerMonitor = ({
     }
   };
 
-  console.log('🎯 BuzzerMonitor: Rendu avec', buzzers.length, 'buzzers');
+  console.log('🎯 BuzzerMonitor: Rendu avec', buzzers.length, 'buzzers, currentQuestionId:', currentQuestionId);
   
   if (!currentQuestionId || buzzers.length === 0) {
-    console.log('⚠️ BuzzerMonitor: Pas de question ou pas de buzzers');
+    console.log('⚠️ BuzzerMonitor: Pas de question ou pas de buzzers', {
+      hasQuestionId: !!currentQuestionId,
+      buzzersLength: buzzers.length
+    });
     return null;
   }
 

@@ -316,12 +316,19 @@ const Regie = () => {
   }, [buzzers]);
 
   const loadActiveSession = async () => {
-    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').maybeSingle();
+    console.log('🔍 [Regie] Chargement session active...');
+    const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').maybeSingle();
+    
+    if (error) {
+      console.error('❌ [Regie] Erreur chargement session:', error);
+    }
+    
     if (data) {
+      console.log('✅ [Regie] Session active trouvée:', data.name, data.id);
       setSessionId(data.id);
       setCurrentSession(data);
     } else {
-      console.log('⚠️ Aucune session active trouvée');
+      console.warn('⚠️ [Regie] Aucune session active trouvée');
       setSessionId(null);
       setCurrentSession(null);
       setConnectedTeams([]);
@@ -429,10 +436,32 @@ const Regie = () => {
   };
 
   const startQuestion = async (question: any) => {
+    console.log('🚀 [Regie] startQuestion appelée:', { 
+      questionId: question.id, 
+      questionText: question.question_text,
+      sessionId,
+      hasSession: !!sessionId 
+    });
+
+    if (!sessionId) {
+      toast({ 
+        title: '❌ Aucune session active', 
+        description: 'Activez une session d\'abord',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     const instanceId = crypto.randomUUID();
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
+    
+    console.log('✅ [Regie] Question définie dans le state:', {
+      currentQuestionId: question.id,
+      currentQuestionInstanceId: instanceId,
+      currentRoundId: question.round_id
+    });
     
     // Réinitialiser le compteur de buzzers et les équipes bloquées
     previousBuzzersCount.current = 0;
@@ -1020,9 +1049,15 @@ const Regie = () => {
           
           {/* Centre - Titre de session */}
           <div className="flex-1 text-center">
-            <h2 className="text-lg font-semibold text-foreground">
-              Régie: {currentSession?.name || 'Aucune session'}
-            </h2>
+            {currentSession ? (
+              <h2 className="text-lg font-semibold text-foreground">
+                Régie: {currentSession.name}
+              </h2>
+            ) : (
+              <h2 className="text-lg font-semibold text-destructive">
+                ⚠️ Aucune session active - Activez une session d'abord
+              </h2>
+            )}
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => window.location.href = '/'}>

@@ -12,9 +12,17 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   const [answers, setAnswers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
 
+  console.log('📊 [QCMAnswersDisplay] Props reçues:', {
+    questionId: currentQuestion?.id,
+    questionType: currentQuestion?.question_type,
+    sessionId: gameState?.game_session_id
+  });
+
   useEffect(() => {
-    loadTeams();
-  }, []);
+    if (gameState?.game_session_id) {
+      loadTeams();
+    }
+  }, [gameState?.game_session_id]);
 
   useEffect(() => {
     console.log('📊 QCMAnswersDisplay - Question changed:', { 
@@ -53,8 +61,23 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   }, [currentQuestion?.id, currentQuestion?.question_type, gameState?.game_session_id]);
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*');
-    if (data) setTeams(data);
+    if (!gameState?.game_session_id) {
+      console.log('📊 [QCMAnswersDisplay] Pas de session, équipes non chargées');
+      setTeams([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('game_session_id', gameState.game_session_id);
+      
+    if (data) {
+      console.log('📊 [QCMAnswersDisplay] Équipes chargées:', data.length);
+      setTeams(data);
+    } else {
+      setTeams([]);
+    }
   };
 
   const loadAnswers = async () => {
@@ -94,7 +117,10 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
     }
   };
 
-  if (!currentQuestion || currentQuestion.question_type !== 'qcm') return null;
+  if (!currentQuestion || currentQuestion.question_type !== 'qcm') {
+    console.log('📊 [QCMAnswersDisplay] Pas de question QCM, masqué');
+    return null;
+  }
 
   const correctAnswers = answers.filter(a => a.is_correct === true);
   const incorrectAnswers = answers.filter(a => a.is_correct === false);
