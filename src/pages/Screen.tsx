@@ -133,38 +133,45 @@ const Screen = () => {
       });
 
     const answersChannel = supabase
-      .channel('screen-answers-realtime')
+      .channel('screen-answers-realtime-v2')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
         table: 'team_answers' 
-      }, (payload) => {
+      }, async (payload) => {
         console.log('📥 Screen: Nouvelle réponse INSERT reçue', {
           team_id: payload.new.team_id,
           question_id: payload.new.question_id,
           question_instance_id: payload.new.question_instance_id,
           game_session_id: payload.new.game_session_id
         });
-        loadQcmAnswers();
-        loadTextAnswers();
+        
+        // Recharger le game state d'abord pour avoir les données à jour
+        await loadData();
+        
+        // Puis recharger les réponses
+        await loadQcmAnswers();
+        await loadTextAnswers();
       })
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'team_answers' 
-      }, (payload) => {
+      }, async (payload) => {
         console.log('🔄 Screen: Réponse UPDATE reçue', payload);
-        loadQcmAnswers();
-        loadTextAnswers();
+        await loadData();
+        await loadQcmAnswers();
+        await loadTextAnswers();
       })
       .on('postgres_changes', { 
         event: 'DELETE', 
         schema: 'public', 
         table: 'team_answers' 
-      }, (payload) => {
+      }, async (payload) => {
         console.log('🗑️ Screen: Réponse DELETE reçue', payload);
-        loadQcmAnswers();
-        loadTextAnswers();
+        await loadData();
+        await loadQcmAnswers();
+        await loadTextAnswers();
       })
       .subscribe((status) => {
         console.log('📡 Screen: Answers channel status:', status);
