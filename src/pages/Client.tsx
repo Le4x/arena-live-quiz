@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
+import { JokerPanel } from "@/components/client/JokerPanel";
+import { PublicVotePanel } from "@/components/client/PublicVotePanel";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -41,6 +43,8 @@ const Client = () => {
   const gameEvents = getGameEvents();
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasShownTimeoutToast = useRef<boolean>(false);
+  const [final, setFinal] = useState<any>(null);
+  const [isFinalist, setIsFinalist] = useState(false);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -61,6 +65,7 @@ const Client = () => {
       loadGameState();
       loadAllTeams();
       loadActiveSession();
+      loadFinal();
     }
 
     const gameStateChannel = supabase
@@ -82,6 +87,13 @@ const Client = () => {
       .channel('client-answers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
         checkAnswerResult();
+      })
+      .subscribe();
+
+    const finalsChannel = supabase
+      .channel('client-finals')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
+        loadFinal();
       })
       .subscribe();
 
@@ -233,6 +245,7 @@ const Client = () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
+      supabase.removeChannel(finalsChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
@@ -476,11 +489,45 @@ const Client = () => {
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
+      
+      // Charger la finale si mode final actif
+      if (data.final_mode && data.final_id) {
+        loadFinal(data.final_id);
+      }
     } else {
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
       setTimerRemaining(0);
+      setFinal(null);
+      setIsFinalist(false);
+    }
+  };
+
+  const loadFinal = async (finalId?: string) => {
+    // Utiliser l'ID de la finale du gameState ou celui passé en paramètre
+    const id = finalId || gameState?.final_id;
+    
+    if (!id || !teamId) {
+      setFinal(null);
+      setIsFinalist(false);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('finals')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (data) {
+      setFinal(data);
+      // Vérifier si l'équipe actuelle est finaliste
+      const finalistIds = (data.finalist_teams as string[]) || [];
+      setIsFinalist(finalistIds.includes(teamId));
+    } else {
+      setFinal(null);
+      setIsFinalist(false);
     }
   };
 
@@ -933,6 +980,25 @@ const Client = () => {
             )}
           </div>
         </Card>
+
+        {/* Panneau des Jokers pour les finalistes */}
+        {gameState?.final_mode && final && isFinalist && (
+          <JokerPanel 
+            teamId={teamId!} 
+            finalId={final.id} 
+            isActive={final.status === 'active'}
+          />
+        )}
+
+        {/* Vote du public pour les équipes éliminées */}
+        {gameState?.final_mode && final && !isFinalist && (
+          <PublicVotePanel 
+            teamId={teamId!} 
+            finalId={final.id}
+            currentQuestionInstanceId={currentQuestionInstanceId}
+            isEliminated={true}
+          />
+        )}
 
         {/* Barre de timer - Uniquement si timer actif ET question en cours */}
         {currentQuestion && isTimerActive && timerRemaining > 0 && (

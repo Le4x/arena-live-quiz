@@ -10,6 +10,8 @@ import { WelcomeScreen } from "@/components/tv/WelcomeScreen";
 import { TeamConnectionScreen } from "@/components/tv/TeamConnectionScreen";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
+import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
+import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -28,6 +30,7 @@ const Screen = () => {
   const [connectedTeamsCount, setConnectedTeamsCount] = useState(0);
   const [connectedTeamIds, setConnectedTeamIds] = useState<Set<string>>(new Set());
   const [timerDuration, setTimerDuration] = useState(30);
+  const [final, setFinal] = useState<any>(null);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -329,6 +332,18 @@ const Screen = () => {
           .single();
         if (roundData) setCurrentRound(roundData);
       }
+
+      // Charger la finale si active
+      if (gameStateRes.data.final_mode && gameStateRes.data.final_id) {
+        const { data: finalData } = await supabase
+          .from('finals')
+          .select('*')
+          .eq('id', gameStateRes.data.final_id)
+          .single();
+        if (finalData) setFinal(finalData);
+      } else {
+        setFinal(null);
+      }
     }
   };
 
@@ -446,6 +461,16 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Écran d'attente de la finale */}
+      {gameState?.final_mode && final?.status === 'pending' && (
+        <FinalWaitingScreen />
+      )}
+
+      {/* Écran d'introduction de la finale */}
+      {gameState?.final_mode && final?.status === 'intro' && (
+        <FinalIntroScreen final={final} />
+      )}
+
       {/* Écran d'accueil */}
       {gameState?.show_welcome_screen && (
         <WelcomeScreen />

@@ -21,6 +21,7 @@ import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { AudioDeck } from "@/components/audio/AudioDeck";
 import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
+import { FinalManager } from "@/components/regie/FinalManager";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -1032,12 +1033,13 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Onglets (Jeu / Équipes / Effets TV) */}
+          {/* Onglets (Jeu / Équipes / Effets TV / Finale) */}
           <Tabs defaultValue="jeu" className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="w-full flex-shrink-0">
               <TabsTrigger value="jeu" className="flex-1">Jeu</TabsTrigger>
               <TabsTrigger value="equipes" className="flex-1">Équipes</TabsTrigger>
               <TabsTrigger value="effets" className="flex-1">Effets TV</TabsTrigger>
+              <TabsTrigger value="finale" className="flex-1">🏆 Finale</TabsTrigger>
             </TabsList>
 
             {/* Onglet Jeu */}
@@ -1137,6 +1139,11 @@ const Regie = () => {
                   </Button>
                 </div>
               </Card>
+            </TabsContent>
+
+            {/* Onglet Finale */}
+            <TabsContent value="finale" className="flex-1 overflow-y-auto space-y-3 mt-3">
+              <FinalManager sessionId={sessionId!} gameState={gameState} />
             </TabsContent>
           </Tabs>
         </div>
