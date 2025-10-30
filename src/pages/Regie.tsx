@@ -179,8 +179,8 @@ const Regie = () => {
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
     if (buzzers.length > previousBuzzersCount.current) {
-      // Nouveau buzzer détecté - notifier pour chaque nouveau
-      for (let i = previousBuzzersCount.current; i < buzzers.length; i++) {
+      // Nouveau buzzer détecté - notifier seulement les 2 premiers
+      for (let i = previousBuzzersCount.current; i < Math.min(buzzers.length, 2); i++) {
         const buzzer = buzzers[i];
         console.log('🔔 Nouveau buzzer détecté:', buzzer);
         

@@ -237,6 +237,18 @@ export class SimulationEngine {
     setTimeout(async () => {
       if (!this.isActive) return;
       
+      // Vérifier combien de buzzers existent déjà
+      const { data: existingBuzzers } = await supabase
+        .from('buzzer_attempts')
+        .select('id')
+        .eq('question_id', questionId)
+        .eq('game_session_id', this.sessionId);
+      
+      // Ne pas buzzer si 2 buzzers existent déjà
+      if (existingBuzzers && existingBuzzers.length >= 2) {
+        return;
+      }
+      
       // Récupérer l'instance actuelle de la question
       const { data: gameState } = await supabase
         .from('game_state')
