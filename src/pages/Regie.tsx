@@ -1182,12 +1182,14 @@ const Regie = () => {
                 questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
               />
             )}
-            {currentTrack && (
+            {/* Afficher le deck audio si on a des tracks disponibles */}
+            {audioTracks.length > 0 && (
               <div className="mt-2">
                 <AudioDeck 
-                  tracks={[currentTrack]}
+                  tracks={currentTrack ? [currentTrack] : audioTracks}
                   onTrackChange={(track) => {
                     console.log('📻 Track changed:', track.name);
+                    setCurrentTrack(track);
                   }}
                 />
               </div>

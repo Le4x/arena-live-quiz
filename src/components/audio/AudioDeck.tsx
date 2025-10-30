@@ -148,8 +148,16 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
     if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
       await engine.loadAndPlay(selectedTrack);
     }
-    await engine.playSolution(8, fadeInDuration, fadeOutDuration);
-    toast({ title: '🎼 Solution lancée (8s)' });
+    // Calculer la durée de la solution : si on a au moins 2 cue points, 
+    // on utilise l'espace entre eux, sinon 30s par défaut
+    let solutionDuration = 30; // Par défaut 30 secondes
+    if (selectedTrack.cues.length >= 2) {
+      const cue1 = selectedTrack.cues[0].time;
+      const cue2 = selectedTrack.cues[1].time;
+      solutionDuration = cue2 - cue1;
+    }
+    await engine.playSolution(solutionDuration, fadeInDuration, fadeOutDuration);
+    toast({ title: `🎼 Solution lancée (${solutionDuration}s)` });
   };
 
   const formatTime = (seconds: number): string => {
@@ -290,7 +298,7 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
             disabled={!selectedTrack}
             className="bg-secondary hover:bg-secondary/90 h-7 text-xs"
           >
-            🎼 Solution 8s
+            🎼 Solution
           </Button>
           
           {/* Cue Points en ligne */}
