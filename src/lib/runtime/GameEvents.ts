@@ -21,6 +21,7 @@ export type GameEventType =
   | 'TOGGLE_BUZZER'
   | 'REVEAL_ANSWER'
   | 'TEAM_BLOCKED'
+  | 'TEAM_BUZZED'
   | 'SHOW_PUBLIC_VOTES'
   | 'HIDE_PUBLIC_VOTES'
   | 'JOKER_ACTIVATED';
@@ -62,6 +63,15 @@ export interface JokerActivatedEvent extends GameEvent {
     finalId: string;
     questionOptions?: any; // Options de la question pour le 50-50
     correctAnswer?: string; // Bonne réponse pour le 50-50
+  };
+}
+
+export interface TeamBuzzedEvent extends GameEvent {
+  type: 'TEAM_BUZZED';
+  data: {
+    teamId: string;
+    teamName: string;
+    teamColor: string;
   };
 }
 
@@ -235,5 +245,12 @@ export const gameEvents = {
       data: { teamId, jokerType, finalId, questionOptions, correctAnswer },
     });
     console.log('🎮 [gameEvents.activateJoker] Emit terminé');
+  },
+
+  teamBuzzed: async (teamId: string, teamName: string, teamColor: string) => {
+    await getGameEvents().emit<TeamBuzzedEvent>({
+      type: 'TEAM_BUZZED',
+      data: { teamId, teamName, teamColor },
+    });
   },
 };

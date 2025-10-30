@@ -186,6 +186,13 @@ const Regie = () => {
           description: `Position #${i + 1}`,
           duration: 5000 
         });
+        
+        // Émettre l'événement pour tous les clients
+        gameEvents.teamBuzzed(
+          buzzer.team_id, 
+          buzzer.teams?.name || 'Équipe inconnue',
+          buzzer.teams?.color || '#000000'
+        );
       }
       
       // Lock au premier buzzer pour TOUS les types de questions + ARRÊTER LE TIMER pour blind test

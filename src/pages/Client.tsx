@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
-import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
+import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent, type TeamBuzzedEvent } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
@@ -251,6 +251,26 @@ const Client = () => {
       toast({ title: '🔄 Session réinitialisée' });
     });
 
+    const unsubTeamBuzzed = gameEvents.on<TeamBuzzedEvent>('TEAM_BUZZED', (event) => {
+      console.log('🔔 Équipe a buzzé:', event);
+      const buzzedTeamId = event.data.teamId;
+      const buzzedTeamName = event.data.teamName;
+      const buzzedTeamColor = event.data.teamColor;
+      
+      // Afficher une notification visible pour TOUS les clients
+      if (buzzedTeamId !== teamId) {
+        // Pour les autres équipes, afficher qui a buzzé
+        toast({
+          title: `⚡ ${buzzedTeamName} a buzzé !`,
+          description: "Les buzzers sont maintenant bloqués",
+          duration: 4000,
+          style: {
+            borderLeft: `4px solid ${buzzedTeamColor}`,
+          }
+        });
+      }
+    });
+
     return () => {
       presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -275,6 +295,7 @@ const Client = () => {
       unsubKick();
       unsubKickTeam();
       unsubJoker();
+      unsubTeamBuzzed();
     };
   }, [teamId, currentQuestionInstanceId]);
 
