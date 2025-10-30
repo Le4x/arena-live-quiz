@@ -314,14 +314,48 @@ const Regie = () => {
   };
 
   const startQuestion = async (question: any) => {
+    console.log('🔄 RESET COMPLET - Démarrage d\'une nouvelle question');
+    
+    // ========== PHASE 1: ARRÊT IMMÉDIAT ==========
+    // Arrêter toute lecture audio en cours
+    audioEngine.stop();
+    console.log('✅ Audio stoppé');
+    
+    // ========== PHASE 2: PURGE BASE DE DONNÉES ==========
+    if (sessionId) {
+      // Supprimer tous les buzzers de la session
+      await supabase
+        .from('buzzer_attempts')
+        .delete()
+        .eq('game_session_id', sessionId);
+      console.log('✅ Buzzers purgés de la DB');
+      
+      // Supprimer toutes les réponses de l'instance précédente si elle existe
+      if (currentQuestionInstanceId) {
+        await supabase
+          .from('team_answers')
+          .delete()
+          .eq('question_instance_id', currentQuestionInstanceId);
+        console.log('✅ Réponses précédentes purgées');
+      }
+    }
+    
+    // ========== PHASE 3: RESET DES ÉTATS LOCAUX ==========
     const instanceId = crypto.randomUUID();
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
     
-    // Réinitialiser le compteur de buzzers et les équipes bloquées
+    // Réinitialiser tous les compteurs et états
     previousBuzzersCount.current = 0;
     setBlockedTeams([]);
+    setBuzzers([]);
+    setBuzzerLocked(false);
+    setTimerActive(false);
+    setTimerWhenBuzzed(0);
+    setAudioPositionWhenBuzzed(0);
+    setClipStartTime(0);
+    console.log('✅ États locaux réinitialisés');
     
     // Précharger le son pour les blind tests - avec chargement complet
     if (question.question_type === 'blind_test' && question.audio_url) {
@@ -363,26 +397,31 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
     
+    // ========== PHASE 4: RESET GAME STATE EN DB ==========
     // NE PAS envoyer aux clients encore - juste préparer en régie
     await supabase.from('game_state').update({ 
       current_question_instance_id: instanceId, 
       current_round_id: question.round_id,
+      current_question_id: null, // Important: ne pas encore montrer aux clients
       timer_remaining: timerDuration,
+      timer_active: false,
+      is_buzzer_active: false,
       show_leaderboard: false,
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
-      // NE PAS définir current_question_id pour que les clients ne voient pas encore la question
-      is_buzzer_active: false,
-      timer_active: false
+      excluded_teams: [] // Réinitialiser les équipes bloquées
     }).eq('game_session_id', sessionId);
+    console.log('✅ Game state réinitialisé en DB');
     
-    setBuzzerLocked(false);
-    setBuzzers([]);
+    // ========== PHASE 5: PRÉPARER POUR DÉMARRAGE ==========
     setTimerRemaining(timerDuration);
-    setTimerActive(false);
     
-    toast({ title: '📝 Question préparée', description: 'Envoyez-la aux clients quand vous êtes prêt' });
+    console.log('✅ RESET COMPLET TERMINÉ - Système prêt');
+    toast({ 
+      title: '🔄 Système réinitialisé', 
+      description: 'Question prête à être envoyée' 
+    });
   };
 
   const sendQuestionToClients = async () => {
