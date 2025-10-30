@@ -23,6 +23,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
+import { SimulationEngine } from "@/lib/simulation/SimulationEngine";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -49,6 +50,8 @@ const Regie = () => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
   const [showPublicVotes, setShowPublicVotes] = useState(false);
+  const [simulationEngine, setSimulationEngine] = useState<SimulationEngine | null>(null);
+  const [isSimulationActive, setIsSimulationActive] = useState(false);
 
   useEffect(() => {
     loadActiveSession();
@@ -242,6 +245,9 @@ const Regie = () => {
         await supabase.from('game_state').update({
           game_session_id: data.id
         }).eq('id', '00000000-0000-0000-0000-000000000001');
+        
+        // Initialiser le moteur de simulation
+        setSimulationEngine(new SimulationEngine(data.id));
       }
     } catch (error) {
       console.error('❌ Exception lors du chargement de la session:', error);
@@ -250,6 +256,35 @@ const Regie = () => {
         description: 'Impossible de charger la session',
         variant: 'destructive'
       });
+    }
+  };
+
+  const toggleSimulation = async () => {
+    if (!simulationEngine) {
+      toast({
+        title: '⚠️ Erreur',
+        description: 'Moteur de simulation non initialisé',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (isSimulationActive) {
+      await simulationEngine.stop();
+      setIsSimulationActive(false);
+      toast({
+        title: '🛑 Simulation arrêtée',
+        description: 'Toutes les équipes simulées ont été supprimées'
+      });
+      loadTeams(); // Recharger la liste des équipes
+    } else {
+      await simulationEngine.start();
+      setIsSimulationActive(true);
+      toast({
+        title: '🚀 Simulation démarrée',
+        description: '30 équipes simulées créées et actives'
+      });
+      loadTeams(); // Recharger la liste des équipes
     }
   };
 
@@ -1098,6 +1133,15 @@ const Regie = () => {
             </Button>
             <Button size="sm" variant="destructive" onClick={resetSession}>
               <RotateCcw className="h-3 w-3" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant={isSimulationActive ? "default" : "outline"}
+              onClick={toggleSimulation}
+              className={isSimulationActive ? "bg-green-600 hover:bg-green-700" : ""}
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              {isSimulationActive ? '🤖 Arrêter Sim' : '🤖 Mode Sim'}
             </Button>
           </div>
         </div>
