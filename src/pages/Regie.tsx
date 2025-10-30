@@ -24,6 +24,7 @@ import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
 import { SideLog, type LogEntry } from "@/components/regie/SideLog";
+import { DemoModePanel } from "@/components/regie/DemoModePanel";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -1286,7 +1287,16 @@ const Regie = () => {
             </TabsContent>
 
             {/* Onglet Effets TV */}
-            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3">
+            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3 space-y-3">
+              {/* Mode Démo */}
+              <DemoModePanel
+                sessionId={sessionId}
+                currentQuestionId={currentQuestionId}
+                currentQuestionInstanceId={currentQuestionInstanceId}
+                currentQuestion={questions.find(q => q.id === currentQuestionId)}
+              />
+
+              {/* Effets TV */}
               <Card className="p-4">
                 <h3 className="font-bold mb-3 text-sm">Effets TV</h3>
                 <div className="grid grid-cols-2 gap-2">

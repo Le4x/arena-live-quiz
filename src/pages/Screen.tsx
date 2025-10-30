@@ -17,6 +17,9 @@ import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
 import { ThanksScreen } from "@/components/tv/ThanksScreen";
 import { ArmedBanner } from "@/components/tv/ArmedBanner";
 import { FirstBuzzHighlight } from "@/components/tv/FirstBuzzHighlight";
+import { ConnectedCounter } from "@/components/tv/ConnectedCounter";
+import { ResyncIndicator } from "@/components/tv/ResyncIndicator";
+import { useResync } from "@/hooks/useResync";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -39,6 +42,25 @@ const Screen = () => {
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [firstBuzzTeam, setFirstBuzzTeam] = useState<{ name: string; color: string } | null>(null);
+
+  // Re-sync au chargement
+  const sessionId = gameState?.game_session_id || null;
+  const { snapshot, isResyncing } = useResync(sessionId);
+
+  // Appliquer le snapshot une fois chargé
+  useEffect(() => {
+    if (snapshot && !isResyncing) {
+      console.log('📸 [Screen] Application du snapshot', snapshot);
+      if (snapshot.gameState) setGameState(snapshot.gameState);
+      if (snapshot.teams) setTeams(snapshot.teams);
+      if (snapshot.currentQuestion) setCurrentQuestion(snapshot.currentQuestion);
+      if (snapshot.buzzers) setBuzzers(snapshot.buzzers);
+      if (snapshot.answers) {
+        setQcmAnswers(snapshot.answers);
+        setTextAnswers(snapshot.answers);
+      }
+    }
+  }, [snapshot, isResyncing]);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -569,8 +591,17 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Indicateur de re-sync */}
+      {isResyncing && <ResyncIndicator />}
+
       {/* Bannière "ÉCLAIR" quand buzzers activés */}
       <ArmedBanner armed={gameState?.is_buzzer_active || false} />
+
+      {/* Compteur d'équipes connectées */}
+      <ConnectedCounter 
+        count={connectedTeamsCount} 
+        total={teams.length} 
+      />
 
       {/* Overlay "Premier buzz" */}
       <FirstBuzzHighlight 
