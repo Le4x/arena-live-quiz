@@ -139,7 +139,12 @@ const Screen = () => {
         schema: 'public', 
         table: 'team_answers' 
       }, (payload) => {
-        console.log('📥 Screen: Nouvelle réponse reçue', payload);
+        console.log('📥 Screen: Nouvelle réponse INSERT reçue', {
+          team_id: payload.new.team_id,
+          question_id: payload.new.question_id,
+          question_instance_id: payload.new.question_instance_id,
+          game_session_id: payload.new.game_session_id
+        });
         loadQcmAnswers();
         loadTextAnswers();
       })
@@ -148,7 +153,7 @@ const Screen = () => {
         schema: 'public', 
         table: 'team_answers' 
       }, (payload) => {
-        console.log('🔄 Screen: Réponse mise à jour', payload);
+        console.log('🔄 Screen: Réponse UPDATE reçue', payload);
         loadQcmAnswers();
         loadTextAnswers();
       })
@@ -157,11 +162,13 @@ const Screen = () => {
         schema: 'public', 
         table: 'team_answers' 
       }, (payload) => {
-        console.log('🗑️ Screen: Réponse supprimée', payload);
+        console.log('🗑️ Screen: Réponse DELETE reçue', payload);
         loadQcmAnswers();
         loadTextAnswers();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Screen: Answers channel status:', status);
+      });
 
     // Plus besoin de l'événement REVEAL_ANSWER pour afficher une notification
     // Le reveal se fait maintenant via show_answer dans la question
@@ -346,25 +353,37 @@ const Screen = () => {
     const sessionId = gameState?.game_session_id;
     const instanceId = gameState?.current_question_instance_id;
     
-    if (!questionId || !sessionId || !instanceId) {
+    console.log('🔍 Screen: loadQcmAnswers appelé', { questionId, sessionId, instanceId });
+    
+    if (!questionId || !sessionId) {
+      console.log('⚠️ Screen: Pas de question ou session pour QCM');
       setQcmAnswers([]);
       return;
     }
     
-    // Charger UNIQUEMENT pour l'instance actuelle de la question
-    const { data, error } = await supabase
+    // Charger avec ou sans instanceId selon disponibilité
+    let query = supabase
       .from('team_answers')
       .select('*')
       .eq('question_id', questionId)
-      .eq('question_instance_id', instanceId)
       .eq('game_session_id', sessionId);
+    
+    if (instanceId) {
+      query = query.eq('question_instance_id', instanceId);
+    }
+    
+    const { data, error } = await query;
     
     if (error) {
       console.error('❌ Erreur chargement réponses QCM:', error);
       return;
     }
     
-    console.log('📥 Screen: Réponses QCM chargées (instance:', instanceId, '):', data?.length || 0);
+    console.log('📥 Screen: Réponses QCM chargées', {
+      count: data?.length || 0,
+      instanceId,
+      data: data?.map(d => ({ team_id: d.team_id, question_instance_id: d.question_instance_id }))
+    });
     if (data) setQcmAnswers(data);
   };
 
@@ -373,25 +392,37 @@ const Screen = () => {
     const sessionId = gameState?.game_session_id;
     const instanceId = gameState?.current_question_instance_id;
     
-    if (!questionId || !sessionId || !instanceId) {
+    console.log('🔍 Screen: loadTextAnswers appelé', { questionId, sessionId, instanceId });
+    
+    if (!questionId || !sessionId) {
+      console.log('⚠️ Screen: Pas de question ou session pour texte');
       setTextAnswers([]);
       return;
     }
     
-    // Charger UNIQUEMENT pour l'instance actuelle de la question
-    const { data, error } = await supabase
+    // Charger avec ou sans instanceId selon disponibilité
+    let query = supabase
       .from('team_answers')
       .select('*')
       .eq('question_id', questionId)
-      .eq('question_instance_id', instanceId)
       .eq('game_session_id', sessionId);
+    
+    if (instanceId) {
+      query = query.eq('question_instance_id', instanceId);
+    }
+    
+    const { data, error } = await query;
     
     if (error) {
       console.error('❌ Erreur chargement réponses texte:', error);
       return;
     }
     
-    console.log('📥 Screen: Réponses texte chargées (instance:', instanceId, '):', data?.length || 0);
+    console.log('📥 Screen: Réponses texte chargées', {
+      count: data?.length || 0,
+      instanceId,
+      data: data?.map(d => ({ team_id: d.team_id, question_instance_id: d.question_instance_id }))
+    });
     if (data) setTextAnswers(data);
   };
 
