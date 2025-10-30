@@ -128,14 +128,17 @@ export async function simulateQCMAnswers(
     // Choisir une réponse au hasard
     const randomAnswer = options[Math.floor(Math.random() * options.length)];
 
-    await supabase.from('team_answers').insert({
-      team_id: team.id,
-      game_session_id: sessionId,
-      question_instance_id: questionInstanceId,
-      question_id: questionId,
-      answer: randomAnswer,
-      answered_at: new Date().toISOString(),
-    });
+    // S'assurer que la réponse n'est pas vide
+    if (randomAnswer && randomAnswer.trim()) {
+      await supabase.from('team_answers').insert({
+        team_id: team.id,
+        game_session_id: sessionId,
+        question_instance_id: questionInstanceId,
+        question_id: questionId,
+        answer: randomAnswer,
+        answered_at: new Date().toISOString(),
+      });
+    }
 
     // Délai aléatoire entre réponses
     await new Promise(resolve => setTimeout(resolve, Math.random() * 500));
@@ -170,14 +173,17 @@ export async function simulateTextAnswers(
   for (const team of respondingTeams) {
     const randomAnswer = randomAnswers[Math.floor(Math.random() * randomAnswers.length)];
 
-    await supabase.from('team_answers').insert({
-      team_id: team.id,
-      game_session_id: sessionId,
-      question_instance_id: questionInstanceId,
-      question_id: questionId,
-      answer: randomAnswer,
-      answered_at: new Date().toISOString(),
-    });
+    // S'assurer que la réponse n'est pas vide
+    if (randomAnswer && randomAnswer.trim()) {
+      await supabase.from('team_answers').insert({
+        team_id: team.id,
+        game_session_id: sessionId,
+        question_instance_id: questionInstanceId,
+        question_id: questionId,
+        answer: randomAnswer,
+        answered_at: new Date().toISOString(),
+      });
+    }
 
     await new Promise(resolve => setTimeout(resolve, Math.random() * 800));
   }

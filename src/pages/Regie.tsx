@@ -69,7 +69,6 @@ const Regie = () => {
     loadActiveSession();
     loadRounds();
     loadQuestions();
-    loadTeams();
     loadAudioTracks();
 
     // Abonnement changements de teams (score, etc)
@@ -317,12 +316,24 @@ const Regie = () => {
   }, [buzzers]);
 
   const loadActiveSession = async () => {
-    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
+    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').maybeSingle();
     if (data) {
       setSessionId(data.id);
       setCurrentSession(data);
+    } else {
+      console.log('⚠️ Aucune session active trouvée');
+      setSessionId(null);
+      setCurrentSession(null);
+      setConnectedTeams([]);
     }
   };
+
+  // Charger les équipes quand la session change
+  useEffect(() => {
+    if (sessionId) {
+      loadTeams();
+    }
+  }, [sessionId]);
 
   const loadGameState = async () => {
     if (!sessionId) return;
@@ -347,10 +358,24 @@ const Regie = () => {
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
+    if (!sessionId) {
+      console.log('⚠️ Pas de session active, équipes non chargées');
+      setConnectedTeams([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('game_session_id', sessionId)
+      .order('score', { ascending: false });
+      
     if (data) {
+      console.log('✅ Équipes chargées pour session:', sessionId, '- Total:', data.length);
       // Charger les équipes sans présence (sera mise à jour par le canal)
       setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
+    } else {
+      setConnectedTeams([]);
     }
   };
 
