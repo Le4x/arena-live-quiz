@@ -541,21 +541,54 @@ const Client = () => {
       return;
     }
 
-    // Vérifier si un appareil est déjà connecté
-    if (teamData.connected_device_id && teamData.connected_device_id !== currentDeviceId) {
-      setDeviceBlocked(true);
+    // Si c'est le même appareil, permettre la reconnexion (utile si déconnexion brutale)
+    if (teamData.connected_device_id === currentDeviceId) {
+      // Reconnexion du même appareil - autoriser
+      await supabase
+        .from('teams')
+        .update({ is_active: true, last_seen_at: new Date().toISOString() })
+        .eq('id', teamData.id);
+
+      setTeam(teamData);
+      window.history.replaceState(null, '', `/client/${teamData.id}`);
       toast({
-        title: "Accès bloqué",
-        description: "Un appareil est déjà connecté à cette équipe",
-        variant: "destructive"
+        title: "Reconnexion réussie !",
+        description: `Re-bienvenue ${teamData.name} !`,
       });
       return;
     }
 
-    // Connecter l'appareil à l'équipe
+    // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 30 secondes)
+    if (teamData.connected_device_id && teamData.last_seen_at) {
+      const lastSeen = new Date(teamData.last_seen_at).getTime();
+      const now = Date.now();
+      const thirtySecondsAgo = now - 30000; // 30 secondes
+
+      // Si l'autre appareil était actif récemment, bloquer
+      if (lastSeen > thirtySecondsAgo) {
+        toast({
+          title: "Accès bloqué",
+          description: "Un autre appareil est actuellement connecté à cette équipe",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Si l'appareil n'a pas été vu depuis plus de 30s, permettre la prise de contrôle
+      toast({
+        title: "Prise de contrôle",
+        description: "L'ancien appareil était inactif. Connexion en cours...",
+      });
+    }
+
+    // Connecter l'appareil à l'équipe (nouveau ou prise de contrôle)
     await supabase
       .from('teams')
-      .update({ connected_device_id: currentDeviceId, is_active: true })
+      .update({ 
+        connected_device_id: currentDeviceId, 
+        is_active: true,
+        last_seen_at: new Date().toISOString()
+      })
       .eq('id', teamData.id);
 
     setTeam(teamData);
