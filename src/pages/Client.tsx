@@ -48,6 +48,7 @@ const Client = () => {
   const [isFinalist, setIsFinalist] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const previousQuestionIdRef = useRef<string | null>(null);
+  const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -97,6 +98,14 @@ const Client = () => {
       .channel('client-finals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
         loadFinal();
+      })
+      .subscribe();
+
+    // Écouter les buzzers pour savoir qui a buzzé
+    const buzzersChannel = supabase
+      .channel('client-buzzers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        loadFirstBuzzer();
       })
       .subscribe();
 
@@ -208,6 +217,7 @@ const Client = () => {
       setShowReveal(false);
       setIsBlockedForQuestion(false);
       setEliminatedOptions([]);
+      setFirstBuzzerTeam(null); // Réinitialiser le premier buzzer
       hasShownTimeoutToast.current = false;
     });
 
@@ -280,6 +290,7 @@ const Client = () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
       supabase.removeChannel(finalsChannel);
+      supabase.removeChannel(buzzersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
@@ -390,6 +401,7 @@ const Client = () => {
     if (currentQuestionInstanceId) {
       checkIfBuzzed();
       checkIfAnswered();
+      loadFirstBuzzer();
     }
   }, [currentQuestionInstanceId]);
 
@@ -599,6 +611,24 @@ const Client = () => {
       setFinal(null);
       setIsFinalist(false);
     }
+  };
+
+  const loadFirstBuzzer = async () => {
+    if (!currentQuestionInstanceId || !sessionId) {
+      setFirstBuzzerTeam(null);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_instance_id', currentQuestionInstanceId)
+      .eq('game_session_id', sessionId)
+      .order('buzzed_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    setFirstBuzzerTeam(data?.teams || null);
   };
 
   const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
@@ -1154,23 +1184,34 @@ const Client = () => {
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
-              {gameState?.is_buzzer_active ? (
+              {hasBuzzed ? (
+                <Button
+                  disabled
+                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent text-primary-foreground shadow-elegant opacity-50"
+                >
+                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
+                  ✅ BUZZÉ !
+                </Button>
+              ) : gameState?.is_buzzer_active ? (
                 <Button
                   ref={buzzerButtonRef}
                   onClick={handleBuzzer}
-                  disabled={hasBuzzed}
-                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95"
                   style={{
-                    boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(255, 120, 0, 0.5)'
+                    boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)'
                   }}
                 >
                   <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
-                  {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
+                  ⚡ BUZZER
                 </Button>
               ) : (
                 <div className="w-full h-24 sm:h-36 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-muted">
                   <p className="text-lg sm:text-2xl font-bold text-muted-foreground text-center px-4">
-                    🔒 Une autre équipe a buzzé !
+                    {firstBuzzerTeam ? (
+                      <>🔒 {firstBuzzerTeam.name} a buzzé !</>
+                    ) : (
+                      <>🔒 Buzzer verrouillé</>
+                    )}
                   </p>
                 </div>
               )}
