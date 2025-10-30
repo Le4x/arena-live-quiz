@@ -194,19 +194,21 @@ const Regie = () => {
         console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
         console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
         
-        // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
-        setTimerWhenBuzzed(timerRemaining);
+        // CAPTURER LA POSITION IMMÉDIATEMENT avant tout arrêt
         const currentPos = audioEngine.getPosition();
         const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
+        
+        // ARRÊT INSTANTANÉ de la musique (fade ultra-court pour éviter le clic)
+        console.log('🎵 Arrêt audio instantané...');
+        audioEngine.stopWithFade(30); // Fade ultra-court (30ms)
+        
+        // Sauvegarder APRÈS l'arrêt pour éviter toute dérive
+        setTimerWhenBuzzed(timerRemaining);
         setAudioPositionWhenBuzzed(relativePos);
         console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
-        
-        // Arrêter la musique immédiatement
-        console.log('🎵 Arrêt audio avec fade...');
-        audioEngine.stopWithFade(150); // Fade rapide
         
         // Mettre à jour le timer ET désactiver le buzzer pour tous les clients
         if (sessionId) {
@@ -474,6 +476,7 @@ const Regie = () => {
         .eq('game_session_id', sessionId);
     }
     
+    // Réactiver le buzzer et relancer la musique pour les autres équipes (après 2s de délai)
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
       setBuzzerLocked(false);
@@ -482,6 +485,7 @@ const Regie = () => {
       
       // Relancer la musique et le timer pour blind test
       if (currentQ?.question_type === 'blind_test') {
+        console.log('🔄 Relance de la musique après mauvaise réponse');
         if (currentQ?.audio_url) { 
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
@@ -490,16 +494,15 @@ const Regie = () => {
             audioEngine['currentTrack'] = s;
             audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
             
-            // Reprendre à la position absolue = CUE1 + position relative sauvegardée
+            // Reprendre EXACTEMENT à la position sauvegardée
             const cue1Time = s.cues[0]?.time || 0;
             const resumePosition = cue1Time + audioPositionWhenBuzzed;
             const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
             
+            console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ')');
+            
             // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
             await audioEngine.playFromTo(resumePosition, endPosition, 300);
-            
-            console.log('🎵 Reprise musique: CUE1 =', cue1Time, ', position relative =', audioPositionWhenBuzzed, 
-                        ', position absolue =', resumePosition, ', fin prévue à', endPosition);
           }
         }
         
