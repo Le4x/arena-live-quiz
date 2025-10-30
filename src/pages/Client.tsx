@@ -526,12 +526,26 @@ const Client = () => {
   const loadGameState = async () => {
     const { data } = await supabase
       .from('game_state')
-      .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+      .select('*')
       .maybeSingle();
     
     if (data) {
       setGameState(data);
-      setCurrentQuestion(data.questions);
+      
+      // Charger la question séparément si elle existe
+      if (data.current_question_id) {
+        const { data: questionData } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('id', data.current_question_id)
+          .single();
+        
+        if (questionData) {
+          setCurrentQuestion(questionData);
+        }
+      } else {
+        setCurrentQuestion(null);
+      }
       
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
