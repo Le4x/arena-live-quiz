@@ -83,6 +83,8 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   const loadAnswers = async () => {
     if (!currentQuestion?.id || !gameState?.game_session_id) return;
 
+    console.log('🔄 [QCMAnswersDisplay] Chargement réponses pour question:', currentQuestion.id);
+
     const { data } = await supabase
       .from('team_answers')
       .select('*, teams(name, color)')
@@ -90,11 +92,15 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
       .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
+    console.log('📊 [QCMAnswersDisplay] Réponses chargées:', data?.length || 0);
+
     if (data) {
       // Validation automatique et mise à jour en base
+      let hasUpdates = false;
       for (const answer of data) {
         if (answer.is_correct === null) {
           const isCorrect = answer.answer.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
+          console.log('✅ [QCMAnswersDisplay] Validation auto:', answer.teams?.name, isCorrect ? 'CORRECT' : 'INCORRECT');
           await supabase
             .from('team_answers')
             .update({ 
@@ -102,18 +108,27 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
               points_awarded: isCorrect ? (currentQuestion.points || 10) : 0
             })
             .eq('id', answer.id);
+          hasUpdates = true;
         }
       }
       
-      // Recharger les réponses après validation
-      const { data: updatedData } = await supabase
-        .from('team_answers')
-        .select('*, teams(name, color)')
-        .eq('question_id', currentQuestion.id)
-        .eq('game_session_id', gameState.game_session_id)
-        .order('answered_at', { ascending: true });
-      
-      if (updatedData) setAnswers(updatedData);
+      // Recharger les réponses après validation si nécessaire
+      if (hasUpdates) {
+        const { data: updatedData } = await supabase
+          .from('team_answers')
+          .select('*, teams(name, color)')
+          .eq('question_id', currentQuestion.id)
+          .eq('game_session_id', gameState.game_session_id)
+          .order('answered_at', { ascending: true });
+        
+        if (updatedData) {
+          console.log('✅ [QCMAnswersDisplay] Réponses mises à jour affichées');
+          setAnswers(updatedData);
+        }
+      } else {
+        // Pas de validation nécessaire, afficher directement
+        setAnswers(data);
+      }
     }
   };
 
