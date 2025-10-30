@@ -1,404 +1,238 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Play, Trash2, RefreshCw, Plus } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ArrowLeft, Plus, Gamepad2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { SessionCard } from "@/components/admin/SessionCard";
+import { SessionDialog } from "@/components/admin/SessionDialog";
 
-export default function AdminSessions() {
+const AdminSessions = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<any[]>([]);
-  const [rounds, setRounds] = useState<any[]>([]);
-  const [newSessionName, setNewSessionName] = useState("");
-  const [selectedRounds, setSelectedRounds] = useState<string[]>([]);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
 
   useEffect(() => {
     loadSessions();
-    loadRounds();
   }, []);
 
   const loadSessions = async () => {
-    const { data, error } = await supabase
-      .from("game_sessions")
-      .select("*")
-      .order("created_at", { ascending: false });
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error("Error loading sessions:", error);
+      if (error) throw error;
+      setSessions(data || []);
+    } catch (error: any) {
+      console.error('Error loading sessions:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les sessions",
-        variant: "destructive",
+        variant: "destructive"
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setSessions(data || []);
   };
 
-  const loadRounds = async () => {
-    const { data } = await supabase
-      .from("rounds")
-      .select("*")
-      .order("created_at", { ascending: true });
-    
-    setRounds(data || []);
+  const handleCreateNew = () => {
+    setSelectedSession(null);
+    setDialogOpen(true);
   };
 
-  const createSession = async () => {
-    if (!newSessionName.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez entrer un nom de session",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("game_sessions")
-      .insert({
-        name: newSessionName,
-        selected_rounds: selectedRounds,
-        status: "draft",
-      });
-
-    if (error) {
-      console.error("Error creating session:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer la session",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Succès",
-      description: "Session créée avec succès",
-    });
-
-    setNewSessionName("");
-    setSelectedRounds([]);
-    setShowCreateForm(false);
-    loadSessions();
+  const handleEdit = (session: any) => {
+    setSelectedSession(session);
+    setDialogOpen(true);
   };
 
-  const startSession = async (sessionId: string) => {
-    // Récupérer les données de la session
-    const { data: session } = await supabase
-      .from("game_sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
+  const handleDelete = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('game_sessions')
+        .delete()
+        .eq('id', sessionId);
 
-    if (!session || !session.selected_rounds || !Array.isArray(session.selected_rounds) || session.selected_rounds.length === 0) {
+      if (error) throw error;
+
+      toast({
+        title: "Session supprimée",
+        description: "La session a été supprimée avec succès"
+      });
+      loadSessions();
+    } catch (error: any) {
+      console.error('Error deleting session:', error);
       toast({
         title: "Erreur",
-        description: "Cette session n'a pas de manches sélectionnées",
-        variant: "destructive",
+        description: error.message,
+        variant: "destructive"
       });
-      return;
     }
+  };
 
-    // Désactiver toutes les autres sessions
-    await supabase
-      .from("game_sessions")
-      .update({ status: "completed" })
-      .neq("id", sessionId)
-      .in("status", ["active"]);
-
-    // Activer la session sélectionnée
-    const { error } = await supabase
-      .from("game_sessions")
-      .update({
-        status: "active",
-        started_at: new Date().toISOString(),
-        current_round_index: 0,
-      })
-      .eq("id", sessionId);
-
-    if (error) {
-      console.error("Error starting session:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de démarrer la session",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Récupérer la première question de la première manche
-    const selectedRoundsArray = session.selected_rounds as string[];
-    const firstRoundId = selectedRoundsArray[0];
-    const { data: firstQuestion } = await supabase
-      .from("questions")
-      .select("*")
-      .eq("round_id", firstRoundId)
-      .order("display_order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    // Mettre à jour ou créer game_state avec cette session
-    const { data: gameStateData } = await supabase
-      .from("game_state")
-      .select("*")
-      .limit(1)
-      .maybeSingle();
-
-    if (gameStateData) {
+  const handleActivate = async (sessionId: string) => {
+    try {
+      // Désactiver toutes les autres sessions
       await supabase
-        .from("game_state")
+        .from('game_sessions')
+        .update({ status: 'draft' })
+        .neq('id', sessionId);
+
+      // Activer la session sélectionnée
+      const { error } = await supabase
+        .from('game_sessions')
         .update({ 
-          game_session_id: sessionId,
-          current_question_id: firstQuestion?.id || null,
-          is_buzzer_active: false,
-          timer_active: false,
-          show_leaderboard: false,
+          status: 'active',
+          started_at: new Date().toISOString()
         })
-        .eq("id", gameStateData.id);
-    } else {
-      // Créer un nouveau game_state si aucun n'existe
-      await supabase
-        .from("game_state")
-        .insert({
-          game_session_id: sessionId,
-          current_question_id: firstQuestion?.id || null,
-          is_buzzer_active: false,
-          timer_active: false,
-          show_leaderboard: false,
-        });
-    }
+        .eq('id', sessionId);
 
-    toast({
-      title: "Session lancée !",
-      description: "Redirection vers la régie...",
-    });
+      if (error) throw error;
 
-    loadSessions();
-    
-    // Rediriger vers la régie après 1 seconde
-    setTimeout(() => {
-      navigate('/regie');
-    }, 1000);
-  };
-
-  const resetSession = async (sessionId: string) => {
-    const { error } = await supabase.rpc("reset_game_session", {
-      session_id: sessionId,
-    });
-
-    if (error) {
-      console.error("Error resetting session:", error);
+      toast({
+        title: "Session activée",
+        description: "La session est maintenant active"
+      });
+      loadSessions();
+    } catch (error: any) {
+      console.error('Error activating session:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de réinitialiser la session",
-        variant: "destructive",
+        description: error.message,
+        variant: "destructive"
       });
-      return;
     }
-
-    toast({
-      title: "Succès",
-      description: "Session réinitialisée",
-    });
   };
 
-  const deleteSession = async (sessionId: string) => {
-    const { error } = await supabase
-      .from("game_sessions")
-      .delete()
-      .eq("id", sessionId);
-
-    if (error) {
-      console.error("Error deleting session:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer la session",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Succès",
-      description: "Session supprimée",
-    });
-
-    loadSessions();
-  };
-
-  const toggleRoundSelection = (roundId: string) => {
-    setSelectedRounds(prev =>
-      prev.includes(roundId)
-        ? prev.filter(id => id !== roundId)
-        : [...prev, roundId]
-    );
-  };
-
-  const getRoundNames = (roundIds: any) => {
-    if (!Array.isArray(roundIds)) return "";
-    return rounds
-      .filter(r => roundIds.includes(r.id))
-      .map(r => r.title)
-      .join(", ");
-  };
+  const activeSessions = sessions.filter(s => s.status === 'active');
+  const draftSessions = sessions.filter(s => s.status === 'draft');
+  const endedSessions = sessions.filter(s => s.status === 'ended');
 
   return (
-    <div className="min-h-screen bg-gradient-glow p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/admin")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-4xl font-bold text-foreground">
-              Gestion des Sessions
+    <div className="min-h-screen bg-gradient-glow p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <header className="flex items-center justify-between py-8">
+          <div>
+            <h1 className="text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent">
+              Gestion des sessions
             </h1>
+            <p className="text-muted-foreground text-xl mt-2">
+              Créez et gérez vos parties de jeu
+            </p>
           </div>
+          <div className="flex gap-3">
+            <Button onClick={handleCreateNew} size="lg" className="gap-2">
+              <Plus className="h-5 w-5" />
+              Nouvelle session
+            </Button>
+            <Button onClick={() => navigate('/admin')} variant="outline" size="lg">
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Retour
+            </Button>
+          </div>
+        </header>
 
-          <Button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Nouvelle Session
-          </Button>
-        </div>
-
-        {showCreateForm && (
-          <Card className="p-6 space-y-4">
-            <h2 className="text-2xl font-bold">Créer une nouvelle session</h2>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Nom de la session
-              </label>
-              <Input
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-                placeholder="Ex: Soirée Quiz du 27 octobre"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Sélectionner les manches
-              </label>
-              <div className="space-y-2">
-                {rounds.map((round) => (
-                  <div key={round.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={round.id}
-                      checked={selectedRounds.includes(round.id)}
-                      onCheckedChange={() => toggleRoundSelection(round.id)}
-                    />
-                    <label
-                      htmlFor={round.id}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {round.title} ({round.type})
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={createSession} className="bg-primary">
-                Créer la session
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setNewSessionName("");
-                  setSelectedRounds([]);
-                }}
-              >
-                Annuler
-              </Button>
+        {loading ? (
+          <Card className="p-12 text-center">
+            <div className="flex items-center justify-center gap-3 text-muted-foreground">
+              <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Chargement des sessions...
             </div>
           </Card>
-        )}
-
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Sessions existantes</h2>
-          {sessions.length === 0 ? (
-            <Card className="p-8 text-center text-muted-foreground">
-              Aucune session créée. Créez votre première session pour commencer !
-            </Card>
-          ) : (
-            sessions.map((session) => (
-              <Card key={session.id} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold">{session.name}</h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          session.status === "active"
-                            ? "bg-green-500/20 text-green-500"
-                            : session.status === "completed"
-                            ? "bg-gray-500/20 text-gray-500"
-                            : "bg-blue-500/20 text-blue-500"
-                        }`}
-                      >
-                        {session.status === "active"
-                          ? "Active"
-                          : session.status === "completed"
-                          ? "Terminée"
-                          : "Brouillon"}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Manches: {getRoundNames(session.selected_rounds) || "Aucune manche sélectionnée"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Créée le {new Date(session.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => startSession(session.id)}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      {session.status === "active" ? "Relancer" : "Démarrer"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => resetSession(session.id)}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Réinitialiser
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteSession(session.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+        ) : sessions.length === 0 ? (
+          <Card className="p-12 text-center bg-card/80 backdrop-blur-sm">
+            <Gamepad2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-2xl font-bold mb-2">Aucune session créée</h3>
+            <p className="text-muted-foreground mb-6">
+              Créez votre première session pour commencer à organiser vos jeux
+            </p>
+            <Button onClick={handleCreateNew} size="lg" className="gap-2">
+              <Plus className="h-5 w-5" />
+              Créer ma première session
+            </Button>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {/* Sessions actives */}
+            {activeSessions.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                  Session active
+                </h2>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {activeSessions.map(session => (
+                    <SessionCard
+                      key={session.id}
+                      session={session}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onActivate={handleActivate}
+                    />
+                  ))}
                 </div>
-              </Card>
-            ))
-          )}
-        </div>
+              </div>
+            )}
+
+            {/* Brouillons */}
+            {draftSessions.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4">
+                  Brouillons ({draftSessions.length})
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {draftSessions.map(session => (
+                    <SessionCard
+                      key={session.id}
+                      session={session}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onActivate={handleActivate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sessions terminées */}
+            {endedSessions.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4 text-muted-foreground">
+                  Terminées ({endedSessions.length})
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {endedSessions.map(session => (
+                    <SessionCard
+                      key={session.id}
+                      session={session}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onActivate={handleActivate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Dialog pour créer/éditer */}
+      <SessionDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        session={selectedSession}
+        onSave={loadSessions}
+      />
     </div>
   );
-}
+};
+
+export default AdminSessions;
