@@ -706,6 +706,7 @@ export type Database = {
           game_session_id: string | null
           id: string
           is_active: boolean | null
+          is_excluded: boolean
           last_seen_at: string | null
           name: string
           score: number | null
@@ -720,6 +721,7 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_excluded?: boolean
           last_seen_at?: string | null
           name: string
           score?: number | null
@@ -734,6 +736,7 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_excluded?: boolean
           last_seen_at?: string | null
           name?: string
           score?: number | null

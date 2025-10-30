@@ -1363,55 +1363,85 @@ const Regie = () => {
                               {'🟨'.repeat(t.yellow_cards)}
                             </span>
                           )}
-                          {t.yellow_cards >= 2 && (
-                            <span className="text-red-500 text-xs ml-1">(EXCLUS)</span>
+                          {t.is_excluded && (
+                            <span className="text-red-500 text-xs font-bold ml-1">(EXCLU)</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">{t.score} pts</div>
                       </div>
                       <div className="flex gap-0.5 flex-shrink-0">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-5 w-5 p-0 text-xs" 
-                          onClick={async () => {
-                            const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
-                            await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
-                            toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
-                          }}
-                          title="Retirer carton"
-                          disabled={!t.yellow_cards || t.yellow_cards === 0}
-                        >
-                          ↓
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-5 w-5 p-0 text-xs text-yellow-600" 
-                          onClick={async () => {
-                            const newCount = (t.yellow_cards || 0) + 1;
-                            await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
-                            
-                            if (newCount >= 2) {
-                              // Exclure l'équipe automatiquement
-                              await disconnectTeam(t.id);
-                              toast({ 
-                                title: '🟥 Équipe exclue !', 
-                                description: `${t.name} a reçu 2 cartons jaunes`,
-                                variant: 'destructive' 
-                              });
-                            } else {
-                              toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
-                            }
-                          }}
-                          title="Donner carton jaune"
-                        >
-                          🟨
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
-                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
-                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
-                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                        {t.is_excluded ? (
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-5 px-2 text-xs text-green-600 font-bold" 
+                            onClick={async () => {
+                              await supabase.from('teams').update({ 
+                                is_excluded: false,
+                                yellow_cards: 0
+                              }).eq('id', t.id);
+                              toast({ title: '✅ Équipe réintégrée', description: 'Les cartons ont été retirés' });
+                            }}
+                            title="Réintégrer l'équipe"
+                          >
+                            ✅ Réintégrer
+                          </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-5 w-5 p-0 text-xs" 
+                              onClick={async () => {
+                                const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
+                                await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
+                              }}
+                              title="Retirer carton"
+                              disabled={!t.yellow_cards || t.yellow_cards === 0}
+                            >
+                              ↓
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-5 w-5 p-0 text-xs text-yellow-600" 
+                              onClick={async () => {
+                                const newCount = (t.yellow_cards || 0) + 1;
+                                
+                                if (newCount >= 2) {
+                                  // Exclure l'équipe DÉFINITIVEMENT
+                                  await supabase.from('teams').update({ 
+                                    yellow_cards: newCount,
+                                    is_excluded: true,
+                                    is_active: false,
+                                    connected_device_id: null
+                                  }).eq('id', t.id);
+                                  
+                                  // Kick l'équipe immédiatement
+                                  await gameEvents.kickTeam(t.id);
+                                  
+                                  toast({ 
+                                    title: '🟥 Équipe EXCLUE définitivement !', 
+                                    description: `${t.name} a reçu 2 cartons jaunes et ne peut plus se reconnecter`,
+                                    variant: 'destructive' 
+                                  });
+                                } else {
+                                  await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                  toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
+                                }
+                              }}
+                              title="Donner carton jaune"
+                              disabled={t.is_excluded}
+                            >
+                              🟨
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

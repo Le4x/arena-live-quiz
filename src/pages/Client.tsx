@@ -501,6 +501,19 @@ const Client = () => {
       .single();
     
     if (data) {
+      // Vérifier si l'équipe est exclue
+      if (data.is_excluded) {
+        toast({
+          title: "❌ Équipe exclue",
+          description: "Votre équipe a été exclue du jeu suite à 2 cartons jaunes",
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/client';
+        }, 2000);
+        return;
+      }
+      
       const currentDeviceId = getDeviceId();
       
       // Vérifier si un appareil est déjà connecté
@@ -797,6 +810,16 @@ const Client = () => {
       toast({
         title: "Code PIN invalide",
         description: "Aucune équipe trouvée avec ce code PIN",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Vérifier si l'équipe est exclue
+    if (teamData.is_excluded) {
+      toast({
+        title: "❌ Équipe exclue",
+        description: "Cette équipe a été exclue du jeu suite à 2 cartons jaunes",
         variant: "destructive"
       });
       return;
