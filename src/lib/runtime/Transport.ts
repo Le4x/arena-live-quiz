@@ -40,11 +40,13 @@ export class SupabaseTransport implements Transport {
   async publish(channel: string, payload: TransportPayload): Promise<void> {
     // Publier via broadcast Supabase
     const ch = this.getOrCreateChannel(channel);
-    console.log('📡 Transport publish:', { channel, payload });
+    // Force JSON serialization to ensure all data is preserved
+    const serializedPayload = JSON.parse(JSON.stringify(payload));
+    console.log('📡 Transport publish:', { channel, payload: serializedPayload });
     await ch.send({
       type: 'broadcast',
       event: 'message',
-      payload,
+      payload: serializedPayload,
     });
   }
 
