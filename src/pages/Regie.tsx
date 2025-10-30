@@ -505,14 +505,19 @@ const Regie = () => {
       excluded_teams: newBlockedTeams
     }).eq('game_session_id', sessionId);
     
-    // Supprimer le buzzer de l'équipe qui a raté
+    // Supprimer TOUS les buzzers pour permettre aux autres équipes de re-buzzer
+    // (seule l'équipe bloquée ne pourra plus buzzer via excluded_teams)
     if (currentQuestionId && sessionId) {
       await supabase
         .from('buzzer_attempts')
         .delete()
-        .eq('team_id', teamId)
         .eq('question_id', currentQuestionId)
         .eq('game_session_id', sessionId);
+      
+      // Vider le state local des buzzers
+      setBuzzers([]);
+      previousBuzzersCount.current = 0;
+      console.log('🧹 Tous les buzzers supprimés - équipe bloquée:', teamId);
     }
     
     // Réactiver le buzzer et relancer la musique pour les autres équipes (après 2s de délai)
