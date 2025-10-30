@@ -229,6 +229,11 @@ const Regie = () => {
     if (data) {
       setSessionId(data.id);
       setCurrentSession(data);
+      
+      // S'assurer que le game_state est lié à cette session
+      await supabase.from('game_state').update({
+        game_session_id: data.id
+      }).eq('id', '00000000-0000-0000-0000-000000000001');
     }
   };
 
