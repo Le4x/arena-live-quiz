@@ -40,6 +40,7 @@ const Client = () => {
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasShownTimeoutToast = useRef<boolean>(false);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -251,12 +252,15 @@ const Client = () => {
     // Ne PAS annuler le reveal si une animation est en cours
     // L'animation doit se terminer naturellement
     if (!showReveal) {
-      // Reset buzzer state when question changes
-      setHasBuzzed(false);
-      setAnswer("");
-      setHasAnswered(false);
-      setAnswerResult(null);
-      setIsBlockedForQuestion(false);
+    // Reset buzzer state when question changes
+    setHasBuzzed(false);
+    setAnswer("");
+    setHasAnswered(false);
+    setAnswerResult(null);
+    setIsBlockedForQuestion(false);
+    
+    // Reset le flag de notification de timeout
+    hasShownTimeoutToast.current = false;
     }
     
     // Ne rien faire si pas de team (page de login)
@@ -284,8 +288,12 @@ const Client = () => {
     if (!team || !currentQuestion || !gameState?.timer_started_at || !gameState?.timer_duration) {
       setIsTimerActive(false);
       setTimerRemaining(0);
+      hasShownTimeoutToast.current = false; // Reset quand pas de timer
       return;
     }
+
+    // Reset le flag quand un nouveau timer démarre
+    hasShownTimeoutToast.current = false;
 
     const updateTimer = () => {
       const startedAt = new Date(gameState.timer_started_at).getTime();
@@ -295,9 +303,14 @@ const Client = () => {
       
       setTimerRemaining(remaining);
       setTimerDuration(gameState.timer_duration);
-      setIsTimerActive(remaining > 0);
+      
+      const wasActive = isTimerActive;
+      const isNowActive = remaining > 0;
+      setIsTimerActive(isNowActive);
 
-      if (remaining === 0 && isTimerActive) {
+      // Ne déclencher la notification qu'une seule fois lors de la transition
+      if (remaining === 0 && wasActive && !hasShownTimeoutToast.current) {
+        hasShownTimeoutToast.current = true;
         toast({ 
           title: '⏱️ Temps écoulé !', 
           description: 'Les réponses ne sont plus acceptées',
