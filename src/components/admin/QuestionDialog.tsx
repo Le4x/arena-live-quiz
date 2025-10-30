@@ -59,6 +59,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
 
   useEffect(() => {
     if (question) {
+      // Si question a un ID, c'est une édition, sinon c'est une création avec round pré-sélectionné
       setRoundId(question.round_id || "");
       setQuestionText(question.question_text || "");
       setQuestionType(question.question_type || "blind_test");
@@ -83,6 +84,8 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         } catch {
           setOptions({ A: "", B: "", C: "", D: "" });
         }
+      } else {
+        setOptions({ A: "", B: "", C: "", D: "" });
       }
     } else {
       // Reset pour création

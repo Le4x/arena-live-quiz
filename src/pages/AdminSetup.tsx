@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Plus, ListMusic, Trash2, MessageSquareText } from "lucide-react";
+import { ArrowLeft, Plus, ListMusic, MessageSquareText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoundCard } from "@/components/admin/RoundCard";
 import { RoundDialog } from "@/components/admin/RoundDialog";
 import { QuestionCard } from "@/components/admin/QuestionCard";
@@ -153,133 +154,116 @@ const AdminSetup = () => {
             </div>
           </Card>
         ) : (
-          <>
-            {/* Section Manches */}
-            <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-secondary flex items-center gap-2">
-                  <ListMusic className="h-6 w-6" />
-                  Manches ({rounds.length})
-                </h2>
-                <Button onClick={handleCreateRound} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nouvelle manche
-                </Button>
-              </div>
+          <Tabs defaultValue="rounds" className="space-y-6">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+              <TabsTrigger value="rounds" className="gap-2">
+                <ListMusic className="h-4 w-4" />
+                Manches ({rounds.length})
+              </TabsTrigger>
+              <TabsTrigger value="questions" className="gap-2">
+                <MessageSquareText className="h-4 w-4" />
+                Questions ({questions.length})
+              </TabsTrigger>
+            </TabsList>
 
-              {rounds.length === 0 ? (
-                <div className="text-center py-12">
-                  <ListMusic className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Aucune manche créée</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Créez votre première manche pour commencer
-                  </p>
+            {/* Onglet Manches */}
+            <TabsContent value="rounds">
+              <Card className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-secondary flex items-center gap-2">
+                    <ListMusic className="h-6 w-6" />
+                    Gestion des manches
+                  </h2>
                   <Button onClick={handleCreateRound} className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Créer ma première manche
+                    Nouvelle manche
                   </Button>
                 </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {rounds.map((round) => {
-                    const roundQuestions = questions.filter(q => q.round_id === round.id);
-                    return (
-                      <RoundCard
-                        key={round.id}
-                        round={round}
-                        questionsCount={roundQuestions.length}
-                        onEdit={handleEditRound}
-                        onDelete={deleteRound}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
 
-            {/* Section Questions */}
-            <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
-                  <MessageSquareText className="h-6 w-6" />
-                  Questions ({questions.length})
-                </h2>
-                <Button onClick={handleCreateQuestion} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nouvelle question
-                </Button>
-              </div>
+                {rounds.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ListMusic className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-bold mb-2">Aucune manche créée</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Créez votre première manche pour commencer
+                    </p>
+                    <Button onClick={handleCreateRound} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Créer ma première manche
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {rounds.map((round) => {
+                      const roundQuestions = questions.filter(q => q.round_id === round.id);
+                      return (
+                        <RoundCard
+                          key={round.id}
+                          round={round}
+                          questions={roundQuestions}
+                          onEdit={handleEditRound}
+                          onDelete={deleteRound}
+                          onEditQuestion={handleEditQuestion}
+                          onDeleteQuestion={deleteQuestion}
+                          onDuplicateQuestion={handleDuplicateQuestion}
+                          onCreateQuestion={() => {
+                            setSelectedQuestion({ round_id: round.id });
+                            setQuestionDialogOpen(true);
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
 
-              {questions.length === 0 ? (
-                <div className="text-center py-12">
-                  <MessageSquareText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Aucune question créée</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Créez votre première question pour commencer
-                  </p>
+            {/* Onglet Questions */}
+            <TabsContent value="questions">
+              <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
+                    <MessageSquareText className="h-6 w-6" />
+                    Toutes les questions
+                  </h2>
                   <Button onClick={handleCreateQuestion} className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Créer ma première question
+                    Nouvelle question
                   </Button>
                 </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {questions.map((question) => {
-                    const round = rounds.find(r => r.id === question.round_id);
-                    return (
-                      <QuestionCard
-                        key={question.id}
-                        question={question}
-                        roundTitle={round?.title || "Manche inconnue"}
-                        onEdit={handleEditQuestion}
-                        onDelete={deleteQuestion}
-                        onDuplicate={handleDuplicateQuestion}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          </>
-        )}
 
-        {/* Liste des questions par manche */}
-        {!loading && questions.length > 0 && (
-          <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
-            <h2 className="text-2xl font-bold text-accent mb-4">
-              Questions par manche
-            </h2>
-            <div className="space-y-4">
-              {rounds.map((round) => {
-                const roundQuestions = questions.filter(q => q.round_id === round.id);
-                if (roundQuestions.length === 0) return null;
-                
-                return (
-                  <div key={round.id} className="border border-border rounded-lg p-4 bg-muted/30">
-                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                      {round.title}
-                      <span className="text-xs text-muted-foreground font-normal">
-                        ({roundQuestions.length} question{roundQuestions.length > 1 ? 's' : ''})
-                      </span>
-                    </h3>
-                    
-                    <div className="space-y-2">
-                      {roundQuestions.map((question) => (
+                {questions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageSquareText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-bold mb-2">Aucune question créée</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Créez votre première question pour commencer
+                    </p>
+                    <Button onClick={handleCreateQuestion} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Créer ma première question
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {questions.map((question) => {
+                      const round = rounds.find(r => r.id === question.round_id);
+                      return (
                         <QuestionCard
                           key={question.id}
                           question={question}
-                          roundTitle={round.title}
+                          roundTitle={round?.title || "Manche inconnue"}
                           onEdit={handleEditQuestion}
                           onDelete={deleteQuestion}
                           onDuplicate={handleDuplicateQuestion}
                         />
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          </Card>
+                )}
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 
