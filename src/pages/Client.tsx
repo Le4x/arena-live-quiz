@@ -203,8 +203,14 @@ const Client = () => {
     });
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
-      console.log('🎯 Nouvelle question', event);
+      console.log('🎯 Client: START_QUESTION reçu', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
+      // IMPORTANT : recharger le game state pour obtenir la nouvelle question
+      loadGameState();
+      toast({
+        title: "📢 Nouvelle question !",
+        description: "Une nouvelle question vient d'être envoyée",
+      });
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
