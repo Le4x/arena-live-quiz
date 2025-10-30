@@ -211,30 +211,46 @@ const Client = () => {
       }
     });
 
-    const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
+    const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', async (event) => {
       console.log('🎯 Client: START_QUESTION reçu', event);
-      console.log('🎯 Client: sessionId actuel:', sessionId);
-      setCurrentQuestionInstanceId(event.data.questionInstanceId);
+      console.log('🎯 Client: Données de l\'événement:', event.data);
       
-      // IMPORTANT : recharger le game state pour obtenir la nouvelle question
-      // On force le rechargement avec le sessionId de l'événement
-      if (event.data.sessionId) {
-        console.log('🔄 Client: Rechargement game state avec sessionId:', event.data.sessionId);
-        supabase
+      const { questionId, questionInstanceId, sessionId: eventSessionId } = event.data;
+      
+      setCurrentQuestionInstanceId(questionInstanceId);
+      
+      // Charger la question directement par son ID
+      if (questionId) {
+        console.log('🔄 Client: Chargement question ID:', questionId);
+        const { data: questionData, error: questionError } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('id', questionId)
+          .single();
+        
+        if (questionError) {
+          console.error('❌ [Client] Erreur chargement question:', questionError);
+        } else if (questionData) {
+          console.log('✅ [Client] Question chargée:', questionData);
+          setCurrentQuestion(questionData);
+        }
+      }
+      
+      // Recharger le game state pour avoir le timer et autres infos
+      if (eventSessionId) {
+        console.log('🔄 Client: Rechargement game state avec sessionId:', eventSessionId);
+        const { data: stateData, error: stateError } = await supabase
           .from('game_state')
-          .select('*, questions!current_question_id(*), current_round_id:rounds!current_round_id(*)')
-          .eq('game_session_id', event.data.sessionId)
-          .maybeSingle()
-          .then(({ data, error }) => {
-            if (error) {
-              console.error('❌ [Client] Erreur rechargement game state:', error);
-            } else if (data) {
-              console.log('✅ [Client] Game state rechargé après START_QUESTION:', data);
-              console.log('✅ [Client] Question dans data:', data.questions);
-              setGameState(data);
-              setCurrentQuestion(data.questions);
-            }
-          });
+          .select('*')
+          .eq('game_session_id', eventSessionId)
+          .maybeSingle();
+        
+        if (stateError) {
+          console.error('❌ [Client] Erreur rechargement game state:', stateError);
+        } else if (stateData) {
+          console.log('✅ [Client] Game state rechargé:', stateData);
+          setGameState(stateData);
+        }
       }
       
       toast({
@@ -627,7 +643,7 @@ const Client = () => {
     
     const { data, error } = await supabase
       .from('game_state')
-      .select('*, questions!current_question_id(*), current_round_id:rounds!current_round_id(*)')
+      .select('*')
       .eq('game_session_id', sessionId)
       .maybeSingle();
     
@@ -636,14 +652,24 @@ const Client = () => {
     }
     
     if (data) {
-      console.log('✅ [Client] Game state chargé:', {
-        hasCurrentQuestion: !!data.current_question_id,
-        questionId: data.current_question_id,
-        questionInstanceId: data.current_question_instance_id,
-        questionData: data.questions
-      });
+      console.log('✅ [Client] Game state chargé:', data);
       setGameState(data);
-      setCurrentQuestion(data.questions);
+      
+      // Charger la question si elle existe
+      if (data.current_question_id) {
+        const { data: questionData } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('id', data.current_question_id)
+          .single();
+        
+        if (questionData) {
+          console.log('✅ [Client] Question chargée:', questionData);
+          setCurrentQuestion(questionData);
+        }
+      } else {
+        setCurrentQuestion(null);
+      }
       
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
