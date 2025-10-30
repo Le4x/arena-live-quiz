@@ -143,8 +143,13 @@ export const RoundCard = ({
                       className="flex items-center justify-between p-2 rounded bg-muted/50 hover:bg-muted/70 transition-colors text-sm"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{question.question_text}</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium truncate">{question.question_text}</p>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {getTypeLabel(question.question_type)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="text-green-600">+{question.points}</span>
                           {question.penalty_points > 0 && (
                             <span className="text-red-600">-{question.penalty_points}</span>
