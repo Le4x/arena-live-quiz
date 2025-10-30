@@ -188,36 +188,36 @@ const Regie = () => {
         });
       }
       
-      // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
+      // PREMIER BUZZER = ARRÊT IMMÉDIAT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
-        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
-        console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
+      if (previousBuzzersCount.current === 0 && buzzers.length >= 1 && currentQ?.question_type === 'blind_test') {
+        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique immédiat');
+        console.log('🎵 Timer restant:', timerRemaining, '| Buzzer locked:', buzzerLocked);
         
         // CAPTURER LA POSITION IMMÉDIATEMENT avant tout arrêt
         const currentPos = audioEngine.getPosition();
-        const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
+        const relativePos = currentPos - clipStartTime;
         
-        // ARRÊT INSTANTANÉ de la musique (fade ultra-court pour éviter le clic)
-        console.log('🎵 Arrêt audio instantané...');
-        audioEngine.stopWithFade(30); // Fade ultra-court (30ms)
+        // ARRÊT INSTANTANÉ de la musique
+        console.log('🎵 STOP audio à position:', currentPos);
+        audioEngine.stopWithFade(30);
         
-        // Sauvegarder APRÈS l'arrêt pour éviter toute dérive
+        // Sauvegarder les positions
         setTimerWhenBuzzed(timerRemaining);
         setAudioPositionWhenBuzzed(relativePos);
-        console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
+        console.log('💾 Sauvegardé - position absolue:', currentPos, '| relative:', relativePos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
         
-        // Mettre à jour le timer ET désactiver le buzzer pour tous les clients
+        // Mettre à jour la DB
         if (sessionId) {
           supabase.from('game_state').update({ 
             timer_active: false,
             timer_remaining: timerRemaining,
-            is_buzzer_active: false // Désactiver le buzzer pour tous les clients
+            is_buzzer_active: false
           }).eq('game_session_id', sessionId).then(() => {
-            console.log('✅ DB mise à jour: timer_active=false, is_buzzer_active=false, timer_remaining=', timerRemaining);
+            console.log('✅ DB mise à jour - buzzer désactivé');
           });
         }
       }
