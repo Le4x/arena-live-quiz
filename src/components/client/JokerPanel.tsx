@@ -102,6 +102,10 @@ export const JokerPanel = ({ teamId, finalId, isActive, currentQuestion }: Joker
       // Extraire les options et la bonne réponse pour le 50-50
       let questionOptions, correctAnswer;
       if (jokerTypeName === 'fifty_fifty' && currentQuestion) {
+        console.log('🃏 [JokerPanel] currentQuestion complet:', currentQuestion);
+        console.log('🃏 [JokerPanel] currentQuestion.options:', currentQuestion.options);
+        console.log('🃏 [JokerPanel] Type de currentQuestion.options:', typeof currentQuestion.options);
+        
         questionOptions = currentQuestion.options;
         correctAnswer = currentQuestion.correct_answer;
         console.log('🃏 [JokerPanel] Données question:', { questionOptions, correctAnswer });
