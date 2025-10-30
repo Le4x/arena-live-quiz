@@ -32,7 +32,7 @@ export async function createDemoTeams(sessionId: string): Promise<DemoTeam[]> {
   for (const teamData of DEMO_TEAM_NAMES) {
     const teamId = crypto.randomUUID();
     
-    // Insérer l'équipe
+    // Insérer l'équipe liée à la session
     const { error } = await supabase.from('teams').insert({
       id: teamId,
       name: `[DEMO] ${teamData.name}`,
@@ -40,6 +40,7 @@ export async function createDemoTeams(sessionId: string): Promise<DemoTeam[]> {
       score: 0,
       is_active: true,
       connection_pin: Math.floor(1000 + Math.random() * 9000).toString(),
+      game_session_id: sessionId, // Lier à la session
     });
 
     if (!error) {
