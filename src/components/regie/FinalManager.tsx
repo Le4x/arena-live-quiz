@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Play, Settings, Users } from "lucide-react";
+import { Trophy, Play, Settings, Users, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FinalStatsPanel } from "./FinalStatsPanel";
 
@@ -190,6 +190,43 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
     }
   };
 
+  const deactivateFinal = async () => {
+    if (!final) return;
+
+    try {
+      // Désactiver le mode final dans game_state
+      await supabase
+        .from('game_state')
+        .update({ 
+          final_mode: false,
+          final_id: null
+        })
+        .eq('game_session_id', sessionId);
+
+      // Mettre la finale en statut 'cancelled'
+      await supabase
+        .from('finals')
+        .update({ 
+          status: 'cancelled',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', final.id);
+
+      toast({
+        title: "❌ Mode final désactivé",
+        description: "Le mode final a été désactivé et vous pouvez reprendre le jeu normal"
+      });
+
+      setFinal(null);
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const top8 = teams.slice(0, 8);
   const finalists = final?.finalist_teams || [];
 
@@ -278,13 +315,24 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
           {/* Finale existante */}
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-yellow-500/20 rounded-lg border-2 border-yellow-500">
-              <div>
+              <div className="flex-1">
                 <p className="font-bold text-lg">Finale créée</p>
                 <p className="text-sm text-muted-foreground">
                   8 finalistes sélectionnés - Statut: <Badge>{final.status}</Badge>
                 </p>
               </div>
-              <Trophy className="h-12 w-12 text-yellow-500" />
+              <div className="flex items-center gap-3">
+                <Trophy className="h-12 w-12 text-yellow-500" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deactivateFinal}
+                  className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Désactiver
+                </Button>
+              </div>
             </div>
 
             {final.status === 'pending' && (
