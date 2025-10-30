@@ -62,12 +62,16 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     setLoading(true);
     
     try {
+      console.log('🃏 Activation joker:', { jokerId, jokerTypeName });
+      
       // Récupérer le joker actuel
       const { data: joker, error: fetchError } = await supabase
         .from('final_jokers')
         .select('*')
         .eq('id', jokerId)
         .single();
+
+      console.log('🃏 Joker actuel:', joker);
 
       if (fetchError || !joker) {
         throw new Error('Joker non trouvé');
@@ -83,12 +87,18 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
         return;
       }
 
-      // Incrémenter used_count de manière atomique
-      const { error: updateError } = await supabase
+      const newCount = joker.used_count + 1;
+      console.log('🃏 Mise à jour:', { from: joker.used_count, to: newCount });
+
+      // Incrémenter used_count
+      const { data: updated, error: updateError } = await supabase
         .from('final_jokers')
-        .update({ used_count: joker.used_count + 1 })
+        .update({ used_count: newCount })
         .eq('id', jokerId)
-        .eq('used_count', joker.used_count); // Condition pour éviter les race conditions
+        .select()
+        .single();
+
+      console.log('🃏 Résultat update:', { updated, error: updateError });
 
       if (updateError) throw updateError;
 
@@ -97,9 +107,10 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
         description: `${jokerTypeName.replace('_', ' ')} utilisé avec succès`,
       });
 
-      // Le rechargement sera fait automatiquement par le canal realtime
+      // Forcer le rechargement immédiat
+      await loadJokers();
     } catch (error: any) {
-      console.error('Erreur joker:', error);
+      console.error('❌ Erreur joker:', error);
       toast({
         title: "Erreur",
         description: error.message,

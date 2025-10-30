@@ -557,48 +557,82 @@ const Client = () => {
       .eq('id', joker.joker_type_id)
       .single();
 
-    if (!jokerType) return;
+    console.log('🃏 Joker type:', jokerType);
+
+    if (!jokerType) {
+      console.log('❌ Type de joker non trouvé');
+      return;
+    }
 
     // Appliquer l'effet selon le type
+    console.log('🃏 Vérification effet:', { 
+      typeName: jokerType.name, 
+      questionType: currentQuestion?.question_type,
+      shouldEliminate: jokerType.name === 'eliminate_answer' && currentQuestion?.question_type === 'qcm'
+    });
+    
     if (jokerType.name === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
+      console.log('🎯 Élimination de réponses...');
       eliminateTwoWrongAnswers();
     }
   };
 
   const eliminateTwoWrongAnswers = () => {
-    if (!currentQuestion?.options || !currentQuestion?.correct_answer) return;
+    console.log('🎯 eliminateTwoWrongAnswers appelée');
+    console.log('🎯 Question actuelle:', currentQuestion);
+    
+    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+      console.log('❌ Pas d\'options ou de réponse correcte');
+      return;
+    }
 
     try {
       const options = typeof currentQuestion.options === 'string' 
         ? JSON.parse(currentQuestion.options) 
         : currentQuestion.options;
 
+      console.log('🎯 Options:', options);
+      console.log('🎯 Réponse correcte:', currentQuestion.correct_answer);
+      console.log('🎯 Options déjà éliminées:', eliminatedOptions);
+
       // Récupérer toutes les mauvaises réponses non éliminées
       const wrongAnswers = Object.entries(options)
         .filter(([_, value]) => {
           const optionValue = String(value).toLowerCase().trim();
           const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
-          return optionValue !== correctAnswer && 
-                 optionValue !== '' && 
-                 !eliminatedOptions.includes(String(value));
+          const isWrong = optionValue !== correctAnswer;
+          const notEmpty = optionValue !== '';
+          const notEliminated = !eliminatedOptions.includes(String(value));
+          console.log(`🎯 Option "${value}":`, { isWrong, notEmpty, notEliminated });
+          return isWrong && notEmpty && notEliminated;
         })
         .map(([_, value]) => String(value));
+
+      console.log('🎯 Mauvaises réponses disponibles:', wrongAnswers);
 
       // Éliminer jusqu'à 2 réponses aléatoires
       const toEliminate = wrongAnswers
         .sort(() => Math.random() - 0.5)
         .slice(0, 2);
 
-      setEliminatedOptions(prev => [...prev, ...toEliminate]);
+      console.log('🎯 Réponses à éliminer:', toEliminate);
+
+      setEliminatedOptions(prev => {
+        const newEliminated = [...prev, ...toEliminate];
+        console.log('🎯 Nouvelles options éliminées:', newEliminated);
+        return newEliminated;
+      });
 
       if (toEliminate.length > 0) {
         toast({
           title: "🎯 Réponses éliminées !",
           description: `${toEliminate.length} mauvaise(s) réponse(s) supprimée(s)`,
         });
+      } else {
+        console.log('⚠️ Aucune réponse à éliminer');
       }
     } catch (error) {
-      console.error('Erreur élimination réponses:', error);
+      console.error('❌ Erreur élimination réponses:', error);
     }
   };
 
