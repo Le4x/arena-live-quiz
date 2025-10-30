@@ -408,6 +408,23 @@ const Regie = () => {
     // Envoyer une notification à l'équipe qu'elle est bloquée
     await gameEvents.blockTeam(teamId);
     
+    // Déduire les points de pénalité si définis
+    const currentQ = questions.find(q => q.id === currentQuestionId);
+    if (currentQ?.penalty_points > 0) {
+      const { data: team } = await supabase
+        .from('teams')
+        .select('score')
+        .eq('id', teamId)
+        .single();
+
+      if (team) {
+        await supabase
+          .from('teams')
+          .update({ score: Math.max(0, team.score - currentQ.penalty_points) })
+          .eq('id', teamId);
+      }
+    }
+    
     // IMPORTANT : Synchroniser avec la DB pour que les clients puissent voir qu'ils sont bloqués
     await supabase.from('game_state').update({ 
       answer_result: 'incorrect',

@@ -319,6 +319,7 @@ export type Database = {
           display_order: number | null
           id: string
           options: Json | null
+          penalty_points: number | null
           points: number | null
           question_text: string
           question_type: string
@@ -332,6 +333,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           options?: Json | null
+          penalty_points?: number | null
           points?: number | null
           question_text: string
           question_type: string
@@ -345,6 +347,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           options?: Json | null
+          penalty_points?: number | null
           points?: number | null
           question_text?: string
           question_type?: string

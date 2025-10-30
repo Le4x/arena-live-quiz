@@ -401,8 +401,16 @@ const Screen = () => {
             <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold">
               <div className="text-center">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-primary font-bold uppercase tracking-wider">
-                    Question
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-primary font-bold uppercase tracking-wider">
+                      Question
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-green-400 font-bold">+{currentQuestion.points} pts</span>
+                      {currentQuestion.penalty_points > 0 && (
+                        <span className="text-red-400 font-bold">-{currentQuestion.penalty_points} pts</span>
+                      )}
+                    </div>
                   </div>
                   {(currentQuestion.question_type === 'qcm' || currentQuestion.question_type === 'free_text') && (
                     <div className="text-sm font-bold text-secondary">

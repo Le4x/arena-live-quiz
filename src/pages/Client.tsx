@@ -872,9 +872,14 @@ const Client = () => {
                    currentQuestion.question_type === 'qcm' ? '📋 QCM' : 
                    '✍️ Texte libre'}
                 </Badge>
-                <Badge variant="outline" className="font-bold text-xs sm:text-sm">
-                  {currentQuestion.points || 10} points
+                <Badge variant="outline" className="font-bold text-xs sm:text-sm bg-green-500/10 text-green-600 border-green-500/30">
+                  +{currentQuestion.points || 10} pts
                 </Badge>
+                {currentQuestion.penalty_points > 0 && (
+                  <Badge variant="outline" className="font-bold text-xs sm:text-sm bg-red-500/10 text-red-600 border-red-500/30">
+                    -{currentQuestion.penalty_points} pts
+                  </Badge>
+                )}
               </div>
               
               <h3 className="text-lg sm:text-2xl font-bold text-secondary mb-4 sm:mb-6 leading-relaxed">

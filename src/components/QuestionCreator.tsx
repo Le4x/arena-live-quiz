@@ -22,6 +22,7 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
   const [questionType, setQuestionType] = useState("blind_test");
   const [correctAnswer, setCorrectAnswer] = useState("");
   const [points, setPoints] = useState(10);
+  const [penaltyPoints, setPenaltyPoints] = useState(0);
   const [audioUrl, setAudioUrl] = useState("");
   const [selectedSoundId, setSelectedSoundId] = useState("");
   const [availableSounds, setAvailableSounds] = useState<SoundWithCues[]>([]);
@@ -59,6 +60,7 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
       question_type: questionType,
       correct_answer: correctAnswer,
       points,
+      penalty_points: penaltyPoints,
       audio_url: selectedSound?.url || audioUrl || null,
       cue_points: cuePoints ? JSON.stringify(cuePoints) : null,
       options: questionType === 'qcm' ? JSON.stringify(options) : null
@@ -72,6 +74,8 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
       toast({ title: "Question créée !", description: "La question a été ajoutée" });
       setQuestionText("");
       setCorrectAnswer("");
+      setPoints(10);
+      setPenaltyPoints(0);
       setAudioUrl("");
       setSelectedSoundId("");
       setOptions({ A: "", B: "", C: "", D: "" });
@@ -221,14 +225,27 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
           <audio ref={audioRef} src={audioUrl} />
         </div>
 
-        <div>
-          <Label>Points</Label>
-          <Input
-            type="number"
-            value={points}
-            onChange={(e) => setPoints(parseInt(e.target.value))}
-            className="mt-1"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Points gagnés</Label>
+            <Input
+              type="number"
+              value={points}
+              onChange={(e) => setPoints(parseInt(e.target.value))}
+              className="mt-1"
+              min="1"
+            />
+          </div>
+          <div>
+            <Label>Points perdus (0 = aucune pénalité)</Label>
+            <Input
+              type="number"
+              value={penaltyPoints}
+              onChange={(e) => setPenaltyPoints(parseInt(e.target.value))}
+              className="mt-1"
+              min="0"
+            />
+          </div>
         </div>
 
         <Button onClick={createQuestion} className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground">

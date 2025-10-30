@@ -105,7 +105,8 @@ const AdminSetup = () => {
                           <div className="flex-1">
                             <div className="font-semibold">{question.question_text}</div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {question.question_type} • {question.points} pts
+                              {question.question_type} • +{question.points} pts
+                              {question.penalty_points > 0 && ` / -${question.penalty_points} pts`}
                             </div>
                           </div>
                           <Button
