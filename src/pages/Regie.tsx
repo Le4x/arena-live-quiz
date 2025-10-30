@@ -944,6 +944,24 @@ const Regie = () => {
     toast({ title: '👋 Toutes les équipes déconnectées' });
   };
 
+  const resetTeamConnectionBlock = async (teamId: string) => {
+    const team = connectedTeams.find(t => t.id === teamId);
+    if (!team) return;
+    
+    // Réinitialiser le blocage de connexion
+    await supabase.from('teams').update({ 
+      connected_device_id: null,
+      last_seen_at: null,
+      is_active: false
+    }).eq('id', teamId);
+    
+    loadTeams();
+    toast({ 
+      title: '🔓 Blocage réinitialisé', 
+      description: `${team.name} peut se reconnecter immédiatement` 
+    });
+  };
+
   const roundQuestions = currentRoundId ? questions.filter(q => q.round_id === currentRoundId) : [];
   const connectedCount = connectedTeams.filter(t => t.is_connected).length;
 
@@ -1245,6 +1263,7 @@ const Regie = () => {
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer la connexion">🔓</Button>
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
                       </div>
                     </div>
