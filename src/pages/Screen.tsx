@@ -208,8 +208,7 @@ const Screen = () => {
 
     // Écouter les événements de jokers
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🃏 Screen: Joker reçu:', event);
-      if (event.data?.jokerType === 'eliminate_answer') {
+      if (event.data?.jokerType === 'fifty_fifty') {
         eliminateTwoWrongAnswers(event.timestamp);
       }
     });
@@ -484,10 +483,7 @@ const Screen = () => {
   };
 
   const eliminateTwoWrongAnswers = (timestamp: number) => {
-    console.log('🎯 Screen: eliminateTwoWrongAnswers avec timestamp:', timestamp);
-    
     if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
-      console.log('❌ Screen: Pas d\'options ou de réponse correcte');
       return;
     }
 
@@ -496,7 +492,7 @@ const Screen = () => {
         ? JSON.parse(currentQuestion.options) 
         : currentQuestion.options;
 
-      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
+      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
       const wrongAnswers = Object.entries(options)
         .filter(([_, value]) => {
           const optionValue = String(value).toLowerCase().trim();
@@ -506,12 +502,7 @@ const Screen = () => {
         .map(([_, value]) => String(value))
         .sort(); // Tri alphabétique pour garantir le même ordre partout
 
-      console.log('🎯 Screen: Mauvaises réponses disponibles:', wrongAnswers);
-
-      if (wrongAnswers.length === 0) {
-        console.log('⚠️ Screen: Aucune mauvaise réponse disponible');
-        return;
-      }
+      if (wrongAnswers.length === 0) return;
 
       // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
       const toEliminate: string[] = [];
@@ -527,8 +518,6 @@ const Screen = () => {
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 Screen: Réponses à éliminer:', toEliminate);
-
       // Jouer le son d'élimination
       playSound('eliminate');
 
@@ -536,11 +525,10 @@ const Screen = () => {
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
           setEliminatedOptions(prev => [...prev, answer]);
-          console.log('🎯 Screen: Éliminé:', answer);
         }, i * 800); // 800ms entre chaque élimination
       });
     } catch (error) {
-      console.error('❌ Screen: Erreur élimination:', error);
+      console.error('Erreur élimination:', error);
     }
   };
 

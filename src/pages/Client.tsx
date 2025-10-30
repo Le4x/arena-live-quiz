@@ -101,9 +101,9 @@ const Client = () => {
 
     // Écouter les événements de jokers via GameEvents
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🃏 Effet joker reçu:', event);
-      // TOUS les clients doivent recevoir l'effet du joker
-      handleJokerEffect(event.data.jokerType, event.timestamp);
+      if (event.data?.jokerType === 'fifty_fifty') {
+        eliminateTwoWrongAnswers(event.timestamp);
+      }
     });
 
     // Canal de présence GLOBAL partagé par toutes les équipes
@@ -542,23 +542,8 @@ const Client = () => {
     }
   };
 
-  const handleJokerEffect = (jokerType: string, timestamp: number) => {
-    console.log('🃏 Effet joker reçu:', { jokerType, questionType: currentQuestion?.question_type, timestamp });
-    
-    // Appliquer l'effet selon le type
-    if (jokerType === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
-      console.log('🎯 Élimination de réponses...');
-      eliminateTwoWrongAnswers(timestamp);
-    }
-    // Ajouter d'autres types de jokers ici si besoin
-  };
-
   const eliminateTwoWrongAnswers = (timestamp: number) => {
-    console.log('🎯 eliminateTwoWrongAnswers appelée avec timestamp:', timestamp);
-    console.log('🎯 Question actuelle:', currentQuestion);
-    
     if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
-      console.log('❌ Pas d\'options ou de réponse correcte');
       return;
     }
 
@@ -567,30 +552,17 @@ const Client = () => {
         ? JSON.parse(currentQuestion.options) 
         : currentQuestion.options;
 
-      console.log('🎯 Options:', options);
-      console.log('🎯 Réponse correcte:', currentQuestion.correct_answer);
-      console.log('🎯 Options déjà éliminées:', eliminatedOptions);
-
-      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
+      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
       const wrongAnswers = Object.entries(options)
         .filter(([_, value]) => {
           const optionValue = String(value).toLowerCase().trim();
           const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
-          const isWrong = optionValue !== correctAnswer;
-          const notEmpty = optionValue !== '';
-          const notEliminated = !eliminatedOptions.includes(String(value));
-          console.log(`🎯 Option "${value}":`, { isWrong, notEmpty, notEliminated });
-          return isWrong && notEmpty && notEliminated;
+          return optionValue !== correctAnswer && optionValue !== '' && !eliminatedOptions.includes(String(value));
         })
         .map(([_, value]) => String(value))
         .sort(); // Tri alphabétique pour garantir le même ordre partout
 
-      console.log('🎯 Mauvaises réponses disponibles (triées):', wrongAnswers);
-
-      if (wrongAnswers.length === 0) {
-        console.log('⚠️ Aucune mauvaise réponse disponible');
-        return;
-      }
+      if (wrongAnswers.length === 0) return;
 
       // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
       const toEliminate: string[] = [];
@@ -600,14 +572,11 @@ const Client = () => {
       // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
-        // S'assurer que index2 est différent de index1
         if (index2 === index1) {
           index2 = (index2 + 1) % wrongAnswers.length;
         }
         toEliminate.push(wrongAnswers[index2]);
       }
-
-      console.log('🎯 Réponses à éliminer (seed:', timestamp, '):', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
@@ -616,20 +585,10 @@ const Client = () => {
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
           setEliminatedOptions(prev => [...prev, answer]);
-          console.log('🎯 Éliminé:', answer);
         }, i * 800); // 800ms entre chaque élimination
       });
-
-      if (toEliminate.length > 0) {
-        toast({
-          title: "🎯 Réponses éliminées !",
-          description: `${toEliminate.length} mauvaise(s) réponse(s) supprimée(s)`,
-        });
-      } else {
-        console.log('⚠️ Aucune réponse à éliminer');
-      }
     } catch (error) {
-      console.error('❌ Erreur élimination réponses:', error);
+      console.error('Erreur élimination:', error);
     }
   };
 

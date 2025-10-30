@@ -50,7 +50,7 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     if (data) setJokers(data);
   };
 
-  const useJoker = async (jokerId: string, jokerTypeName: string) => {
+  const useJoker = async (jokerId: string, jokerTypeName: 'fifty_fifty' | 'team_call' | 'public_vote') => {
     if (!isActive) {
       toast({
         title: "⏳ Finale pas encore active",
@@ -63,16 +63,12 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     setLoading(true);
     
     try {
-      console.log('🃏 Activation joker:', { jokerId, jokerTypeName });
-      
       // Récupérer le joker actuel
       const { data: joker, error: fetchError } = await supabase
         .from('final_jokers')
         .select('*')
         .eq('id', jokerId)
         .single();
-
-      console.log('🃏 Joker actuel:', joker);
 
       if (fetchError || !joker) {
         throw new Error('Joker non trouvé');
@@ -89,23 +85,17 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
       }
 
       const newCount = joker.used_count + 1;
-      console.log('🃏 Mise à jour:', { from: joker.used_count, to: newCount });
 
       // Incrémenter used_count
-      const { data: updated, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('final_jokers')
         .update({ used_count: newCount })
-        .eq('id', jokerId)
-        .select()
-        .single();
-
-      console.log('🃏 Résultat update:', { updated, error: updateError });
+        .eq('id', jokerId);
 
       if (updateError) throw updateError;
 
       // Émettre l'événement pour tous les clients
       await gameEvents.activateJoker(teamId, jokerTypeName, finalId);
-      console.log('🃏 Événement émis:', { teamId, jokerTypeName, finalId });
 
       toast({
         title: "⚡ Joker activé !",
@@ -128,11 +118,9 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
 
   const getJokerIcon = (name: string) => {
     const icons: { [key: string]: any } = {
-      'double_points': Trophy,
-      'shield': Shield,
-      'eliminate_answer': Target,
-      'time_bonus': Clock,
-      'public_vote': Users
+      'fifty_fifty': Target,
+      'team_call': Users,
+      'public_vote': Trophy,
     };
     return icons[name] || Zap;
   };
@@ -161,7 +149,7 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
               key={joker.id}
               size="sm"
               disabled={isUsedUp || loading || !isActive}
-              onClick={() => useJoker(joker.id, joker.joker_types.name)}
+              onClick={() => useJoker(joker.id, joker.joker_types.name as 'fifty_fifty' | 'team_call' | 'public_vote')}
               className={`h-8 px-3 text-xs flex items-center gap-1.5 ${
                 isUsedUp 
                   ? 'opacity-50' 
