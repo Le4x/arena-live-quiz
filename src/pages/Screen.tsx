@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Zap, Check, X } from "lucide-react";
+import { Trophy, Zap, Check, X, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { playSound } from "@/lib/sounds";
 import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
@@ -605,31 +605,182 @@ const Screen = () => {
           />
         )}
 
-        {/* Question actuelle */}
+        {/* Question actuelle - Design Premium */}
         {currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
-          <div className="max-w-5xl mx-auto mb-8 animate-slide-in">
-            <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-primary shadow-glow-gold">
-              <div className="text-center">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm text-primary font-bold uppercase tracking-wider">
-                      Question
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-green-400 font-bold">+{currentQuestion.points} pts</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-6xl mx-auto mb-8"
+          >
+            {/* Carte principale avec glow effect */}
+            <div className="relative">
+              {/* Animated glow background */}
+              <motion.div
+                className="absolute inset-0 rounded-3xl blur-2xl opacity-30"
+                style={{
+                  background: 'radial-gradient(ellipse at center, hsl(var(--primary)), hsl(var(--secondary)), transparent)',
+                }}
+                animate={{
+                  scale: [1, 1.05, 1],
+                  opacity: [0.2, 0.4, 0.2],
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+              />
+
+              <div className="relative bg-card/95 backdrop-blur-2xl rounded-3xl p-10 border-2 shadow-2xl"
+                   style={{
+                     borderColor: 'hsl(var(--primary) / 0.5)',
+                     boxShadow: '0 0 60px hsl(var(--primary) / 0.3), inset 0 0 60px hsl(var(--primary) / 0.05)',
+                   }}>
+                
+                {/* Header avec badges premium */}
+                <div className="flex items-center justify-between mb-8">
+                  {/* Left side: Type et points */}
+                  <div className="flex items-center gap-4">
+                    <motion.div 
+                      className="px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-wider relative overflow-hidden"
+                      style={{
+                        background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))',
+                        boxShadow: '0 4px 20px hsl(var(--primary) / 0.4)',
+                      }}
+                      animate={{
+                        boxShadow: [
+                          '0 4px 20px hsl(var(--primary) / 0.4)',
+                          '0 6px 30px hsl(var(--primary) / 0.6)',
+                          '0 4px 20px hsl(var(--primary) / 0.4)',
+                        ]
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      {/* Shine effect */}
+                      <motion.div
+                        className="absolute inset-0"
+                        style={{
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                        }}
+                        animate={{
+                          x: ['-100%', '200%'],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          repeatDelay: 1,
+                        }}
+                      />
+                      <span className="relative text-primary-foreground">
+                        {currentQuestion.question_type === 'qcm' ? 'QCM' : 
+                         currentQuestion.question_type === 'free_text' ? 'TEXTE LIBRE' : 'BLIND TEST'}
+                      </span>
+                    </motion.div>
+
+                    <div className="flex items-center gap-3">
+                      <motion.div 
+                        className="px-5 py-2 rounded-xl font-bold text-lg flex items-center gap-2"
+                        style={{
+                          background: 'linear-gradient(135deg, hsl(var(--green-500) / 0.2), hsl(var(--green-600) / 0.3))',
+                          border: '2px solid hsl(var(--green-500) / 0.5)',
+                          boxShadow: '0 0 20px hsl(var(--green-500) / 0.3)',
+                        }}
+                        animate={{
+                          boxShadow: [
+                            '0 0 20px hsl(var(--green-500) / 0.3)',
+                            '0 0 30px hsl(var(--green-500) / 0.5)',
+                            '0 0 20px hsl(var(--green-500) / 0.3)',
+                          ]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <span className="text-green-400">+{currentQuestion.points}</span>
+                      </motion.div>
+                      
                       {currentQuestion.penalty_points > 0 && (
-                        <span className="text-red-400 font-bold">-{currentQuestion.penalty_points} pts</span>
+                        <motion.div 
+                          className="px-5 py-2 rounded-xl font-bold text-lg flex items-center gap-2"
+                          style={{
+                            background: 'linear-gradient(135deg, hsl(var(--red-500) / 0.2), hsl(var(--red-600) / 0.3))',
+                            border: '2px solid hsl(var(--red-500) / 0.5)',
+                            boxShadow: '0 0 20px hsl(var(--red-500) / 0.3)',
+                          }}
+                        >
+                          <span className="text-red-400">-{currentQuestion.penalty_points}</span>
+                        </motion.div>
                       )}
                     </div>
                   </div>
-                  {(currentQuestion.question_type === 'qcm' || currentQuestion.question_type === 'free_text') && (
-                    <div className="text-sm font-bold text-secondary">
-                      {currentQuestion.question_type === 'qcm' ? qcmAnswers.length : textAnswers.length} / {teams.length} réponses
+
+                  {/* Right side: Compteur de réponses en temps réel */}
+                  <motion.div
+                    className="px-6 py-3 rounded-2xl font-black text-xl relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, hsl(var(--accent) / 0.3), hsl(var(--secondary) / 0.3))',
+                      border: '2px solid hsl(var(--accent) / 0.6)',
+                      boxShadow: '0 0 25px hsl(var(--accent) / 0.4)',
+                    }}
+                    animate={{
+                      scale: [1, 1.05, 1],
+                    }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                  >
+                    <div className="relative flex items-center gap-3">
+                      <motion.div
+                        animate={{
+                          rotate: [0, 360],
+                        }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Users className="w-6 h-6 text-accent" />
+                      </motion.div>
+                      <span className="text-accent">
+                        {currentQuestion.question_type === 'qcm' 
+                          ? qcmAnswers.length 
+                          : currentQuestion.question_type === 'free_text'
+                          ? textAnswers.length
+                          : buzzers.length}
+                        <span className="text-muted-foreground mx-1">/</span>
+                        {teams.length}
+                      </span>
+                      <span className="text-sm text-muted-foreground uppercase tracking-wide">réponses</span>
                     </div>
-                  )}
+
+                    {/* Progress bar */}
+                    <motion.div 
+                      className="absolute bottom-0 left-0 h-1 bg-accent rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ 
+                        width: `${((currentQuestion.question_type === 'qcm' 
+                          ? qcmAnswers.length 
+                          : currentQuestion.question_type === 'free_text'
+                          ? textAnswers.length
+                          : buzzers.length) / Math.max(teams.length, 1)) * 100}%` 
+                      }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </motion.div>
                 </div>
-                <h2 className="text-4xl font-bold mb-6">{currentQuestion.question_text}</h2>
+
+                {/* Question text avec effet premium */}
+                <div className="text-center mb-8 relative">
+                  <motion.div
+                    className="absolute inset-0 blur-xl opacity-20"
+                    style={{
+                      background: 'radial-gradient(ellipse at center, hsl(var(--primary)), transparent)',
+                    }}
+                    animate={{
+                      scale: [1, 1.1, 1],
+                      opacity: [0.15, 0.25, 0.15],
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <h2 className="relative text-6xl font-black leading-tight"
+                      style={{
+                        textShadow: '0 2px 20px hsl(var(--primary) / 0.3)',
+                      }}>
+                    {currentQuestion.question_text}
+                  </h2>
+                </div>
                 
+                {/* QCM Options avec design premium */}
                 {currentQuestion.options && (() => {
                   try {
                     const options = typeof currentQuestion.options === 'string' 
@@ -639,28 +790,67 @@ const Screen = () => {
                     const showReveal = gameState?.show_answer === true;
                     
                     return (
-                      <div className="grid grid-cols-2 gap-4 mt-6">
-                        {Object.entries(options || {}).map(([key, value]) => {
+                      <div className="grid grid-cols-2 gap-6 mt-8">
+                        {Object.entries(options || {}).map(([key, value], index) => {
                           const isCorrect = showReveal && value === correctAnswer;
                           return (
-                            <div
+                            <motion.div
                               key={key}
-                              className={`
-                                rounded-xl p-4 border-2 transition-all duration-500
-                                ${isCorrect 
-                                  ? 'bg-green-500/30 border-green-400 shadow-glow-gold animate-pulse' 
-                                  : 'bg-muted/50 border-secondary/50 hover:border-secondary'
-                                }
-                              `}
+                              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              transition={{ delay: index * 0.1, duration: 0.4 }}
+                              className="relative"
                             >
+                              {/* Glow for correct answer */}
                               {isCorrect && (
-                                <div className="flex items-center justify-center mb-2">
-                                  <Check className="w-8 h-8 text-green-400" />
-                                </div>
+                                <motion.div
+                                  className="absolute inset-0 rounded-2xl blur-xl"
+                                  style={{
+                                    background: 'hsl(var(--green-500) / 0.5)',
+                                  }}
+                                  animate={{
+                                    scale: [1, 1.1, 1],
+                                    opacity: [0.5, 0.8, 0.5],
+                                  }}
+                                  transition={{ duration: 1, repeat: Infinity }}
+                                />
                               )}
-                              <span className="text-secondary font-bold text-xl">{key}.</span>
-                              <span className="ml-3 text-xl">{value as string}</span>
-                            </div>
+
+                              <div
+                                className={`
+                                  relative rounded-2xl p-6 border-2 transition-all duration-500
+                                  ${isCorrect 
+                                    ? 'bg-green-500/20 border-green-400' 
+                                    : 'bg-card/60 border-primary/30 hover:border-primary/60 hover:bg-card/80'
+                                  }
+                                `}
+                                style={{
+                                  boxShadow: isCorrect 
+                                    ? '0 0 30px hsl(var(--green-500) / 0.4), inset 0 0 30px hsl(var(--green-500) / 0.1)'
+                                    : '0 4px 20px rgba(0,0,0,0.2), inset 0 0 20px hsl(var(--primary) / 0.05)',
+                                }}
+                              >
+                                <div className="flex items-center gap-4">
+                                  {/* Letter badge */}
+                                  <div 
+                                    className={`
+                                      w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-black flex-shrink-0
+                                      ${isCorrect ? 'bg-green-500 text-white' : 'bg-primary/20 text-primary'}
+                                    `}
+                                    style={{
+                                      boxShadow: isCorrect ? '0 0 20px hsl(var(--green-500))' : undefined,
+                                    }}
+                                  >
+                                    {isCorrect ? <Check className="w-8 h-8" /> : key}
+                                  </div>
+                                  
+                                  {/* Answer text */}
+                                  <span className={`text-2xl font-semibold flex-1 ${isCorrect ? 'text-green-300' : ''}`}>
+                                    {value as string}
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
                           );
                         })}
                       </div>
@@ -672,32 +862,100 @@ const Screen = () => {
 
                 {/* Réponse pour free_text - révélée quand show_answer = true */}
                 {currentQuestion.question_type === 'free_text' && gameState?.show_answer && currentQuestion.correct_answer && (
-                  <div className="mt-6 p-6 rounded-xl bg-green-500/30 border-2 border-green-400 shadow-glow-gold animate-pulse">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <Check className="w-8 h-8 text-green-400" />
-                        <span className="text-2xl font-bold text-green-400">RÉPONSE</span>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="mt-8 relative"
+                  >
+                    <motion.div
+                      className="absolute inset-0 rounded-2xl blur-2xl"
+                      style={{
+                        background: 'hsl(var(--green-500) / 0.5)',
+                      }}
+                      animate={{
+                        scale: [1, 1.1, 1],
+                        opacity: [0.4, 0.7, 0.4],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    <div className="relative p-8 rounded-2xl bg-green-500/20 border-2 border-green-400"
+                         style={{
+                           boxShadow: '0 0 40px hsl(var(--green-500) / 0.5), inset 0 0 40px hsl(var(--green-500) / 0.1)',
+                         }}>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-3 mb-4">
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              rotate: [0, 5, -5, 0],
+                            }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 1 }}
+                          >
+                            <Check className="w-12 h-12 text-green-400" />
+                          </motion.div>
+                          <span className="text-3xl font-black text-green-400 uppercase tracking-wide">Réponse</span>
+                        </div>
+                        <p className="text-5xl font-black text-green-300"
+                           style={{
+                             textShadow: '0 0 30px hsl(var(--green-500) / 0.8)',
+                           }}>
+                          {currentQuestion.correct_answer}
+                        </p>
                       </div>
-                      <p className="text-3xl font-bold">{currentQuestion.correct_answer}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
-                {/* Réponse pour buzzer - révélée quand show_answer = true */}
+                {/* Réponse pour blind_test - révélée quand show_answer = true */}
                 {currentQuestion.question_type === 'blind_test' && gameState?.show_answer && currentQuestion.correct_answer && (
-                  <div className="mt-6 p-6 rounded-xl bg-green-500/30 border-2 border-green-400 shadow-glow-gold animate-pulse">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <Check className="w-8 h-8 text-green-400" />
-                        <span className="text-2xl font-bold text-green-400">RÉPONSE</span>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="mt-8 relative"
+                  >
+                    <motion.div
+                      className="absolute inset-0 rounded-2xl blur-2xl"
+                      style={{
+                        background: 'hsl(var(--green-500) / 0.5)',
+                      }}
+                      animate={{
+                        scale: [1, 1.1, 1],
+                        opacity: [0.4, 0.7, 0.4],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    <div className="relative p-8 rounded-2xl bg-green-500/20 border-2 border-green-400"
+                         style={{
+                           boxShadow: '0 0 40px hsl(var(--green-500) / 0.5), inset 0 0 40px hsl(var(--green-500) / 0.1)',
+                         }}>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-3 mb-4">
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              rotate: [0, 5, -5, 0],
+                            }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 1 }}
+                          >
+                            <Check className="w-12 h-12 text-green-400" />
+                          </motion.div>
+                          <span className="text-3xl font-black text-green-400 uppercase tracking-wide">Réponse</span>
+                        </div>
+                        <p className="text-5xl font-black text-green-300"
+                           style={{
+                             textShadow: '0 0 30px hsl(var(--green-500) / 0.8)',
+                           }}>
+                          {currentQuestion.correct_answer}
+                        </p>
                       </div>
-                      <p className="text-3xl font-bold">{currentQuestion.correct_answer}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Barre de timer - Uniquement si timer actif ET question en cours */}
