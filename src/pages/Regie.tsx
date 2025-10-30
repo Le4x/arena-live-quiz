@@ -1052,78 +1052,87 @@ const Regie = () => {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-3 px-3 pb-3">
-        {/* Left: Questions + Answers */}
-        <div className="flex-1 overflow-hidden flex flex-col gap-3 min-h-0">
-          {/* Questions */}
+      {/* Main content - Layout en grille compacte */}
+      <div className="flex-1 overflow-hidden grid grid-cols-12 gap-2 px-3 pb-3">
+        {/* Colonne gauche - Questions et contrôles principaux (4 cols) */}
+        <div className="col-span-4 flex flex-col gap-2 overflow-hidden">
+          {/* Sélection de manche - Compact */}
+          <Card className="flex-shrink-0 p-2">
+            <div className="flex gap-1 overflow-x-auto">
+              {rounds.map(r => (
+                <Button 
+                  key={r.id} 
+                  variant={currentRoundId === r.id ? 'default' : 'outline'} 
+                  size="sm"
+                  className="text-xs whitespace-nowrap"
+                  onClick={() => setCurrentRoundId(r.id)}
+                >
+                  {r.title}
+                </Button>
+              ))}
+            </div>
+          </Card>
+
+          {/* Questions - Liste compacte avec scroll */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <div className="p-3 border-b flex gap-2 overflow-x-auto flex-shrink-0">
-            {rounds.map(r => (
-              <Button 
-                key={r.id} 
-                variant={currentRoundId === r.id ? 'default' : 'outline'} 
-                size="sm" 
-                onClick={() => setCurrentRoundId(r.id)}
-              >
-                {r.title}
-              </Button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {roundQuestions.map(q => (
-              <div key={q.id} className="flex justify-between items-center p-3 border rounded bg-muted/30">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{q.question_text}</div>
-                  <div className="text-xs text-muted-foreground">{q.points} pts</div>
+            <div className="p-2 border-b flex-shrink-0">
+              <h3 className="font-bold text-sm">Questions ({roundQuestions.length})</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {roundQuestions.map(q => (
+                <div key={q.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-xs truncate">{q.question_text}</div>
+                    <div className="text-xs text-muted-foreground">{q.points} pts</div>
+                  </div>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => startQuestion(q)}>Lancer</Button>
                 </div>
-                <Button size="sm" onClick={() => startQuestion(q)}>Lancer</Button>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
         </div>
 
-        {/* Right: Audio + Contrôles + Onglets */}
-        <div className="w-full lg:w-96 flex flex-col gap-3 overflow-hidden min-h-0">
-          {/* Audio Deck compact */}
-          {currentTrack && (
-            <Card className="flex-shrink-0 p-3">
-              <AudioDeck 
-                tracks={[currentTrack]}
-                onTrackChange={(track) => {
-                  console.log('📻 Track changed:', track.name);
-                }}
-              />
+        {/* Colonne centrale - Contrôles de jeu (5 cols) */}
+        <div className="col-span-5 flex flex-col gap-2 overflow-hidden">
+          {/* Contrôle principal - Envoyer question */}
+          {currentQuestionId && (
+            <Card className="flex-shrink-0 p-2">
+              <Button 
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={sendQuestionToClients}
+              >
+                🚀 Envoyer aux clients
+              </Button>
             </Card>
           )}
 
-          {/* Barre de timer */}
-          {currentQuestionId && timerRemaining > 0 && (
-            <TimerBar 
-              timerRemaining={timerRemaining}
-              timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
-              timerActive={timerActive}
-              questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
-            />
-          )}
+          {/* Timer et Audio combinés */}
+          <Card className="flex-shrink-0 p-2">
+            {currentQuestionId && timerRemaining > 0 && (
+              <TimerBar 
+                timerRemaining={timerRemaining}
+                timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
+                timerActive={timerActive}
+                questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
+              />
+            )}
+            {currentTrack && (
+              <div className="mt-2">
+                <AudioDeck 
+                  tracks={[currentTrack]}
+                  onTrackChange={(track) => {
+                    console.log('📻 Track changed:', track.name);
+                  }}
+                />
+              </div>
+            )}
+          </Card>
 
-          {/* Contrôles compacts Buzzer + Reveal */}
-          <Card className="flex-shrink-0 p-2 bg-card/95 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              {/* Envoyer question aux clients */}
-              {currentQuestionId && (
-                <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={sendQuestionToClients}
-                >
-                  🚀 Envoyer aux clients
-                </Button>
-              )}
-              
-              {/* Buzzers */}
-              <div className="flex items-center gap-1">
+          {/* Contrôles Buzzer + Reveal */}
+          <Card className="flex-shrink-0 p-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 flex-1">
                 <Radio className="h-3 w-3 text-muted-foreground" />
                 <Button 
                   size="sm" 
@@ -1167,7 +1176,6 @@ const Regie = () => {
                 </Button>
               </div>
 
-              {/* Reveal */}
               <Button 
                 size="sm" 
                 variant={gameState?.show_answer ? "outline" : "default"}
@@ -1179,92 +1187,99 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Onglets (Jeu / Équipes / Effets TV / Finale) */}
-          <Tabs defaultValue="jeu" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full flex-shrink-0">
-              <TabsTrigger value="jeu" className="flex-1">Jeu</TabsTrigger>
-              <TabsTrigger value="equipes" className="flex-1">Équipes</TabsTrigger>
-              <TabsTrigger value="effets" className="flex-1">Effets TV</TabsTrigger>
-              <TabsTrigger value="finale" className="flex-1">🏆 Finale</TabsTrigger>
+          {/* Buzzers et Réponses */}
+          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <Tabs defaultValue="buzzers" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="w-full flex-shrink-0 grid grid-cols-3">
+                <TabsTrigger value="buzzers" className="text-xs">Buzzers</TabsTrigger>
+                <TabsTrigger value="qcm" className="text-xs">QCM</TabsTrigger>
+                <TabsTrigger value="text" className="text-xs">Texte</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="buzzers" className="flex-1 overflow-y-auto mt-2">
+                <BuzzerMonitor 
+                  currentQuestionId={currentQuestionId} 
+                  gameState={gameState} 
+                  buzzers={buzzers}
+                  questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
+                  onCorrectAnswer={handleCorrectAnswer}
+                  onWrongAnswer={handleWrongAnswer}
+                  blockedTeams={blockedTeams}
+                />
+
+                {blockedTeams.length > 0 && (
+                  <Card className="p-2 bg-destructive/10 border-destructive/20 mt-2">
+                    <h3 className="text-xs font-bold text-destructive flex items-center gap-1 mb-2">
+                      <X className="h-3 w-3" />
+                      Bloqués ({blockedTeams.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {blockedTeams.map(teamId => {
+                        const team = connectedTeams.find(t => t.id === teamId);
+                        return team ? (
+                          <div 
+                            key={teamId}
+                            className="flex items-center gap-2 p-1 rounded bg-destructive/20 border border-destructive/30"
+                          >
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
+                            <span className="font-medium text-xs">{team.name}</span>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="qcm" className="flex-1 overflow-y-auto mt-2">
+                <QCMAnswersDisplay 
+                  currentQuestion={questions.find(q => q.id === currentQuestionId)} 
+                  gameState={gameState} 
+                />
+              </TabsContent>
+
+              <TabsContent value="text" className="flex-1 overflow-y-auto mt-2">
+                <TextAnswersDisplay 
+                  currentQuestionId={currentQuestionId} 
+                  gameState={gameState}
+                  currentQuestion={questions.find(q => q.id === currentQuestionId)}
+                />
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </div>
+
+        {/* Colonne droite - Équipes et Effets (3 cols) */}
+        <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
+          <Tabs defaultValue="equipes" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full flex-shrink-0 grid grid-cols-2">
+              <TabsTrigger value="equipes" className="text-xs">Équipes</TabsTrigger>
+              <TabsTrigger value="effets" className="text-xs">TV/Finale</TabsTrigger>
             </TabsList>
 
-            {/* Onglet Jeu */}
-            <TabsContent value="jeu" className="flex-1 overflow-y-auto space-y-3 mt-3">
-              {/* Buzzers */}
-              <BuzzerMonitor 
-                currentQuestionId={currentQuestionId} 
-                gameState={gameState} 
-                buzzers={buzzers}
-                questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
-                onCorrectAnswer={handleCorrectAnswer}
-                onWrongAnswer={handleWrongAnswer}
-                blockedTeams={blockedTeams}
-              />
-
-              {/* Réponses QCM */}
-              <QCMAnswersDisplay 
-                currentQuestion={questions.find(q => q.id === currentQuestionId)} 
-                gameState={gameState} 
-              />
-
-              {/* Réponses Freetext */}
-              <TextAnswersDisplay 
-                currentQuestionId={currentQuestionId} 
-                gameState={gameState}
-                currentQuestion={questions.find(q => q.id === currentQuestionId)}
-              />
-
-              {/* Équipes bloquées */}
-              {blockedTeams.length > 0 && (
-                <Card className="p-4 bg-destructive/10 border-destructive/20">
-                  <h3 className="text-sm font-bold text-destructive flex items-center gap-2 mb-3">
-                    <X className="h-4 w-4" />
-                    Équipes bloquées ({blockedTeams.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {blockedTeams.map(teamId => {
-                      const team = connectedTeams.find(t => t.id === teamId);
-                      return team ? (
-                        <div 
-                          key={teamId}
-                          className="flex items-center gap-2 p-2 rounded bg-destructive/20 border border-destructive/30"
-                        >
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-                          <span className="font-semibold text-sm">{team.name}</span>
-                          <Badge variant="destructive" className="ml-auto text-xs">Bloqué</Badge>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Onglet Équipes */}
-            <TabsContent value="equipes" className="flex-1 overflow-hidden mt-3">
+            <TabsContent value="equipes" className="flex-1 overflow-hidden mt-2">
               <Card className="h-full overflow-hidden flex flex-col">
-                <div className="p-3 border-b flex justify-between items-center flex-shrink-0">
-                  <h3 className="font-bold text-sm">Équipes</h3>
+                <div className="p-2 border-b flex justify-between items-center flex-shrink-0">
+                  <h3 className="font-bold text-xs">Équipes</h3>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={resetAllScores}>Reset</Button>
-                    <Button size="sm" variant="ghost" onClick={disconnectAll}>Kick</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={resetAllScores}>Reset</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={disconnectAll}>Kick</Button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
                   {connectedTeams.map(t => (
-                    <div key={t.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30">
-                      <div className={`w-2 h-2 rounded-full ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
+                    <div key={t.id} className="flex items-center gap-1 p-1.5 border rounded bg-muted/30">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm truncate">{t.name}</div>
-                        <div className="text-xs">{t.score} pts</div>
+                        <div className="font-bold text-xs truncate">{t.name}</div>
+                        <div className="text-xs text-muted-foreground">{t.score} pts</div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer la connexion">🔓</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
                       </div>
                     </div>
                   ))}
@@ -1272,32 +1287,31 @@ const Regie = () => {
               </Card>
             </TabsContent>
 
-            {/* Onglet Effets TV */}
-            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3">
-              <Card className="p-4">
-                <h3 className="font-bold mb-3 text-sm">Effets TV</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="outline" onClick={showRoundIntro}>
+            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-2 space-y-2">
+              <Card className="p-2">
+                <h3 className="font-bold text-xs mb-2">Effets TV</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={showRoundIntro}>
                     <Sparkles className="h-3 w-3 mr-1" />
                     Intro
                   </Button>
-                  <Button size="sm" variant="outline" onClick={hideLeaderboard}>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={hideLeaderboard}>
                     Masquer
                   </Button>
                 </div>
               </Card>
-            </TabsContent>
 
-            {/* Onglet Finale */}
-            <TabsContent value="finale" className="flex-1 overflow-y-auto space-y-3 mt-3">
-              <FinalManager sessionId={sessionId!} gameState={gameState} />
-              
-              {/* Contrôle d'affichage des votes du public */}
-              <PublicVoteControl
-                showPublicVotes={showPublicVotes}
-                finalId={gameState?.final_id}
-                currentQuestionInstanceId={currentQuestionInstanceId}
-              />
+              <Card className="p-2">
+                <h3 className="font-bold text-xs mb-2">🏆 Finale</h3>
+                <FinalManager sessionId={sessionId!} gameState={gameState} />
+                <div className="mt-2">
+                  <PublicVoteControl
+                    showPublicVotes={showPublicVotes}
+                    finalId={gameState?.final_id}
+                    currentQuestionInstanceId={currentQuestionInstanceId}
+                  />
+                </div>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
