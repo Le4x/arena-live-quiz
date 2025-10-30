@@ -407,15 +407,13 @@ const Regie = () => {
     setTimerActive(true);
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
-    // IMPORTANT: Désactiver le mode final pour une question normale
     await supabase.from('game_state').update({
       current_question_id: currentQuestionId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
       timer_started_at: new Date().toISOString(),
       timer_duration: timerDuration,
-      timer_remaining: timerDuration, // Garder pour compatibilité
-      final_mode: false // Désactiver le mode final pour les questions normales
+      timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
