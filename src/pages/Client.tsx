@@ -560,7 +560,7 @@ const Client = () => {
     try {
       const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
       
-      console.log('🎯 [Client] Options:', options);
+      console.log('🎯 [Client] Options parsed:', options);
       console.log('🎯 [Client] Correct answer:', correct);
 
       // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
@@ -569,12 +569,13 @@ const Client = () => {
           const optionValue = String(value);
           const isWrong = optionValue !== correct;
           const notEliminated = !eliminatedOptions.includes(optionValue);
+          console.log(`🎯 [Client] Checking "${optionValue}": isWrong=${isWrong}, notEliminated=${notEliminated}`);
           return isWrong && optionValue !== '' && notEliminated;
         })
         .map((value: any) => String(value))
         .sort();
 
-      console.log('🎯 [Client] Wrong answers:', wrongAnswers);
+      console.log('🎯 [Client] Wrong answers to choose from:', wrongAnswers);
 
       if (wrongAnswers.length === 0) {
         console.log('⚠️ [Client] Aucune mauvaise réponse disponible');
@@ -594,7 +595,7 @@ const Client = () => {
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 [Client] To eliminate:', toEliminate);
+      console.log('🎯 [Client] Options to eliminate:', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
@@ -602,9 +603,10 @@ const Client = () => {
       // Animation d'élimination progressive
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
+          console.log(`🎯 [Client] Eliminating option ${i+1}/2: "${answer}"`);
           setEliminatedOptions(prev => {
             const newEliminated = [...prev, answer];
-            console.log('🎯 [Client] Eliminated options:', newEliminated);
+            console.log('🎯 [Client] New eliminatedOptions state:', newEliminated);
             return newEliminated;
           });
         }, i * 800);
@@ -1205,12 +1207,15 @@ const Client = () => {
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
                     // Filtrer les options vides
+                    console.log('🎯 [Client RENDER] eliminatedOptions:', eliminatedOptions);
                     return Object.entries(options || {})
                       .map(([key, value]) => {
-                        const optionValue = value as string;
+                        const optionValue = String(value);
                         if (optionValue.trim() === '') return null;
                         
-                        const isEliminated = eliminatedOptions.includes(String(value));
+                        const isEliminated = eliminatedOptions.includes(optionValue);
+                        console.log(`🎯 [Client RENDER] Option ${key}: "${optionValue}", isEliminated:`, isEliminated);
+                        
                         const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
                         const isSelectedOption = showReveal && answer === optionValue;
                       
