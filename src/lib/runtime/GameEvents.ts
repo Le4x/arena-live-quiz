@@ -228,13 +228,10 @@ export const gameEvents = {
 
   activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string) => {
     console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId });
-    const event: JokerActivatedEvent = {
+    await getGameEvents().emit({
       type: 'JOKER_ACTIVATED',
       data: { teamId, jokerType, finalId },
-      timestamp: 0, // Will be set by emit
-    };
-    console.log('🎮 [gameEvents.activateJoker] Event créé:', event);
-    await getGameEvents().emit<JokerActivatedEvent>(event);
+    });
     console.log('🎮 [gameEvents.activateJoker] Emit terminé');
   },
 };

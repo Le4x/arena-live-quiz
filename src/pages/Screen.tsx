@@ -485,7 +485,11 @@ const Screen = () => {
   };
 
   const eliminateTwoWrongAnswers = (timestamp: number) => {
+    console.log('🎯 [Screen] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
+    console.log('🎯 [Screen] currentQuestion:', currentQuestion);
+    
     if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+      console.log('❌ [Screen] Pas de options ou correct_answer');
       return;
     }
 
@@ -493,25 +497,35 @@ const Screen = () => {
       const options = typeof currentQuestion.options === 'string' 
         ? JSON.parse(currentQuestion.options) 
         : currentQuestion.options;
+      
+      const correctAnswer = currentQuestion.correct_answer;
+      
+      console.log('🎯 [Screen] Options:', options);
+      console.log('🎯 [Screen] Correct answer:', correctAnswer);
 
       // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
-      const wrongAnswers = Object.entries(options)
-        .filter(([_, value]) => {
-          const optionValue = String(value).toLowerCase().trim();
-          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
-          return optionValue !== correctAnswer && optionValue !== '' && !eliminatedOptions.includes(String(value));
+      const wrongAnswers = Object.values(options)
+        .filter((value: any) => {
+          const optionValue = String(value);
+          const isWrong = optionValue !== correctAnswer;
+          const notEliminated = !eliminatedOptions.includes(optionValue);
+          return isWrong && optionValue !== '' && notEliminated;
         })
-        .map(([_, value]) => String(value))
-        .sort(); // Tri alphabétique pour garantir le même ordre partout
+        .map((value: any) => String(value))
+        .sort();
 
-      if (wrongAnswers.length === 0) return;
+      console.log('🎯 [Screen] Wrong answers:', wrongAnswers);
 
-      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
+      if (wrongAnswers.length === 0) {
+        console.log('⚠️ [Screen] Aucune mauvaise réponse disponible');
+        return;
+      }
+
+      // Utiliser le timestamp comme seed
       const toEliminate: string[] = [];
       const index1 = timestamp % wrongAnswers.length;
       toEliminate.push(wrongAnswers[index1]);
 
-      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
         if (index2 === index1) {
@@ -520,17 +534,23 @@ const Screen = () => {
         toEliminate.push(wrongAnswers[index2]);
       }
 
+      console.log('🎯 [Screen] To eliminate:', toEliminate);
+
       // Jouer le son d'élimination
       playSound('eliminate');
 
       // Animation d'élimination progressive
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
-          setEliminatedOptions(prev => [...prev, answer]);
-        }, i * 800); // 800ms entre chaque élimination
+          setEliminatedOptions(prev => {
+            const newEliminated = [...prev, answer];
+            console.log('🎯 [Screen] Eliminated options:', newEliminated);
+            return newEliminated;
+          });
+        }, i * 800);
       });
     } catch (error) {
-      console.error('Erreur élimination:', error);
+      console.error('❌ [Screen] Erreur élimination:', error);
     }
   };
 
