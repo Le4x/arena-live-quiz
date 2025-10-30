@@ -215,7 +215,7 @@ const Client = () => {
       console.log('🎯 Client: START_QUESTION reçu', event);
       console.log('🎯 Client: Données de l\'événement:', event.data);
       
-      const { questionId, questionInstanceId, sessionId: eventSessionId } = event.data;
+      const { questionId, questionInstanceId, sessionId: eventSessionId, timerDuration, timerStartedAt, questionType, isBuzzerActive } = event.data;
       
       setCurrentQuestionInstanceId(questionInstanceId);
       
@@ -236,26 +236,30 @@ const Client = () => {
         }
       }
       
-      // Recharger le game state pour avoir le timer et autres infos
-      if (eventSessionId) {
-        console.log('🔄 Client: Rechargement game state avec sessionId:', eventSessionId);
-        const { data: stateData, error: stateError } = await supabase
-          .from('game_state')
-          .select('*')
-          .eq('game_session_id', eventSessionId)
-          .maybeSingle();
-        
-        if (stateError) {
-          console.error('❌ [Client] Erreur rechargement game state:', stateError);
-        } else if (stateData) {
-          console.log('✅ [Client] Game state rechargé:', stateData);
-          setGameState(stateData);
-        }
-      }
+      // Mettre à jour le game state avec les données de l'événement (évite les problèmes de timing)
+      setGameState((prev: any) => ({
+        ...prev,
+        game_session_id: eventSessionId,
+        current_question_id: questionId,
+        current_question_instance_id: questionInstanceId,
+        timer_active: true,
+        timer_started_at: timerStartedAt,
+        timer_duration: timerDuration,
+        timer_remaining: timerDuration,
+        is_buzzer_active: isBuzzerActive,
+      }));
+      
+      console.log('✅ [Client] Timer initialisé:', { timerDuration, timerStartedAt, questionType, isBuzzerActive });
+      
+      // Reset les états
+      setHasBuzzed(false);
+      setHasAnswered(false);
+      setAnswerResult(null);
+      setShowReveal(false);
       
       toast({
         title: "📢 Nouvelle question !",
-        description: "Une nouvelle question vient d'être envoyée",
+        description: questionType === 'blind_test' ? '🎵 Écoutez bien !' : "Une nouvelle question vient d'être envoyée",
       });
     });
 

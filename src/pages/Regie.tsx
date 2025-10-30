@@ -562,17 +562,19 @@ const Regie = () => {
     setTimerActive(true);
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
+    const timerStartedAt = new Date().toISOString();
     await supabase.from('game_state').update({
       current_question_id: qId,
+      current_question_instance_id: qInstanceId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: timerStartedAt,
       timer_duration: timerDuration,
       timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sId);
 
-    console.log('📤 [Regie] Avant gameEvents.startQuestion:', { qId, qInstanceId, sId });
-    await gameEvents.startQuestion(qId, qInstanceId, sId);
+    console.log('📤 [Regie] Avant gameEvents.startQuestion:', { qId, qInstanceId, sId, timerDuration, timerStartedAt });
+    await gameEvents.startQuestion(qId, qInstanceId, sId, timerDuration, timerStartedAt, question.question_type, question.question_type === 'blind_test');
     console.log('✅ [Regie] gameEvents.startQuestion terminé');
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)

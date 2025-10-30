@@ -39,6 +39,10 @@ export interface StartQuestionEvent extends GameEvent {
     questionId: string;
     questionInstanceId: string;
     sessionId: string;
+    timerDuration: number;
+    timerStartedAt: string;
+    questionType: string;
+    isBuzzerActive: boolean;
   };
 }
 
@@ -197,10 +201,10 @@ export const gameEvents = {
     });
   },
 
-  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string) => {
+  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string, timerDuration: number, timerStartedAt: string, questionType: string, isBuzzerActive: boolean) => {
     await getGameEvents().emit<StartQuestionEvent>({
       type: 'START_QUESTION',
-      data: { questionId, questionInstanceId, sessionId },
+      data: { questionId, questionInstanceId, sessionId, timerDuration, timerStartedAt, questionType, isBuzzerActive },
     });
   },
 
