@@ -253,50 +253,48 @@ const Client = () => {
       return;
     }
     
-    // Réinitialiser le timer actif depuis gameState UNIQUEMENT si question existe
-    const isActive = gameState?.timer_active || false;
-    setIsTimerActive(isActive);
-
-    // Synchroniser timer_remaining UNIQUEMENT si actif ET question existe
-    if (isActive && gameState?.timer_remaining !== undefined && gameState?.timer_remaining !== null) {
-      setTimerRemaining(gameState.timer_remaining);
-    } else {
-      // Timer inactif : reset à 0
-      setTimerRemaining(0);
-    }
-    
     // Charger l'instance ID depuis game_state
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id, gameState?.timer_active, gameState?.timer_remaining, team]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, team]);
 
-  // Décompte du timer côté client - UNIQUEMENT si question active ET team existe
+  // Calcul du timer en temps réel basé sur timer_started_at
   useEffect(() => {
-    // Ne pas démarrer le timer si pas de team, pas de question active, ou timer inactif
-    if (!team || !currentQuestion || !isTimerActive || timerRemaining <= 0) return;
-    
-    const interval = setInterval(() => {
-      setTimerRemaining(prev => {
-        const next = prev - 1;
-        if (next <= 0) {
-          setIsTimerActive(false);
-          // Ne montrer la notification que si question active ET team existe
-          if (currentQuestion && team) {
-            toast({ 
-              title: '⏱️ Temps écoulé !', 
-              description: 'Les réponses ne sont plus acceptées',
-              variant: 'destructive'
-            });
-            playSound('incorrect');
-          }
-        }
-        return Math.max(0, next);
-      });
-    }, 1000);
+    if (!team || !currentQuestion || !gameState?.timer_started_at || !gameState?.timer_duration) {
+      setIsTimerActive(false);
+      setTimerRemaining(0);
+      return;
+    }
+
+    const updateTimer = () => {
+      const startedAt = new Date(gameState.timer_started_at).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - startedAt) / 1000);
+      const remaining = Math.max(0, gameState.timer_duration - elapsed);
+      
+      setTimerRemaining(remaining);
+      setTimerDuration(gameState.timer_duration);
+      setIsTimerActive(remaining > 0);
+
+      if (remaining === 0 && isTimerActive) {
+        toast({ 
+          title: '⏱️ Temps écoulé !', 
+          description: 'Les réponses ne sont plus acceptées',
+          variant: 'destructive'
+        });
+        playSound('incorrect');
+      }
+    };
+
+    // Mise à jour immédiate
+    updateTimer();
+
+    // Mise à jour toutes les secondes
+    const interval = setInterval(updateTimer, 1000);
     
     return () => clearInterval(interval);
-  }, [isTimerActive, timerRemaining, currentQuestion, team]);
+  }, [gameState?.timer_started_at, gameState?.timer_duration, currentQuestion, team]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
@@ -445,31 +443,7 @@ const Client = () => {
     if (data) {
       setGameState(data);
       setCurrentQuestion(data.questions);
-      
-      // Ne synchroniser le timer QUE si une question existe
-      if (data.questions) {
-        const isActive = data.timer_active || false;
-        setIsTimerActive(isActive);
-        
-        if (isActive && data.timer_remaining !== undefined && data.timer_remaining !== null) {
-          setTimerRemaining(data.timer_remaining);
-        } else {
-          setTimerRemaining(0);
-        }
-        
-        // Définir la durée du timer depuis le round
-        if (data.current_round_id?.timer_duration) {
-          setTimerDuration(data.current_round_id.timer_duration);
-        } else {
-          setTimerDuration(30);
-        }
-      } else {
-        // Pas de question : réinitialiser complètement le timer
-        setIsTimerActive(false);
-        setTimerRemaining(0);
-      }
     } else {
-      // Pas de game state : tout réinitialiser
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
