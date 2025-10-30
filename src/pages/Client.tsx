@@ -1204,57 +1204,57 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    // Filtrer les options vides ET les options éliminées
+                    // Filtrer les options vides
                     return Object.entries(options || {})
                       .map(([key, value]) => {
                         const optionValue = value as string;
-                        const isEliminated = eliminatedOptions.includes(String(value));
                         if (optionValue.trim() === '') return null;
-                      
-                      const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
-                      const isSelectedOption = showReveal && answer === optionValue;
+                        
+                        const isEliminated = eliminatedOptions.includes(String(value));
+                        const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
+                        const isSelectedOption = showReveal && answer === optionValue;
                       
                       return (
                         <motion.div
                           key={key}
-                          initial={{ opacity: 1, scale: 1 }}
+                          initial={{ opacity: 1, scale: 1, height: 'auto' }}
                           animate={{ 
                             opacity: isEliminated ? 0 : 1,
                             scale: isEliminated ? 0.8 : 1,
                             height: isEliminated ? 0 : 'auto',
-                            marginBottom: isEliminated ? 0 : undefined
+                            overflow: isEliminated ? 'hidden' : 'visible'
                           }}
                           transition={{ duration: 0.8, ease: "easeOut" }}
+                          style={{ marginBottom: isEliminated ? 0 : undefined }}
                         >
-                          {!isEliminated && (
-                        <Button
-                          key={key}
-                          variant="outline"
-                          disabled={hasAnswered || !isTimerActive}
-                          className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
-                            showReveal && isCorrectOption 
-                              ? 'bg-green-500/20 border-green-500 border-2' 
-                              : showReveal && isSelectedOption && answerResult === 'incorrect'
-                              ? 'bg-red-500/20 border-red-500 border-2'
-                              : hasAnswered || !isTimerActive
-                              ? 'opacity-50' 
-                              : ''
-                          }`}
-                          onClick={() => {
-                            setAnswer(optionValue);
-                            submitAnswer(optionValue);
-                          }}
-                        >
-                          <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
-                          <span className="flex-1">{optionValue}</span>
-                          {showReveal && isCorrectOption && (
-                            <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-                          )}
-                          {showReveal && isSelectedOption && answerResult === 'incorrect' && (
-                            <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
-                          )}
-                        </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            disabled={hasAnswered || !isTimerActive || isEliminated}
+                            className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
+                              showReveal && isCorrectOption 
+                                ? 'bg-green-500/20 border-green-500 border-2' 
+                                : showReveal && isSelectedOption && answerResult === 'incorrect'
+                                ? 'bg-red-500/20 border-red-500 border-2'
+                                : hasAnswered || !isTimerActive
+                                ? 'opacity-50' 
+                                : ''
+                            }`}
+                            onClick={() => {
+                              if (!isEliminated) {
+                                setAnswer(optionValue);
+                                submitAnswer(optionValue);
+                              }
+                            }}
+                          >
+                            <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
+                            <span className="flex-1">{optionValue}</span>
+                            {showReveal && isCorrectOption && (
+                              <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
+                            )}
+                            {showReveal && isSelectedOption && answerResult === 'incorrect' && (
+                              <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
+                            )}
+                          </Button>
                         </motion.div>
                       );
                     }).filter(Boolean);
