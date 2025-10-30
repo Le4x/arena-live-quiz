@@ -73,11 +73,102 @@ export type Database = {
           },
         ]
       }
+      final_jokers: {
+        Row: {
+          created_at: string | null
+          final_id: string
+          id: string
+          joker_type_id: string
+          quantity: number | null
+          team_id: string
+          used_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          final_id: string
+          id?: string
+          joker_type_id: string
+          quantity?: number | null
+          team_id: string
+          used_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          final_id?: string
+          id?: string
+          joker_type_id?: string
+          quantity?: number | null
+          team_id?: string
+          used_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_jokers_final_id_fkey"
+            columns: ["final_id"]
+            isOneToOne: false
+            referencedRelation: "finals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_jokers_joker_type_id_fkey"
+            columns: ["joker_type_id"]
+            isOneToOne: false
+            referencedRelation: "joker_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_jokers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finals: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          finalist_teams: Json | null
+          game_session_id: string
+          id: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          finalist_teams?: Json | null
+          game_session_id: string
+          id?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          finalist_teams?: Json | null
+          game_session_id?: string
+          id?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finals_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: true
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_sessions: {
         Row: {
           created_at: string | null
           current_round_index: number | null
           ended_at: string | null
+          has_final: boolean | null
           id: string
           logo_url: string | null
           name: string
@@ -89,6 +180,7 @@ export type Database = {
           created_at?: string | null
           current_round_index?: number | null
           ended_at?: string | null
+          has_final?: boolean | null
           id?: string
           logo_url?: string | null
           name: string
@@ -100,6 +192,7 @@ export type Database = {
           created_at?: string | null
           current_round_index?: number | null
           ended_at?: string | null
+          has_final?: boolean | null
           id?: string
           logo_url?: string | null
           name?: string
@@ -118,6 +211,8 @@ export type Database = {
           current_round_id: string | null
           current_round_intro: string | null
           excluded_teams: Json | null
+          final_id: string | null
+          final_mode: boolean | null
           game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
@@ -144,6 +239,8 @@ export type Database = {
           current_round_id?: string | null
           current_round_intro?: string | null
           excluded_teams?: Json | null
+          final_id?: string | null
+          final_mode?: boolean | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
@@ -170,6 +267,8 @@ export type Database = {
           current_round_id?: string | null
           current_round_intro?: string | null
           excluded_teams?: Json | null
+          final_id?: string | null
+          final_mode?: boolean | null
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
@@ -215,6 +314,13 @@ export type Database = {
             columns: ["current_round_intro"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_final_id_fkey"
+            columns: ["final_id"]
+            isOneToOne: false
+            referencedRelation: "finals"
             referencedColumns: ["id"]
           },
           {
@@ -271,6 +377,33 @@ export type Database = {
           },
         ]
       }
+      joker_types: {
+        Row: {
+          created_at: string | null
+          description: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -288,6 +421,62 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      public_votes: {
+        Row: {
+          created_at: string | null
+          final_id: string
+          id: string
+          question_instance_id: string
+          voted_for_team_id: string
+          voter_team_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          final_id: string
+          id?: string
+          question_instance_id: string
+          voted_for_team_id: string
+          voter_team_id: string
+        }
+        Update: {
+          created_at?: string | null
+          final_id?: string
+          id?: string
+          question_instance_id?: string
+          voted_for_team_id?: string
+          voter_team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_votes_final_id_fkey"
+            columns: ["final_id"]
+            isOneToOne: false
+            referencedRelation: "finals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_votes_question_instance_id_fkey"
+            columns: ["question_instance_id"]
+            isOneToOne: false
+            referencedRelation: "question_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_votes_voted_for_team_id_fkey"
+            columns: ["voted_for_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_votes_voter_team_id_fkey"
+            columns: ["voter_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       question_instances: {
         Row: {
