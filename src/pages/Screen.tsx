@@ -1614,6 +1614,22 @@ const Screen = () => {
           </div>
         )}
 
+        {/* Barre de sponsors permanente en bas */}
+        {sponsors.length > 0 && !gameState?.show_sponsors_screen && !gameState?.show_thanks_screen && (
+          <div className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-md border-t border-border py-4 z-50">
+            <div className="flex items-center justify-center gap-8 px-8 overflow-x-auto">
+              {sponsors.map((sponsor) => (
+                <img 
+                  key={sponsor.id}
+                  src={sponsor.logo_url} 
+                  alt={sponsor.name}
+                  className="h-12 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity flex-shrink-0"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Message d'annonce */}
         {gameState?.announcement_text && (
           <div className="fixed bottom-12 left-1/2 transform -translate-x-1/2 max-w-4xl animate-slide-in">
