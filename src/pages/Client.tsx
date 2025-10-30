@@ -78,11 +78,17 @@ const Client = () => {
   }, [teamId, sessionId]);
 
   useEffect(() => {
-    if (!teamId || !sessionId) return;
+    if (!teamId || !sessionId) {
+      console.log('⚠️ [Client] useEffect principal: teamId ou sessionId manquant', { teamId, sessionId });
+      return;
+    }
+
+    console.log('✅ [Client] useEffect principal: Démarrage avec', { teamId, sessionId });
 
     const gameStateChannel = supabase
       .channel('client-game-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
+        console.log('🔄 [Client] DB change game_state détecté');
         loadGameState();
       })
       .subscribe();
@@ -90,6 +96,7 @@ const Client = () => {
     const teamsChannel = supabase
       .channel('client-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
+        console.log('🔄 [Client] DB change teams détecté');
         loadTeam();
         loadAllTeams();
       })
@@ -98,6 +105,7 @@ const Client = () => {
     const answersChannel = supabase
       .channel('client-answers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
+        console.log('🔄 [Client] DB change team_answers détecté');
         checkAnswerResult();
       })
       .subscribe();
@@ -105,6 +113,7 @@ const Client = () => {
     const finalsChannel = supabase
       .channel('client-finals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
+        console.log('🔄 [Client] DB change finals détecté');
         loadFinal();
       })
       .subscribe();
@@ -204,9 +213,29 @@ const Client = () => {
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
       console.log('🎯 Client: START_QUESTION reçu', event);
+      console.log('🎯 Client: sessionId actuel:', sessionId);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
+      
       // IMPORTANT : recharger le game state pour obtenir la nouvelle question
-      loadGameState();
+      // On force le rechargement avec le sessionId de l'événement
+      if (event.data.sessionId) {
+        console.log('🔄 Client: Rechargement game state avec sessionId:', event.data.sessionId);
+        supabase
+          .from('game_state')
+          .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+          .eq('game_session_id', event.data.sessionId)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('❌ [Client] Erreur rechargement game state:', error);
+            } else if (data) {
+              console.log('✅ [Client] Game state rechargé après START_QUESTION:', data);
+              setGameState(data);
+              setCurrentQuestion(data.questions);
+            }
+          });
+      }
+      
       toast({
         title: "📢 Nouvelle question !",
         description: "Une nouvelle question vient d'être envoyée",
@@ -498,17 +527,28 @@ const Client = () => {
   };
 
   const loadAllTeams = async () => {
+    console.log('📊 [Client.loadAllTeams] Appelé avec sessionId:', sessionId);
+    
     if (!sessionId) {
-      console.log('⚠️ [Client] Pas de session ID, équipes non chargées');
+      console.warn('⚠️ [Client] Pas de session ID, équipes non chargées');
+      console.trace('Stack trace pour debug');
       setAllTeams([]);
       return;
     }
     
-    const { data } = await supabase
+    console.log('🔍 [Client] Chargement équipes pour session:', sessionId);
+    
+    const { data, error } = await supabase
       .from('teams')
       .select('*')
       .eq('game_session_id', sessionId)
       .order('score', { ascending: false });
+    
+    if (error) {
+      console.error('❌ [Client] Erreur chargement équipes:', error);
+      setAllTeams([]);
+      return;
+    }
       
     if (data) {
       console.log('✅ [Client] Équipes chargées pour session:', sessionId, '- Total:', data.length);
@@ -517,6 +557,7 @@ const Client = () => {
       const rank = data.findIndex(t => t.id === teamId) + 1;
       setTeamRank(rank);
     } else {
+      console.log('⚠️ [Client] Aucune équipe trouvée');
       setAllTeams([]);
     }
   };
