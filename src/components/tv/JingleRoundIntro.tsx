@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface JingleRoundIntroProps {
   roundTitle: string;
   roundNumber?: number;
+  sessionName?: string;
   jingleUrl?: string;
   onComplete?: () => void;
   duration?: number;
@@ -17,6 +18,7 @@ interface JingleRoundIntroProps {
 export const JingleRoundIntro = ({ 
   roundTitle, 
   roundNumber,
+  sessionName = "ARENA",
   jingleUrl,
   onComplete, 
   duration = 6000 
@@ -155,7 +157,7 @@ export const JingleRoundIntro = ({
 
         {/* Main content with premium animations */}
         <div className="relative z-10 text-center space-y-8 px-8 max-w-6xl">
-          {/* Logo ARENA avec effet 3D */}
+          {/* Logo avec nom de session */}
           <motion.div
             initial={{ scale: 0, rotateY: -180, z: -200 }}
             animate={{ 
@@ -189,7 +191,7 @@ export const JingleRoundIntro = ({
               }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             >
-              ARENA
+              {sessionName}
             </motion.h1>
           </motion.div>
 

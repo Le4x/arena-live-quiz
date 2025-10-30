@@ -567,7 +567,7 @@ const Regie = () => {
     if (round.jingle_url) await audioEngine.playJingle(round.jingle_url);
     setTimeout(async () => { 
       await supabase.from('game_state').update({ show_round_intro: false }).eq('game_session_id', sessionId); 
-    }, 10000);
+    }, 6000);
     toast({ title: '🎬 Intro manche lancée' });
   };
 

@@ -387,9 +387,11 @@ const Screen = () => {
           <JingleRoundIntro
             roundTitle={currentRound.title}
             roundNumber={currentSession?.current_round_index ? currentSession.current_round_index + 1 : undefined}
-            duration={10000}
+            sessionName={currentSession?.name?.toUpperCase()}
+            jingleUrl={currentRound.jingle_url}
+            duration={6000}
             onComplete={() => {
-              // L'intro se désactive automatiquement après 10s via Regie
+              // L'intro se désactive automatiquement après 6s via Regie
               console.log('🎬 Intro terminée');
             }}
           />
