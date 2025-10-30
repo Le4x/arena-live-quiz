@@ -75,29 +75,63 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
     setLoading(true);
     try {
-      // Sélectionner les 8 meilleures équipes
-      const top8Teams = teams.slice(0, 8).map(t => t.id);
-
-      // Créer la finale
-      const { data: newFinal, error: finalError } = await supabase
+      // Vérifier si une finale existe déjà pour cette session
+      const { data: existingFinal } = await supabase
         .from('finals')
-        .insert({
-          game_session_id: sessionId,
-          status: 'pending',
-          finalist_teams: top8Teams
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('game_session_id', sessionId)
+        .maybeSingle();
 
-      if (finalError) throw finalError;
+      let finalId: string;
 
-      // Créer les jokers pour chaque équipe
+      if (existingFinal) {
+        // Réutiliser la finale existante et la réinitialiser
+        const top8Teams = teams.slice(0, 8).map(t => t.id);
+        
+        await supabase
+          .from('finals')
+          .update({
+            status: 'pending',
+            finalist_teams: top8Teams,
+            started_at: null,
+            completed_at: null
+          })
+          .eq('id', existingFinal.id);
+
+        // Supprimer les anciens jokers
+        await supabase
+          .from('final_jokers')
+          .delete()
+          .eq('final_id', existingFinal.id);
+
+        finalId = existingFinal.id;
+      } else {
+        // Créer une nouvelle finale
+        const top8Teams = teams.slice(0, 8).map(t => t.id);
+
+        const { data: newFinal, error: finalError } = await supabase
+          .from('finals')
+          .insert({
+            game_session_id: sessionId,
+            status: 'pending',
+            finalist_teams: top8Teams
+          })
+          .select()
+          .single();
+
+        if (finalError) throw finalError;
+        finalId = newFinal.id;
+      }
+
+      // Créer les jokers pour chaque équipe finaliste
+      const top8Teams = teams.slice(0, 8).map(t => t.id);
       const jokersToInsert = [];
+      
       for (const teamId of top8Teams) {
         for (const [jokerTypeId, quantity] of Object.entries(jokerConfig)) {
           if (quantity > 0) {
             jokersToInsert.push({
-              final_id: newFinal.id,
+              final_id: finalId,
               team_id: teamId,
               joker_type_id: jokerTypeId,
               quantity
@@ -106,18 +140,20 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         }
       }
 
-      const { error: jokersError } = await supabase
-        .from('final_jokers')
-        .insert(jokersToInsert);
+      if (jokersToInsert.length > 0) {
+        const { error: jokersError } = await supabase
+          .from('final_jokers')
+          .insert(jokersToInsert);
 
-      if (jokersError) throw jokersError;
+        if (jokersError) throw jokersError;
+      }
 
       toast({
         title: "🏆 Finale créée !",
         description: `Les 8 finalistes ont été sélectionnés avec leurs jokers`
       });
 
-      setFinal(newFinal);
+      loadFinal();
     } catch (error: any) {
       console.error('Error creating final:', error);
       toast({
