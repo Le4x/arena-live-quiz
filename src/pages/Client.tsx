@@ -208,13 +208,13 @@ const Client = () => {
 
     const unsubKick = gameEvents.on('KICK_ALL', () => {
       toast({ title: "👋 Déconnecté par la régie" });
-      setTimeout(() => window.location.href = '/', 2000);
+      window.location.href = '/client';
     });
 
     const unsubKickTeam = gameEvents.on('KICK_TEAM', (event: any) => {
       if (event.data?.teamId === teamId) {
         toast({ title: "👋 Déconnecté par la régie" });
-        setTimeout(() => window.location.href = '/', 2000);
+        window.location.href = '/client';
       }
     });
 
