@@ -15,6 +15,8 @@ import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
 import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
 import { ThanksScreen } from "@/components/tv/ThanksScreen";
+import { ArmedBanner } from "@/components/tv/ArmedBanner";
+import { FirstBuzzHighlight } from "@/components/tv/FirstBuzzHighlight";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -36,6 +38,7 @@ const Screen = () => {
   const [final, setFinal] = useState<any>(null);
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [firstBuzzTeam, setFirstBuzzTeam] = useState<{ name: string; color: string } | null>(null);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -115,13 +118,21 @@ const Screen = () => {
           if (teamData) {
             console.log('✅ Screen: Équipe trouvée:', teamData.name, 'Color:', teamData.color);
             
+            // Afficher l'overlay "Premier buzz"
+            setFirstBuzzTeam({ name: teamData.name, color: teamData.color });
+            
             // Définir les données du buzzer en une seule fois
             const notif = { show: true, team: teamData };
             console.log('🎬 Screen: Setting buzzerNotification:', notif);
             setBuzzerNotification(notif);
             playSound('buzz');
             
-            // Cacher après 5 secondes
+            // Cacher l'overlay après 1.5s
+            setTimeout(() => {
+              setFirstBuzzTeam(null);
+            }, 1500);
+            
+            // Cacher la notification après 5 secondes
             setTimeout(() => {
               console.log('⏰ Screen: Fin animation buzzer');
               setBuzzerNotification(null);
@@ -558,6 +569,15 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Bannière "ÉCLAIR" quand buzzers activés */}
+      <ArmedBanner armed={gameState?.is_buzzer_active || false} />
+
+      {/* Overlay "Premier buzz" */}
+      <FirstBuzzHighlight 
+        teamName={firstBuzzTeam?.name} 
+        teamColor={firstBuzzTeam?.color} 
+      />
+
       {/* Écran des sponsors */}
       {gameState?.show_sponsors_screen && currentSession?.id && (
         <SponsorsScreen sessionId={currentSession.id} />

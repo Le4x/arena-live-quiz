@@ -151,34 +151,65 @@ export class SupabaseTransport implements Transport {
 }
 
 /**
- * Implémentation WebSocket LAN (pour mode offline)
- * TODO: implémenter plus tard avec WebSocket natif
+ * Implémentation WebSocket LAN (pour mode offline avec Socket.IO)
+ * Utilise le serveur LAN local (server/index.ts)
  */
-export class LocalWSTransport implements Transport {
-  private ws: WebSocket | null = null;
-  private handlers: Map<string, Set<TransportHandler>> = new Map();
+import { io, Socket } from 'socket.io-client';
 
-  constructor(serverUrl: string = 'ws://localhost:8080') {
-    this.ws = new WebSocket(serverUrl);
-    this.ws.onmessage = (event) => {
-      const { channel, payload } = JSON.parse(event.data);
-      const handlers = this.handlers.get(channel);
-      if (handlers) {
-        handlers.forEach(h => h(payload));
-      }
-    };
+export class LocalWSTransport implements Transport {
+  private socket: Socket | null = null;
+  private handlers: Map<string, Set<TransportHandler>> = new Map();
+  private connected: boolean = false;
+
+  constructor(serverUrl: string = 'ws://localhost:8787') {
+    console.log('🌐 [LocalWSTransport] Connexion à', serverUrl);
+    
+    this.socket = io(serverUrl, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+    });
+
+    this.socket.on('connect', () => {
+      console.log('✅ [LocalWSTransport] Connecté au serveur LAN');
+      this.connected = true;
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('❌ [LocalWSTransport] Déconnecté du serveur LAN');
+      this.connected = false;
+    });
+
+    this.socket.on('event', (data: any) => {
+      console.log('📥 [LocalWSTransport] Événement reçu:', data);
+      // Dispatcher aux handlers correspondants
+      this.handlers.forEach((handlerSet, channel) => {
+        handlerSet.forEach(handler => handler(data));
+      });
+    });
   }
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ channel, payload }));
+    if (!this.socket || !this.connected) {
+      console.warn('⚠️ [LocalWSTransport] Socket pas connecté');
+      return;
     }
+
+    console.log('📤 [LocalWSTransport] Envoi sur', channel, ':', payload);
+    this.socket.emit('event', { room: channel, data: payload });
   }
 
   subscribe(channel: string, handler: TransportHandler): () => void {
+    console.log('📡 [LocalWSTransport] Subscribe sur', channel);
+    
     if (!this.handlers.has(channel)) {
       this.handlers.set(channel, new Set());
+      // Rejoindre la room sur le serveur
+      if (this.socket) {
+        this.socket.emit('join', channel);
+      }
     }
+    
     this.handlers.get(channel)!.add(handler);
 
     return () => {
@@ -197,11 +228,12 @@ export class LocalWSTransport implements Transport {
   }
 
   disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
     this.handlers.clear();
+    this.connected = false;
   }
 }
 

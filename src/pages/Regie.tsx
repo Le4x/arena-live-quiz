@@ -23,6 +23,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
+import { SideLog, type LogEntry } from "@/components/regie/SideLog";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -49,6 +50,19 @@ const Regie = () => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
   const [showPublicVotes, setShowPublicVotes] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // Ajouter un log
+  const addLog = (message: string, type: LogEntry['type'] = 'info', icon?: string) => {
+    const newLog: LogEntry = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      type,
+      message,
+      icon,
+    };
+    setLogs(prev => [newLog, ...prev].slice(0, 50)); // Max 50 logs
+  };
 
   useEffect(() => {
     loadActiveSession();
@@ -121,6 +135,61 @@ const Regie = () => {
       unsubHideVotes();
     };
   }, []);
+
+  // Raccourcis clavier
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorer si focus dans un input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'a':
+          e.preventDefault();
+          toggleBuzzer();
+          addLog('Buzzers basculés (touche A)', 'success', '⚡');
+          break;
+        case 'r':
+          e.preventDefault();
+          if (currentQuestionId && sessionId) {
+            // Reset question
+            supabase.from('game_state').update({ 
+              current_question_id: null, 
+              current_question_instance_id: null, 
+              is_buzzer_active: false, 
+              timer_active: false, 
+              show_answer: false,
+              answer_result: null,
+              excluded_teams: []
+            }).eq('game_session_id', sessionId);
+            setCurrentQuestionId(null);
+            setCurrentQuestionInstanceId(null);
+            setBuzzers([]);
+            setBlockedTeams([]);
+            addLog('Question réinitialisée (touche R)', 'warning', '🔄');
+          }
+          break;
+        case 'l':
+          e.preventDefault();
+          const newLeaderboardState = !gameState?.show_leaderboard;
+          supabase.from('game_state').update({ show_leaderboard: newLeaderboardState }).eq('game_session_id', sessionId);
+          addLog(newLeaderboardState ? 'Classement affiché (touche L)' : 'Classement masqué (touche L)', 'info', '🏆');
+          break;
+        case 'j':
+          e.preventDefault();
+          const round = rounds.find(r => r.id === currentRoundId);
+          if (round?.jingle_url) {
+            audioEngine.playJingle(round.jingle_url);
+            addLog('Jingle lancé (touche J)', 'info', '🎵');
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuestionId, sessionId, currentRoundId, gameState?.show_leaderboard, rounds]);
 
   // Recharger les buzzers quand la question change
   useEffect(() => {
@@ -1244,6 +1313,11 @@ const Regie = () => {
               />
             </TabsContent>
           </Tabs>
+
+          {/* Journal des actions (en bas à droite) */}
+          <div className="h-64 flex-shrink-0">
+            <SideLog logs={logs} />
+          </div>
         </div>
       </div>
       
