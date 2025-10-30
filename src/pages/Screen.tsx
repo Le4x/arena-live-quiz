@@ -13,6 +13,8 @@ import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
 import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
+import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
+import { ThanksScreen } from "@/components/tv/ThanksScreen";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -556,6 +558,16 @@ const Screen = () => {
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
+      {/* Écran des sponsors */}
+      {gameState?.show_sponsors_screen && currentSession?.id && (
+        <SponsorsScreen sessionId={currentSession.id} />
+      )}
+
+      {/* Écran de remerciements */}
+      {gameState?.show_thanks_screen && currentSession?.id && (
+        <ThanksScreen sessionId={currentSession.id} />
+      )}
+
       {/* Écran d'attente de la finale */}
       {gameState?.final_mode && final?.status === 'pending' && (
         <FinalWaitingScreen />
