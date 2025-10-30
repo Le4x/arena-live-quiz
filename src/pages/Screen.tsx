@@ -133,9 +133,31 @@ const Screen = () => {
       });
 
     const answersChannel = supabase
-      .channel('screen-qcm-answers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
-        console.log('🔄 Screen: Answer received');
+      .channel('screen-answers-realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'team_answers' 
+      }, (payload) => {
+        console.log('📥 Screen: Nouvelle réponse reçue', payload);
+        loadQcmAnswers();
+        loadTextAnswers();
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'team_answers' 
+      }, (payload) => {
+        console.log('🔄 Screen: Réponse mise à jour', payload);
+        loadQcmAnswers();
+        loadTextAnswers();
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'team_answers' 
+      }, (payload) => {
+        console.log('🗑️ Screen: Réponse supprimée', payload);
         loadQcmAnswers();
         loadTextAnswers();
       })
@@ -170,10 +192,16 @@ const Screen = () => {
     console.log('⏱️ Screen: Timer state changed', { 
       timer_active: gameState?.timer_active, 
       timer_started_at: gameState?.timer_started_at,
-      timer_duration: gameState?.timer_duration
+      timer_duration: gameState?.timer_duration,
+      hasAllFields: !!(gameState?.timer_active && gameState?.timer_started_at && gameState?.timer_duration)
     });
     
     if (gameState?.timer_active && gameState?.timer_started_at && gameState?.timer_duration) {
+      console.log('⏱️ Screen: Démarrage du timer avec:', {
+        started_at: gameState.timer_started_at,
+        duration: gameState.timer_duration
+      });
+      
       // Calculer le temps restant en fonction du timestamp de départ
       const calculateRemainingTime = () => {
         const startTime = new Date(gameState.timer_started_at).getTime();
@@ -185,7 +213,7 @@ const Screen = () => {
 
       // Initialiser avec le temps restant calculé
       const initialRemaining = calculateRemainingTime();
-      console.log('⏱️ Screen: Timer calculé:', initialRemaining, 'secondes restantes');
+      console.log('⏱️ Screen: Timer initial:', initialRemaining, 'secondes restantes');
       setTimer(initialRemaining);
       
       // Mettre à jour toutes les secondes
@@ -195,12 +223,13 @@ const Screen = () => {
         setTimer(remaining);
         
         if (remaining <= 0) {
+          console.log('⏱️ Screen: Timer terminé');
           clearInterval(interval);
         }
       }, 1000);
     } else {
       // Arrêter et cacher le timer IMMÉDIATEMENT quand timer_active est false
-      console.log('⏱️ Screen: Timer stopped');
+      console.log('⏱️ Screen: Timer stopped ou champs manquants');
       setTimer(null);
     }
     
@@ -230,7 +259,12 @@ const Screen = () => {
   const loadData = async () => {
     const [teamsRes, gameStateRes] = await Promise.all([
       supabase.from('teams').select('*').order('score', { ascending: false }),
-      supabase.from('game_state').select('*, questions(*), game_sessions(*), current_round_id:rounds!current_round_id(*)').maybeSingle()
+      supabase.from('game_state').select(`
+        *, 
+        questions(*), 
+        game_sessions(*), 
+        current_round_id:rounds!current_round_id(*)
+      `).maybeSingle()
     ]);
 
     if (teamsRes.data) {
@@ -239,6 +273,14 @@ const Screen = () => {
     }
     
     if (gameStateRes.data) {
+      console.log('📊 Screen: Game state chargé:', {
+        timer_active: gameStateRes.data.timer_active,
+        timer_started_at: gameStateRes.data.timer_started_at,
+        timer_duration: gameStateRes.data.timer_duration,
+        timer_remaining: gameStateRes.data.timer_remaining,
+        current_question_id: gameStateRes.data.current_question_id
+      });
+      
       setGameState(gameStateRes.data);
       
       // Récupérer la durée du timer depuis le round
@@ -300,32 +342,52 @@ const Screen = () => {
   };
 
   const loadQcmAnswers = async () => {
-    if (!currentQuestion?.id || currentQuestion?.question_type !== 'qcm' || !gameState?.game_session_id) {
+    const questionId = currentQuestion?.id || gameState?.current_question_id;
+    const sessionId = gameState?.game_session_id;
+    
+    if (!questionId || !sessionId) {
       setQcmAnswers([]);
       return;
     }
     
-    const { data } = await supabase
+    // Charger pour n'importe quel type de question, pas seulement QCM
+    const { data, error } = await supabase
       .from('team_answers')
       .select('*')
-      .eq('question_id', currentQuestion.id)
-      .eq('game_session_id', gameState.game_session_id);
+      .eq('question_id', questionId)
+      .eq('game_session_id', sessionId);
     
+    if (error) {
+      console.error('❌ Erreur chargement réponses QCM:', error);
+      return;
+    }
+    
+    console.log('📥 Screen: Réponses QCM chargées', data?.length || 0);
     if (data) setQcmAnswers(data);
   };
 
   const loadTextAnswers = async () => {
-    if (!currentQuestion?.id || currentQuestion?.question_type !== 'free_text' || !gameState?.game_session_id) {
+    const questionId = currentQuestion?.id || gameState?.current_question_id;
+    const sessionId = gameState?.game_session_id;
+    
+    if (!questionId || !sessionId) {
       setTextAnswers([]);
       return;
     }
     
-    const { data } = await supabase
+    // Charger pour n'importe quel type de question, pas seulement free_text
+    const { data, error } = await supabase
       .from('team_answers')
       .select('*')
-      .eq('question_id', currentQuestion.id)
-      .eq('game_session_id', gameState.game_session_id);
+      .eq('question_id', questionId)
+      .eq('game_session_id', sessionId);
     
+    if (error) {
+      console.error('❌ Erreur chargement réponses texte:', error);
+      return;
+    }
+    
+    console.log('📥 Screen: Réponses texte chargées', data?.length || 0);
     if (data) setTextAnswers(data);
   };
 
@@ -969,10 +1031,10 @@ const Screen = () => {
 
         {/* Barre de timer - Uniquement si timer actif ET question en cours */}
         {gameState?.timer_active && timer !== null && timer > 0 && currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
-          <div className="max-w-5xl mx-auto mb-6 animate-slide-in">
+          <div className="max-w-6xl mx-auto mb-6 animate-slide-in">
             <TimerBar 
               timerRemaining={timer}
-              timerDuration={timerDuration}
+              timerDuration={gameState?.timer_duration || timerDuration}
               timerActive={gameState?.timer_active || false}
               questionType={currentQuestion.question_type}
             />
