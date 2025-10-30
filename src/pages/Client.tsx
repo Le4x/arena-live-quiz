@@ -179,14 +179,16 @@ const Client = () => {
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
         playSound(isCorrect ? 'correct' : 'incorrect');
         
-        console.log('🎭 Client: Animation reveal démarrée, durée 6s');
+        // Durée plus longue pour les bonnes réponses
+        const revealDuration = isCorrect ? 8000 : 5000;
+        console.log(`🎭 Client: Animation reveal démarrée, durée ${revealDuration}ms`);
         
-        // Cacher le reveal après 6 secondes
+        // Cacher le reveal après la durée appropriée
         revealTimeoutRef.current = setTimeout(() => {
           console.log('🎭 Client: Animation reveal terminée');
           setShowReveal(false);
           revealTimeoutRef.current = null;
-        }, 6000);
+        }, revealDuration);
       }
     });
 
@@ -246,20 +248,16 @@ const Client = () => {
       instanceId: gameState?.current_question_instance_id
     });
     
-    // Annuler l'animation reveal en cours seulement si on change de question
-    if (revealTimeoutRef.current) {
-      console.log('🎭 Client: Annulation reveal timeout (changement de question)');
-      clearTimeout(revealTimeoutRef.current);
-      revealTimeoutRef.current = null;
+    // Ne PAS annuler le reveal si une animation est en cours
+    // L'animation doit se terminer naturellement
+    if (!showReveal) {
+      // Reset buzzer state when question changes
+      setHasBuzzed(false);
+      setAnswer("");
+      setHasAnswered(false);
+      setAnswerResult(null);
+      setIsBlockedForQuestion(false);
     }
-    
-    // Reset buzzer state when question changes
-    setHasBuzzed(false);
-    setAnswer("");
-    setHasAnswered(false);
-    setAnswerResult(null);
-    setShowReveal(false);
-    setIsBlockedForQuestion(false);
     
     // Ne rien faire si pas de team (page de login)
     if (!team) {
