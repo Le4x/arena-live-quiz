@@ -169,6 +169,13 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         solution: { start: selectedSound.cue2_time, end: selectedSound.cue2_time + selectedSound.solution_duration }
       } : undefined;
 
+      // Filtrer les options vides pour les QCM
+      const filteredOptions = questionType === 'qcm' 
+        ? Object.fromEntries(
+            Object.entries(options).filter(([_, value]) => value.trim() !== '')
+          )
+        : null;
+
       const questionData = {
         round_id: roundId,
         question_text: questionText.trim(),
@@ -179,7 +186,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         audio_url: selectedSound?.url || audioUrl || null,
         image_url: imageUrl,
         cue_points: cuePoints ? JSON.stringify(cuePoints) : null,
-        options: questionType === 'qcm' ? JSON.stringify(options) : null
+        options: filteredOptions ? JSON.stringify(filteredOptions) : null
       };
 
       if (question) {
