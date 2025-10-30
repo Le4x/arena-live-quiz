@@ -163,35 +163,44 @@ const Screen = () => {
 
   // Pas de polling - uniquement real-time
 
+  // Timer synchronisé en temps réel basé sur timestamp
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     console.log('⏱️ Screen: Timer state changed', { 
       timer_active: gameState?.timer_active, 
-      timer_remaining: gameState?.timer_remaining 
+      timer_started_at: gameState?.timer_started_at,
+      timer_duration: gameState?.timer_duration
     });
     
-    if (gameState?.timer_active) {
-      // Synchroniser avec la valeur de la DB uniquement si timer actif
-      if (gameState?.timer_remaining !== null && gameState?.timer_remaining !== undefined) {
-        console.log('⏱️ Screen: Syncing timer to', gameState.timer_remaining);
-        setTimer(gameState.timer_remaining);
-      }
+    if (gameState?.timer_active && gameState?.timer_started_at && gameState?.timer_duration) {
+      // Calculer le temps restant en fonction du timestamp de départ
+      const calculateRemainingTime = () => {
+        const startTime = new Date(gameState.timer_started_at).getTime();
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        const remaining = Math.max(0, gameState.timer_duration - elapsed);
+        return remaining;
+      };
+
+      // Initialiser avec le temps restant calculé
+      const initialRemaining = calculateRemainingTime();
+      console.log('⏱️ Screen: Timer calculé:', initialRemaining, 'secondes restantes');
+      setTimer(initialRemaining);
       
-      // Démarrer le compte à rebours local SEULEMENT après synchronisation
+      // Mettre à jour toutes les secondes
       interval = setInterval(() => {
-        setTimer((prev) => {
-          if (prev === null || prev <= 0) {
-            return 0;
-          }
-          const next = prev - 1;
-          console.log('⏱️ Screen: Timer tick', next);
-          return next;
-        });
+        const remaining = calculateRemainingTime();
+        console.log('⏱️ Screen: Timer tick', remaining);
+        setTimer(remaining);
+        
+        if (remaining <= 0) {
+          clearInterval(interval);
+        }
       }, 1000);
     } else {
       // Arrêter et cacher le timer IMMÉDIATEMENT quand timer_active est false
-      console.log('⏱️ Screen: Timer stopped by timer_active=false');
+      console.log('⏱️ Screen: Timer stopped');
       setTimer(null);
     }
     
@@ -201,7 +210,7 @@ const Screen = () => {
         clearInterval(interval);
       }
     };
-  }, [gameState?.timer_active, gameState?.timer_remaining]);
+  }, [gameState?.timer_active, gameState?.timer_started_at, gameState?.timer_duration]);
 
   // Jouer les sons ET afficher l'animation quand le résultat change
   useEffect(() => {

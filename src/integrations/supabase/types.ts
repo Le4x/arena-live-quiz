@@ -131,7 +131,9 @@ export type Database = {
           show_waiting_screen: boolean | null
           show_welcome_screen: boolean | null
           timer_active: boolean | null
+          timer_duration: number | null
           timer_remaining: number | null
+          timer_started_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -155,7 +157,9 @@ export type Database = {
           show_waiting_screen?: boolean | null
           show_welcome_screen?: boolean | null
           timer_active?: boolean | null
+          timer_duration?: number | null
           timer_remaining?: number | null
+          timer_started_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -179,7 +183,9 @@ export type Database = {
           show_waiting_screen?: boolean | null
           show_welcome_screen?: boolean | null
           timer_active?: boolean | null
+          timer_duration?: number | null
           timer_remaining?: number | null
+          timer_started_at?: string | null
           updated_at?: string | null
         }
         Relationships: [

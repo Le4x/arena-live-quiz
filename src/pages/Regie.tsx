@@ -380,12 +380,14 @@ const Regie = () => {
     setTimerRemaining(timerDuration);
     setTimerActive(true);
 
-    // Envoyer la question aux clients et démarrer le chrono
+    // Envoyer la question aux clients et démarrer le chrono avec timestamp
     await supabase.from('game_state').update({
       current_question_id: currentQuestionId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
-      timer_remaining: timerDuration
+      timer_started_at: new Date().toISOString(),
+      timer_duration: timerDuration,
+      timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
@@ -528,7 +530,13 @@ const Regie = () => {
     }
 
     
-    await supabase.from('game_state').update({ answer_result: 'correct', is_buzzer_active: false, timer_active: false }).eq('game_session_id', sessionId);
+    await supabase.from('game_state').update({ 
+      answer_result: 'correct', 
+      is_buzzer_active: false, 
+      timer_active: false,
+      timer_started_at: null,
+      timer_duration: null
+    }).eq('game_session_id', sessionId);
     setTimerActive(false);
     const q = questions.find(x => x.id === currentQuestionId);
     if (q?.audio_url && q.question_type === 'blind_test') { 
@@ -576,7 +584,9 @@ const Regie = () => {
     await supabase.from('game_state').update({ 
       show_answer: true,
       timer_active: false,
-      timer_remaining: 0  // Reset à 0 au lieu de null
+      timer_started_at: null,
+      timer_duration: null,
+      timer_remaining: 0
     }).eq('game_session_id', sessionId);
     
     setTimerActive(false);
