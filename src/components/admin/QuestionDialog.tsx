@@ -157,6 +157,19 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       return;
     }
 
+    // Vérifier qu'il y a au moins 2 options remplies pour les QCM
+    if (questionType === 'qcm') {
+      const filledOptionsCount = Object.values(options).filter(v => v.trim() !== '').length;
+      if (filledOptionsCount < 2) {
+        toast({ 
+          title: "Erreur", 
+          description: "Un QCM doit avoir au moins 2 options de réponse", 
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       // Upload image si présente

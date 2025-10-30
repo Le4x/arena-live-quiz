@@ -1040,7 +1040,10 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    return Object.entries(options || {}).map(([key, value]) => {
+                    // Filtrer les options vides
+                    return Object.entries(options || {})
+                      .filter(([_, value]) => value && String(value).trim() !== '')
+                      .map(([key, value]) => {
                       const optionValue = value as string;
                       const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
                       const isSelectedOption = showReveal && answer === optionValue;

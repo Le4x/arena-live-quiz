@@ -932,9 +932,14 @@ const Screen = () => {
                     const correctAnswer = currentQuestion.correct_answer;
                     const showReveal = gameState?.show_answer === true;
                     
+                    // Filtrer les options vides
+                    const filledOptions = Object.entries(options || {}).filter(([_, value]) => 
+                      value && String(value).trim() !== ''
+                    );
+                    
                     return (
                       <div className="grid grid-cols-2 gap-6 mt-8">
-                        {Object.entries(options || {}).map(([key, value], index) => {
+                        {filledOptions.map(([key, value], index) => {
                           const isCorrect = showReveal && value === correctAnswer;
                           return (
                             <motion.div
