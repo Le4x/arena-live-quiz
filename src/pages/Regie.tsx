@@ -531,7 +531,7 @@ const Regie = () => {
   };
 
   const sendQuestionToClients = async () => {
-    if (!currentQuestionId || !sessionId) {
+    if (!currentQuestionId || !currentQuestionInstanceId || !sessionId) {
       toast({ title: '❌ Aucune question préparée', variant: 'destructive' });
       return;
     }
@@ -542,10 +542,17 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
 
+    // Capturer les valeurs locales pour éviter les problèmes de closure
+    const qId = currentQuestionId;
+    const qInstanceId = currentQuestionInstanceId;
+    const sId = sessionId;
+
+    console.log('🚀 [Regie.sendQuestionToClients] Envoi question avec:', { qId, qInstanceId, sId });
+
     // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
     await supabase.from('game_state').update({
       timer_active: false
-    }).eq('game_session_id', sessionId);
+    }).eq('game_session_id', sId);
 
     // Attendre un tout petit peu pour que le changement soit propagé
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -556,15 +563,17 @@ const Regie = () => {
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
     await supabase.from('game_state').update({
-      current_question_id: currentQuestionId,
+      current_question_id: qId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
       timer_started_at: new Date().toISOString(),
       timer_duration: timerDuration,
       timer_remaining: timerDuration // Garder pour compatibilité
-    }).eq('game_session_id', sessionId);
+    }).eq('game_session_id', sId);
 
-    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
+    console.log('📤 [Regie] Avant gameEvents.startQuestion:', { qId, qInstanceId, sId });
+    await gameEvents.startQuestion(qId, qInstanceId, sId);
+    console.log('✅ [Regie] gameEvents.startQuestion terminé');
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack) {
