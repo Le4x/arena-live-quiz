@@ -1151,6 +1151,16 @@ const Client = () => {
                   <Badge className={`${getRankBadgeColor()} font-bold px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm flex-shrink-0`}>
                     #{teamRank}
                   </Badge>
+                  {team.yellow_cards > 0 && (
+                    <Badge variant="outline" className="bg-yellow-500/20 border-yellow-500 text-yellow-500 font-bold flex-shrink-0">
+                      {'🟨'.repeat(team.yellow_cards)} {team.yellow_cards}/2
+                    </Badge>
+                  )}
+                  {team.yellow_cards >= 2 && (
+                    <Badge variant="destructive" className="font-bold flex-shrink-0 animate-pulse">
+                      EXCLUS
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                   <p className="text-lg sm:text-2xl font-bold text-primary">

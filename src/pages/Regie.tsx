@@ -1356,10 +1356,58 @@ const Regie = () => {
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs truncate">{t.name}</div>
+                        <div className="font-bold text-xs truncate flex items-center gap-1">
+                          {t.name}
+                          {t.yellow_cards > 0 && (
+                            <span className="text-yellow-500">
+                              {'🟨'.repeat(t.yellow_cards)}
+                            </span>
+                          )}
+                          {t.yellow_cards >= 2 && (
+                            <span className="text-red-500 text-xs ml-1">(EXCLUS)</span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{t.score} pts</div>
                       </div>
                       <div className="flex gap-0.5 flex-shrink-0">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-5 w-5 p-0 text-xs" 
+                          onClick={async () => {
+                            const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
+                            await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                            toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
+                          }}
+                          title="Retirer carton"
+                          disabled={!t.yellow_cards || t.yellow_cards === 0}
+                        >
+                          ↓
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-5 w-5 p-0 text-xs text-yellow-600" 
+                          onClick={async () => {
+                            const newCount = (t.yellow_cards || 0) + 1;
+                            await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                            
+                            if (newCount >= 2) {
+                              // Exclure l'équipe automatiquement
+                              await disconnectTeam(t.id);
+                              toast({ 
+                                title: '🟥 Équipe exclue !', 
+                                description: `${t.name} a reçu 2 cartons jaunes`,
+                                variant: 'destructive' 
+                              });
+                            } else {
+                              toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
+                            }
+                          }}
+                          title="Donner carton jaune"
+                        >
+                          🟨
+                        </Button>
                         <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
                         <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
                         <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
