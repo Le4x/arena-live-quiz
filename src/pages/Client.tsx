@@ -45,6 +45,7 @@ const Client = () => {
   const hasShownTimeoutToast = useRef<boolean>(false);
   const [final, setFinal] = useState<any>(null);
   const [isFinalist, setIsFinalist] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -94,6 +95,19 @@ const Client = () => {
       .channel('client-finals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
         loadFinal();
+      })
+      .subscribe();
+
+    // Écouter les changements de jokers pour appliquer leurs effets
+    const jokersChannel = supabase
+      .channel('client-jokers-effects')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'final_jokers',
+        filter: `team_id=eq.${teamId}`
+      }, (payload) => {
+        handleJokerEffect(payload.new);
       })
       .subscribe();
 
@@ -246,6 +260,7 @@ const Client = () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
       supabase.removeChannel(finalsChannel);
+      supabase.removeChannel(jokersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
@@ -271,6 +286,7 @@ const Client = () => {
     setHasAnswered(false);
     setAnswerResult(null);
     setIsBlockedForQuestion(false);
+    setEliminatedOptions([]); // Reset les options éliminées
     
     // Reset le flag de notification de timeout
     hasShownTimeoutToast.current = false;
@@ -528,6 +544,61 @@ const Client = () => {
     } else {
       setFinal(null);
       setIsFinalist(false);
+    }
+  };
+
+  const handleJokerEffect = async (joker: any) => {
+    console.log('🃏 Joker effect triggered:', joker);
+    
+    // Charger le type de joker
+    const { data: jokerType } = await supabase
+      .from('joker_types')
+      .select('*')
+      .eq('id', joker.joker_type_id)
+      .single();
+
+    if (!jokerType) return;
+
+    // Appliquer l'effet selon le type
+    if (jokerType.name === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
+      eliminateTwoWrongAnswers();
+    }
+  };
+
+  const eliminateTwoWrongAnswers = () => {
+    if (!currentQuestion?.options || !currentQuestion?.correct_answer) return;
+
+    try {
+      const options = typeof currentQuestion.options === 'string' 
+        ? JSON.parse(currentQuestion.options) 
+        : currentQuestion.options;
+
+      // Récupérer toutes les mauvaises réponses non éliminées
+      const wrongAnswers = Object.entries(options)
+        .filter(([_, value]) => {
+          const optionValue = String(value).toLowerCase().trim();
+          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
+          return optionValue !== correctAnswer && 
+                 optionValue !== '' && 
+                 !eliminatedOptions.includes(String(value));
+        })
+        .map(([_, value]) => String(value));
+
+      // Éliminer jusqu'à 2 réponses aléatoires
+      const toEliminate = wrongAnswers
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 2);
+
+      setEliminatedOptions(prev => [...prev, ...toEliminate]);
+
+      if (toEliminate.length > 0) {
+        toast({
+          title: "🎯 Réponses éliminées !",
+          description: `${toEliminate.length} mauvaise(s) réponse(s) supprimée(s)`,
+        });
+      }
+    } catch (error) {
+      console.error('Erreur élimination réponses:', error);
     }
   };
 
@@ -1120,9 +1191,12 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    // Filtrer les options vides
+                    // Filtrer les options vides ET les options éliminées
                     return Object.entries(options || {})
-                      .filter(([_, value]) => value && String(value).trim() !== '')
+                      .filter(([_, value]) => {
+                        const optionValue = String(value).trim();
+                        return optionValue !== '' && !eliminatedOptions.includes(String(value));
+                      })
                       .map(([key, value]) => {
                       const optionValue = value as string;
                       const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();

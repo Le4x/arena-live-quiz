@@ -62,14 +62,16 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     setLoading(true);
     
     try {
-      // Récupérer le joker avec un FOR UPDATE pour éviter les race conditions
+      // Récupérer le joker actuel
       const { data: joker, error: fetchError } = await supabase
         .from('final_jokers')
         .select('*')
         .eq('id', jokerId)
         .single();
 
-      if (fetchError || !joker) throw new Error('Joker non trouvé');
+      if (fetchError || !joker) {
+        throw new Error('Joker non trouvé');
+      }
 
       // Vérifier qu'il reste des utilisations
       if (joker.used_count >= joker.quantity) {
@@ -78,32 +80,26 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
           description: "Vous avez déjà utilisé tous vos jokers de ce type",
           variant: "destructive"
         });
-        setLoading(false);
         return;
       }
 
-      // Incrémenter used_count
-      const newCount = joker.used_count + 1;
+      // Incrémenter used_count de manière atomique
       const { error: updateError } = await supabase
         .from('final_jokers')
-        .update({ used_count: newCount })
-        .eq('id', jokerId);
+        .update({ used_count: joker.used_count + 1 })
+        .eq('id', jokerId)
+        .eq('used_count', joker.used_count); // Condition pour éviter les race conditions
 
       if (updateError) throw updateError;
-
-      // Mise à jour immédiate du state local pour un feedback instantané
-      setJokers(prev => prev.map(j => 
-        j.id === jokerId ? { ...j, used_count: newCount } : j
-      ));
 
       toast({
         title: "⚡ Joker activé !",
         description: `${jokerTypeName.replace('_', ' ')} utilisé avec succès`,
       });
 
-      // Recharger pour synchroniser
-      setTimeout(() => loadJokers(), 500);
+      // Le rechargement sera fait automatiquement par le canal realtime
     } catch (error: any) {
+      console.error('Erreur joker:', error);
       toast({
         title: "Erreur",
         description: error.message,
