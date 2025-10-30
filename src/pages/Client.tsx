@@ -81,8 +81,14 @@ const Client = () => {
 
     const teamsChannel = supabase
       .channel('client-teams')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        loadTeam();
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'teams',
+        filter: teamId ? `id=eq.${teamId}` : undefined
+      }, (payload) => {
+        console.log('🔄 Team updated realtime:', payload);
+        reloadTeamData();
         loadAllTeams();
       })
       .subscribe();
@@ -535,6 +541,35 @@ const Client = () => {
           .eq('id', teamId);
       }
       
+      console.log('✅ Team loaded:', data);
+      setTeam(data);
+    }
+  };
+
+  // Fonction séparée pour les mises à jour en temps réel (sans vérification de device)
+  const reloadTeamData = async () => {
+    if (!teamId) return;
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
+    
+    if (data) {
+      // Vérifier si l'équipe est exclue
+      if (data.is_excluded && !team?.is_excluded) {
+        toast({
+          title: "❌ Équipe exclue",
+          description: "Votre équipe a été exclue du jeu suite à 2 cartons jaunes",
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/client';
+        }, 2000);
+        return;
+      }
+      
+      console.log('🔄 Team data reloaded:', data);
       setTeam(data);
     }
   };
