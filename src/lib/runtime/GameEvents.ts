@@ -60,6 +60,8 @@ export interface JokerActivatedEvent extends GameEvent {
     teamId: string;
     jokerType: 'fifty_fifty' | 'team_call' | 'public_vote';
     finalId: string;
+    questionOptions?: any; // Options de la question pour le 50-50
+    correctAnswer?: string; // Bonne réponse pour le 50-50
   };
 }
 
@@ -226,11 +228,11 @@ export const gameEvents = {
     });
   },
 
-  activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string) => {
-    console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId });
+  activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string, questionOptions?: any, correctAnswer?: string) => {
+    console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId, questionOptions, correctAnswer });
     await getGameEvents().emit({
       type: 'JOKER_ACTIVATED',
-      data: { teamId, jokerType, finalId },
+      data: { teamId, jokerType, finalId, questionOptions, correctAnswer },
     });
     console.log('🎮 [gameEvents.activateJoker] Emit terminé');
   },

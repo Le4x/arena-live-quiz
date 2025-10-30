@@ -12,9 +12,10 @@ interface JokerPanelProps {
   teamId: string;
   finalId: string;
   isActive: boolean; // true = finale active, false = finale pas encore active
+  currentQuestion?: any; // Question actuelle pour les jokers 50-50
 }
 
-export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
+export const JokerPanel = ({ teamId, finalId, isActive, currentQuestion }: JokerPanelProps) => {
   const { toast } = useToast();
   const [jokers, setJokers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,8 +99,16 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
 
       console.log('🃏 [JokerPanel] Émission événement...', { teamId, jokerTypeName, finalId });
       
-      // Émettre l'événement pour tous les clients
-      await gameEvents.activateJoker(teamId, jokerTypeName, finalId);
+      // Extraire les options et la bonne réponse pour le 50-50
+      let questionOptions, correctAnswer;
+      if (jokerTypeName === 'fifty_fifty' && currentQuestion) {
+        questionOptions = currentQuestion.options;
+        correctAnswer = currentQuestion.correct_answer;
+        console.log('🃏 [JokerPanel] Données question:', { questionOptions, correctAnswer });
+      }
+      
+      // Émettre l'événement pour tous les clients avec les données de la question
+      await gameEvents.activateJoker(teamId, jokerTypeName, finalId, questionOptions, correctAnswer);
       
       console.log('🃏 [JokerPanel] Événement émis avec succès');
 

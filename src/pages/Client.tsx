@@ -104,7 +104,7 @@ const Client = () => {
       console.log('🎯 [Client] JOKER_ACTIVATED reçu:', event);
       if (event.data?.jokerType === 'fifty_fifty') {
         console.log('🎯 [Client] Activation fifty_fifty');
-        eliminateTwoWrongAnswers(event.timestamp);
+        eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
       }
     });
 
@@ -544,30 +544,30 @@ const Client = () => {
     }
   };
 
-  const eliminateTwoWrongAnswers = (timestamp: number) => {
+  const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
     console.log('🎯 [Client] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
-    console.log('🎯 [Client] currentQuestion:', currentQuestion);
+    console.log('🎯 [Client] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
     
-    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+    // Utiliser les données de l'événement ou fallback sur currentQuestion
+    const opts = questionOptions || currentQuestion?.options;
+    const correct = correctAnswer || currentQuestion?.correct_answer;
+    
+    if (!opts || !correct) {
       console.log('❌ [Client] Pas de options ou correct_answer');
       return;
     }
 
     try {
-      const options = typeof currentQuestion.options === 'string' 
-        ? JSON.parse(currentQuestion.options) 
-        : currentQuestion.options;
-      
-      const correctAnswer = currentQuestion.correct_answer;
+      const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
       
       console.log('🎯 [Client] Options:', options);
-      console.log('🎯 [Client] Correct answer:', correctAnswer);
+      console.log('🎯 [Client] Correct answer:', correct);
 
       // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
       const wrongAnswers = Object.values(options)
         .filter((value: any) => {
           const optionValue = String(value);
-          const isWrong = optionValue !== correctAnswer;
+          const isWrong = optionValue !== correct;
           const notEliminated = !eliminatedOptions.includes(optionValue);
           return isWrong && optionValue !== '' && notEliminated;
         })
@@ -1070,6 +1070,7 @@ const Client = () => {
             teamId={teamId!} 
             finalId={final.id} 
             isActive={final.status === 'active'}
+            currentQuestion={currentQuestion}
           />
         )}
 
