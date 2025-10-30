@@ -464,13 +464,15 @@ const Client = () => {
       })
       .eq('id', teamId);
     
-    // Réinitialiser l'état local pour afficher l'écran de connexion
-    setTeam(null);
-    
     toast({
       title: "Déconnexion réussie",
       description: "Vous pouvez vous reconnecter",
     });
+    
+    // Rediriger vers la page client sans paramètre
+    setTimeout(() => {
+      window.location.href = '/client';
+    }, 500);
   };
 
   const loadTeam = async () => {
