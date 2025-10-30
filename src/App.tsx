@@ -34,6 +34,7 @@ const App = () => (
           <Route path="/client/:teamId" element={<Client />} />
           <Route path="/admin/setup" element={<ProtectedRoute><AdminSetup /></ProtectedRoute>} />
           <Route path="/admin/sounds" element={<ProtectedRoute><AdminSounds /></ProtectedRoute>} />
+          <Route path="/admin/sessions" element={<ProtectedRoute><AdminSessions /></ProtectedRoute>} />
           <Route path="/admin/teams" element={<ProtectedRoute><AdminTeams /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
