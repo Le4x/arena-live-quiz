@@ -39,17 +39,20 @@ export class SupabaseTransport implements Transport {
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
     const ch = this.getOrCreateChannel(channel);
+    console.log('📡 [Transport.publish] Envoi sur canal', channel, ':', payload);
     await ch.send({
       type: 'broadcast',
       event: 'message',
       payload,
     });
+    console.log('📡 [Transport.publish] Envoyé');
   }
 
   subscribe(channel: string, handler: TransportHandler): () => void {
     const ch = this.getOrCreateChannel(channel);
     
     ch.on('broadcast', { event: 'message' }, (data: any) => {
+      console.log('📥 [Transport.subscribe] Reçu sur canal', channel, ':', data.payload);
       handler(data.payload);
     }).subscribe();
 

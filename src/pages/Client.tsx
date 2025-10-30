@@ -101,7 +101,9 @@ const Client = () => {
 
     // Écouter les événements de jokers via GameEvents
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
+      console.log('🎯 [Client] JOKER_ACTIVATED reçu:', event);
       if (event.data?.jokerType === 'fifty_fifty') {
+        console.log('🎯 [Client] Activation fifty_fifty');
         eliminateTwoWrongAnswers(event.timestamp);
       }
     });

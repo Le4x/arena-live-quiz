@@ -208,7 +208,9 @@ const Screen = () => {
 
     // Écouter les événements de jokers
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
+      console.log('🎯 [Screen] JOKER_ACTIVATED reçu:', event);
       if (event.data?.jokerType === 'fifty_fifty') {
+        console.log('🎯 [Screen] Activation fifty_fifty');
         eliminateTwoWrongAnswers(event.timestamp);
       }
     });

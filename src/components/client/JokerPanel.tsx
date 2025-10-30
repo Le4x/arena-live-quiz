@@ -63,6 +63,8 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     setLoading(true);
     
     try {
+      console.log('🃏 [JokerPanel] Début activation:', { jokerId, jokerTypeName, teamId, finalId });
+      
       // Récupérer le joker actuel
       const { data: joker, error: fetchError } = await supabase
         .from('final_jokers')
@@ -94,8 +96,12 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
 
       if (updateError) throw updateError;
 
+      console.log('🃏 [JokerPanel] Émission événement...', { teamId, jokerTypeName, finalId });
+      
       // Émettre l'événement pour tous les clients
       await gameEvents.activateJoker(teamId, jokerTypeName, finalId);
+      
+      console.log('🃏 [JokerPanel] Événement émis avec succès');
 
       toast({
         title: "⚡ Joker activé !",
@@ -105,7 +111,7 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
       // Forcer le rechargement immédiat
       await loadJokers();
     } catch (error: any) {
-      console.error('❌ Erreur joker:', error);
+      console.error('❌ [JokerPanel] Erreur:', error);
       toast({
         title: "Erreur",
         description: error.message,

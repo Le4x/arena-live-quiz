@@ -91,11 +91,14 @@ export class GameEventsManager {
    * Publier un événement
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
+    console.log('📤 [GameEvents.emit] Reçu:', event);
     const fullEvent = {
       ...event,
       timestamp: this.transport.now(),
     } as GameEvent;
+    console.log('📤 [GameEvents.emit] Event complet:', fullEvent);
     await this.transport.publish(this.channel, fullEvent);
+    console.log('📤 [GameEvents.emit] Publié sur canal:', this.channel);
   }
 
   /**
@@ -224,9 +227,14 @@ export const gameEvents = {
   },
 
   activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string) => {
-    await getGameEvents().emit<JokerActivatedEvent>({
+    console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId });
+    const event: JokerActivatedEvent = {
       type: 'JOKER_ACTIVATED',
       data: { teamId, jokerType, finalId },
-    });
+      timestamp: 0, // Will be set by emit
+    };
+    console.log('🎮 [gameEvents.activateJoker] Event créé:', event);
+    await getGameEvents().emit<JokerActivatedEvent>(event);
+    console.log('🎮 [gameEvents.activateJoker] Emit terminé');
   },
 };
