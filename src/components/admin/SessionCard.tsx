@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, PlayCircle, CheckCircle2, XCircle, Image } from "lucide-react";
+import { Edit, Trash2, PlayCircle, CheckCircle2, XCircle, Image, Trophy } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ interface SessionCardProps {
 
 export const SessionCard = ({ session, onEdit, onDelete, onActivate }: SessionCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const navigate = useNavigate();
 
   const getStatusBadge = () => {
     switch (session.status) {
@@ -105,6 +107,16 @@ export const SessionCard = ({ session, onEdit, onDelete, onActivate }: SessionCa
             <p>Démarrée le {new Date(session.started_at).toLocaleDateString('fr-FR')}</p>
           )}
         </div>
+
+        <Button 
+          onClick={() => navigate(`/admin/sponsors/${session.id}`)}
+          variant="outline" 
+          size="sm" 
+          className="w-full mt-4 gap-2"
+        >
+          <Trophy className="h-4 w-4" />
+          Gérer les sponsors
+        </Button>
       </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
