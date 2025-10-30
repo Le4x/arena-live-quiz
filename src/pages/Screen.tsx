@@ -133,7 +133,7 @@ const Screen = () => {
       });
 
     const answersChannel = supabase
-      .channel('screen-answers-realtime-v2')
+      .channel('screen-answers-realtime-v3')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
@@ -146,12 +146,17 @@ const Screen = () => {
           game_session_id: payload.new.game_session_id
         });
         
-        // Recharger le game state d'abord pour avoir les données à jour
-        await loadData();
-        
-        // Puis recharger les réponses
-        await loadQcmAnswers();
-        await loadTextAnswers();
+        // Utiliser directement les IDs de la payload pour charger les réponses
+        await loadQcmAnswers(
+          payload.new.question_id,
+          payload.new.game_session_id,
+          payload.new.question_instance_id
+        );
+        await loadTextAnswers(
+          payload.new.question_id,
+          payload.new.game_session_id,
+          payload.new.question_instance_id
+        );
       })
       .on('postgres_changes', { 
         event: 'UPDATE', 
@@ -159,9 +164,16 @@ const Screen = () => {
         table: 'team_answers' 
       }, async (payload) => {
         console.log('🔄 Screen: Réponse UPDATE reçue', payload);
-        await loadData();
-        await loadQcmAnswers();
-        await loadTextAnswers();
+        await loadQcmAnswers(
+          payload.new.question_id,
+          payload.new.game_session_id,
+          payload.new.question_instance_id
+        );
+        await loadTextAnswers(
+          payload.new.question_id,
+          payload.new.game_session_id,
+          payload.new.question_instance_id
+        );
       })
       .on('postgres_changes', { 
         event: 'DELETE', 
@@ -169,7 +181,6 @@ const Screen = () => {
         table: 'team_answers' 
       }, async (payload) => {
         console.log('🗑️ Screen: Réponse DELETE reçue', payload);
-        await loadData();
         await loadQcmAnswers();
         await loadTextAnswers();
       })
@@ -355,10 +366,10 @@ const Screen = () => {
     }
   };
 
-  const loadQcmAnswers = async () => {
-    const questionId = currentQuestion?.id || gameState?.current_question_id;
-    const sessionId = gameState?.game_session_id;
-    const instanceId = gameState?.current_question_instance_id;
+  const loadQcmAnswers = async (forceQuestionId?: string, forceSessionId?: string, forceInstanceId?: string) => {
+    const questionId = forceQuestionId || currentQuestion?.id || gameState?.current_question_id;
+    const sessionId = forceSessionId || gameState?.game_session_id;
+    const instanceId = forceInstanceId || gameState?.current_question_instance_id;
     
     console.log('🔍 Screen: loadQcmAnswers appelé', { questionId, sessionId, instanceId });
     
@@ -394,10 +405,10 @@ const Screen = () => {
     if (data) setQcmAnswers(data);
   };
 
-  const loadTextAnswers = async () => {
-    const questionId = currentQuestion?.id || gameState?.current_question_id;
-    const sessionId = gameState?.game_session_id;
-    const instanceId = gameState?.current_question_instance_id;
+  const loadTextAnswers = async (forceQuestionId?: string, forceSessionId?: string, forceInstanceId?: string) => {
+    const questionId = forceQuestionId || currentQuestion?.id || gameState?.current_question_id;
+    const sessionId = forceSessionId || gameState?.game_session_id;
+    const instanceId = forceInstanceId || gameState?.current_question_instance_id;
     
     console.log('🔍 Screen: loadTextAnswers appelé', { questionId, sessionId, instanceId });
     
