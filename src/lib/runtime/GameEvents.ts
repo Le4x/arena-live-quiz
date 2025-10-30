@@ -122,11 +122,17 @@ export class GameEventsManager {
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
     console.log('📤 [GameEvents.emit] Reçu:', event);
-    const fullEvent = {
-      ...event,
+    
+    // Construire explicitement l'événement pour garantir que data est bien copié
+    const fullEvent: GameEvent = {
+      type: event.type,
+      data: event.data ? { ...event.data } : undefined,
       timestamp: this.transport.now(),
-    } as GameEvent;
+    };
+    
     console.log('📤 [GameEvents.emit] Event complet:', fullEvent);
+    console.log('📤 [GameEvents.emit] Event.data détaillé:', fullEvent.data);
+    
     await this.transport.publish(this.channel, fullEvent);
     console.log('📤 [GameEvents.emit] Publié sur canal:', this.channel);
   }
