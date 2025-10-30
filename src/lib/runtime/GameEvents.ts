@@ -227,9 +227,12 @@ export const gameEvents = {
   },
 
   activateJoker: async (teamId: string, jokerType: string, finalId: string) => {
-    await getGameEvents().emit({
-      type: 'JOKER_ACTIVATED',
+    console.log('🎮 activateJoker called with:', { teamId, jokerType, finalId });
+    const eventData = {
+      type: 'JOKER_ACTIVATED' as const,
       data: { teamId, jokerType, finalId },
-    });
+    };
+    console.log('🎮 activateJoker emitting:', eventData);
+    await getGameEvents().emit(eventData);
   },
 };
