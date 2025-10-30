@@ -63,13 +63,22 @@ const Client = () => {
     if (teamId) {
       loadTeam();
     }
-    // Ne charger le game state que si on a un teamId
-    if (teamId) {
+    
+    // Charger d'abord la session active
+    loadActiveSession();
+  }, [teamId]);
+
+  // Charger le game state une fois qu'on a la session
+  useEffect(() => {
+    if (teamId && sessionId) {
       loadGameState();
       loadAllTeams();
-      loadActiveSession();
       loadFinal();
     }
+  }, [teamId, sessionId]);
+
+  useEffect(() => {
+    if (!teamId || !sessionId) return;
 
     const gameStateChannel = supabase
       .channel('client-game-state')
@@ -297,7 +306,7 @@ const Client = () => {
       unsubJoker();
       unsubTeamBuzzed();
     };
-  }, [teamId, currentQuestionInstanceId]);
+  }, [teamId, sessionId, currentQuestionInstanceId]);
 
   useEffect(() => {
     const newQuestionId = currentQuestion?.id;
@@ -483,20 +492,49 @@ const Client = () => {
   };
 
   const loadAllTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
+    if (!sessionId) {
+      console.log('⚠️ [Client] Pas de session ID, équipes non chargées');
+      setAllTeams([]);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('game_session_id', sessionId)
+      .order('score', { ascending: false });
+      
     if (data) {
+      console.log('✅ [Client] Équipes chargées pour session:', sessionId, '- Total:', data.length);
       setAllTeams(data);
       // Calculer le classement de l'équipe actuelle
       const rank = data.findIndex(t => t.id === teamId) + 1;
       setTeamRank(rank);
+    } else {
+      setAllTeams([]);
     }
   };
 
   const loadActiveSession = async () => {
-    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
+    console.log('🔍 [Client] Chargement session active...');
+    const { data, error } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('status', 'active')
+      .maybeSingle();
+      
+    if (error) {
+      console.error('❌ [Client] Erreur chargement session:', error);
+    }
+    
     if (data) {
+      console.log('✅ [Client] Session active trouvée:', data.name, data.id);
       setSessionId(data.id);
       setActiveSession(data);
+    } else {
+      console.warn('⚠️ [Client] Aucune session active');
+      setSessionId(null);
+      setActiveSession(null);
     }
   };
 
@@ -532,12 +570,29 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    const { data } = await supabase
+    if (!sessionId) {
+      console.log('⚠️ [Client] Pas de session ID, game state non chargé');
+      return;
+    }
+    
+    console.log('🔍 [Client] Chargement game state pour session:', sessionId);
+    
+    const { data, error } = await supabase
       .from('game_state')
       .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+      .eq('game_session_id', sessionId)
       .maybeSingle();
     
+    if (error) {
+      console.error('❌ [Client] Erreur chargement game state:', error);
+    }
+    
     if (data) {
+      console.log('✅ [Client] Game state chargé:', {
+        hasCurrentQuestion: !!data.current_question_id,
+        questionId: data.current_question_id,
+        questionInstanceId: data.current_question_instance_id
+      });
       setGameState(data);
       setCurrentQuestion(data.questions);
       
@@ -546,6 +601,7 @@ const Client = () => {
         loadFinal(data.final_id);
       }
     } else {
+      console.log('⚠️ [Client] Aucun game state trouvé');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
