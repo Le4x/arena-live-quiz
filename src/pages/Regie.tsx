@@ -1312,7 +1312,7 @@ const Regie = () => {
                 }
 
                 // Texte libre = Réponses texte
-                if (questionType === 'freetext') {
+                if (questionType === 'free_text') {
                   return (
                     <TextAnswersDisplay 
                       currentQuestionId={currentQuestionId} 

@@ -19,7 +19,8 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
     console.log('💬 TextAnswersDisplay - Question changed:', { 
       currentQuestionId, 
       questionType: currentQuestion?.question_type,
-      sessionId: gameState?.game_session_id 
+      sessionId: gameState?.game_session_id,
+      instanceId: gameState?.current_question_instance_id
     });
     
     if (currentQuestionId && currentQuestion?.question_type === 'free_text' && gameState?.game_session_id) {
@@ -33,7 +34,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
           event: '*', 
           schema: 'public', 
           table: 'team_answers',
-          filter: `question_id=eq.${currentQuestionId}`
+          filter: `question_instance_id=eq.${gameState.current_question_instance_id}`
         }, (payload) => {
           console.log('💬 TextAnswersDisplay - Realtime update:', payload);
           loadAnswers();
@@ -49,38 +50,44 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
     } else {
       setAnswers([]);
     }
-  }, [currentQuestionId, currentQuestion?.question_type, gameState?.game_session_id]);
+  }, [currentQuestionId, currentQuestion?.question_type, gameState?.game_session_id, gameState?.current_question_instance_id]);
 
   const loadAnswers = async () => {
-    if (!currentQuestionId || !gameState?.game_session_id) {
+    if (!currentQuestionId || !gameState?.game_session_id || !gameState?.current_question_instance_id) {
       console.log('💬 TextAnswersDisplay - Missing required data');
       return;
     }
 
-    console.log('💬 TextAnswersDisplay - Loading answers...', { currentQuestionId, sessionId: gameState.game_session_id });
+    console.log('💬 TextAnswersDisplay - Loading answers...', { 
+      currentQuestionId, 
+      sessionId: gameState.game_session_id,
+      instanceId: gameState.current_question_instance_id
+    });
 
     const { data, error } = await supabase
       .from('team_answers')
       .select('*, teams(name, color)')
-      .eq('question_id', currentQuestionId)
+      .eq('question_instance_id', gameState.current_question_instance_id)
       .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
     if (error) {
       console.error('💬 TextAnswersDisplay - Error loading answers:', error);
     } else {
-      console.log('💬 TextAnswersDisplay - Loaded answers:', data?.length || 0);
+      console.log('💬 TextAnswersDisplay - Loaded answers:', data?.length || 0, data);
       if (data) setAnswers(data);
     }
   };
 
-  const markAnswer = async (answerId: string, isCorrect: boolean) => {
-    // Juste marquer la réponse (pas de modification de score ici)
+  const markAnswer = async (answerId: string, isCorrect: boolean, teamId: string, pointsValue: number) => {
+    const pointsToAward = isCorrect ? pointsValue : 0;
+    
+    // Marquer la réponse
     const { error } = await supabase
       .from('team_answers')
       .update({ 
         is_correct: isCorrect,
-        points_awarded: isCorrect ? 10 : 0
+        points_awarded: pointsToAward
       })
       .eq('id', answerId);
 
@@ -92,6 +99,25 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
       });
       return;
     }
+    
+    // Mettre à jour le score de l'équipe
+    const { data: team } = await supabase
+      .from('teams')
+      .select('score')
+      .eq('id', teamId)
+      .single();
+    
+    if (team) {
+      await supabase
+        .from('teams')
+        .update({ score: team.score + pointsToAward })
+        .eq('id', teamId);
+    }
+    
+    toast({
+      title: isCorrect ? "✅ Réponse validée" : "❌ Réponse refusée",
+      description: isCorrect ? `+${pointsValue} points` : "0 point"
+    });
     
     loadAnswers();
   };
@@ -139,7 +165,8 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
                   size="sm"
                   variant={answer.is_correct === true ? "default" : "ghost"}
                   className={`h-6 w-6 p-0 ${answer.is_correct === true ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-600/20'}`}
-                  onClick={() => markAnswer(answer.id, true)}
+                  onClick={() => markAnswer(answer.id, true, answer.team_id, currentQuestion?.points || 10)}
+                  disabled={answer.is_correct !== null}
                 >
                   <Check className="h-3 w-3" />
                 </Button>
@@ -147,7 +174,8 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
                   size="sm"
                   variant={answer.is_correct === false ? "default" : "ghost"}
                   className={`h-6 w-6 p-0 ${answer.is_correct === false ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-red-600/20'}`}
-                  onClick={() => markAnswer(answer.id, false)}
+                  onClick={() => markAnswer(answer.id, false, answer.team_id, currentQuestion?.points || 10)}
+                  disabled={answer.is_correct !== null}
                 >
                   <X className="h-3 w-3" />
                 </Button>
