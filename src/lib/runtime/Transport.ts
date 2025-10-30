@@ -41,12 +41,15 @@ export class SupabaseTransport implements Transport {
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
     const ch = this.getOrCreateChannel(channel);
-    console.log('📡 [Transport.publish] Envoi sur canal', channel, ':', payload);
+    console.log('📡 [Transport.publish] Envoi sur canal', channel);
+    console.log('📡 [Transport.publish] Payload original:', JSON.stringify(payload, null, 2));
     
     // S'assurer que le canal est souscrit
     if (ch.state !== 'joined') {
+      console.log('⏳ [Transport.publish] Canal pas encore joint, attente...');
       await new Promise((resolve) => {
         ch.subscribe((status: string) => {
+          console.log('📡 [Transport.publish] Status:', status);
           if (status === 'SUBSCRIBED') {
             resolve(undefined);
           }
@@ -54,19 +57,23 @@ export class SupabaseTransport implements Transport {
       });
     }
     
-    await ch.send({
+    const sendResult = await ch.send({
       type: 'broadcast',
       event: 'message',
       payload,
     });
-    console.log('📡 [Transport.publish] Envoyé');
+    console.log('📡 [Transport.publish] Résultat send:', sendResult);
+    console.log('✅ [Transport.publish] Envoyé');
   }
 
   subscribe(channel: string, handler: TransportHandler): () => void {
     const ch = this.getOrCreateChannel(channel);
     
     ch.on('broadcast', { event: 'message' }, (data: any) => {
-      console.log('📥 [Transport.subscribe] Reçu sur canal', channel, ':', data.payload);
+      console.log('📥 [Transport.subscribe] Données brutes reçues:', data);
+      console.log('📥 [Transport.subscribe] Type de data:', typeof data);
+      console.log('📥 [Transport.subscribe] data.payload:', data.payload);
+      console.log('📥 [Transport.subscribe] JSON.stringify(data):', JSON.stringify(data, null, 2));
       handler(data.payload);
     }).subscribe();
 
