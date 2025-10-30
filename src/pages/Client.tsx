@@ -222,7 +222,7 @@ const Client = () => {
         console.log('🔄 Client: Rechargement game state avec sessionId:', event.data.sessionId);
         supabase
           .from('game_state')
-          .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+          .select('*, questions!current_question_id(*), current_round_id:rounds!current_round_id(*)')
           .eq('game_session_id', event.data.sessionId)
           .maybeSingle()
           .then(({ data, error }) => {
@@ -230,6 +230,7 @@ const Client = () => {
               console.error('❌ [Client] Erreur rechargement game state:', error);
             } else if (data) {
               console.log('✅ [Client] Game state rechargé après START_QUESTION:', data);
+              console.log('✅ [Client] Question dans data:', data.questions);
               setGameState(data);
               setCurrentQuestion(data.questions);
             }
@@ -626,7 +627,7 @@ const Client = () => {
     
     const { data, error } = await supabase
       .from('game_state')
-      .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+      .select('*, questions!current_question_id(*), current_round_id:rounds!current_round_id(*)')
       .eq('game_session_id', sessionId)
       .maybeSingle();
     
@@ -638,7 +639,8 @@ const Client = () => {
       console.log('✅ [Client] Game state chargé:', {
         hasCurrentQuestion: !!data.current_question_id,
         questionId: data.current_question_id,
-        questionInstanceId: data.current_question_instance_id
+        questionInstanceId: data.current_question_instance_id,
+        questionData: data.questions
       });
       setGameState(data);
       setCurrentQuestion(data.questions);
