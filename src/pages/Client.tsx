@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
@@ -17,6 +18,7 @@ const Client = () => {
   const [team, setTeam] = useState<any>(null);
   const [teamName, setTeamName] = useState("");
   const [teamColor, setTeamColor] = useState("#D4AF37");
+  const [pin, setPin] = useState("");
   const [gameState, setGameState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [answer, setAnswer] = useState("");
@@ -511,6 +513,59 @@ const Client = () => {
     }
   };
 
+  const connectWithPin = async () => {
+    if (!pin.trim() || pin.length !== 4) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer un code PIN à 4 chiffres",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const currentDeviceId = getDeviceId();
+
+    // Chercher l'équipe avec ce PIN
+    const { data: teamData, error } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('connection_pin', pin)
+      .maybeSingle();
+
+    if (error || !teamData) {
+      toast({
+        title: "Code PIN invalide",
+        description: "Aucune équipe trouvée avec ce code PIN",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Vérifier si un appareil est déjà connecté
+    if (teamData.connected_device_id && teamData.connected_device_id !== currentDeviceId) {
+      setDeviceBlocked(true);
+      toast({
+        title: "Accès bloqué",
+        description: "Un appareil est déjà connecté à cette équipe",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Connecter l'appareil à l'équipe
+    await supabase
+      .from('teams')
+      .update({ connected_device_id: currentDeviceId, is_active: true })
+      .eq('id', teamData.id);
+
+    setTeam(teamData);
+    window.history.replaceState(null, '', `/client/${teamData.id}`);
+    toast({
+      title: "Connexion réussie !",
+      description: `Bienvenue ${teamData.name} !`,
+    });
+  };
+
   const handleBuzzer = async () => {
     console.log('🔔 Tentative de buzzer', {
       team: team?.name,
@@ -657,40 +712,74 @@ const Client = () => {
           </h1>
           <h2 className="text-2xl font-bold text-center mb-6">Rejoindre le jeu</h2>
           
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Nom de l'équipe</label>
-              <Input
-                placeholder="Les Champions"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                className="bg-input border-border"
-              />
-            </div>
+          <Tabs defaultValue="pin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="pin">Code PIN</TabsTrigger>
+              <TabsTrigger value="create">Créer une équipe</TabsTrigger>
+            </TabsList>
             
-            <div>
-              <label className="text-sm font-medium mb-2 block">Couleur de l'équipe</label>
-              <div className="flex gap-3 flex-wrap">
-                {['#D4AF37', '#1E3A8A', '#6B21A8', '#B91C1C', '#047857', '#B45309', '#0E7490', '#7C2D12'].map((color) => (
-                  <button
-                    key={color}
-                    className={`w-12 h-12 rounded-full border-4 transition-all ${
-                      teamColor === color ? 'border-foreground scale-110' : 'border-transparent'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setTeamColor(color)}
-                  />
-                ))}
+            <TabsContent value="pin" className="space-y-4">
+              <div className="text-center mb-4">
+                <Key className="h-12 w-12 mx-auto mb-2 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Entrez le code PIN fourni par l'organisateur
+                </p>
               </div>
-            </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Code PIN (4 chiffres)</label>
+                <Input
+                  placeholder="1234"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="bg-input border-border text-center text-2xl tracking-widest"
+                  maxLength={4}
+                  inputMode="numeric"
+                />
+              </div>
+              <Button 
+                onClick={connectWithPin} 
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold h-12 text-lg"
+                disabled={pin.length !== 4}
+              >
+                Se connecter
+              </Button>
+            </TabsContent>
+            
+            <TabsContent value="create" className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Nom de l'équipe</label>
+                <Input
+                  placeholder="Les Champions"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  className="bg-input border-border"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">Couleur de l'équipe</label>
+                <div className="flex gap-3 flex-wrap">
+                  {['#D4AF37', '#1E3A8A', '#6B21A8', '#B91C1C', '#047857', '#B45309', '#0E7490', '#7C2D12'].map((color) => (
+                    <button
+                      key={color}
+                      className={`w-12 h-12 rounded-full border-4 transition-all ${
+                        teamColor === color ? 'border-foreground scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setTeamColor(color)}
+                    />
+                  ))}
+                </div>
+              </div>
 
-            <Button 
-              onClick={createTeam} 
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold h-12 text-lg"
-            >
-              Rejoindre
-            </Button>
-          </div>
+              <Button 
+                onClick={createTeam} 
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-gold h-12 text-lg"
+              >
+                Créer l'équipe
+              </Button>
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
     );
