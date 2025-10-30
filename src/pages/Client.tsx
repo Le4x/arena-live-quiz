@@ -524,26 +524,38 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    const { data } = await supabase
+    console.log('🔄 [Client] loadGameState appelé');
+    const { data, error } = await supabase
       .from('game_state')
       .select('*')
       .maybeSingle();
     
+    console.log('🔄 [Client] game_state chargé:', data, 'erreur:', error);
+    
     if (data) {
       setGameState(data);
+      console.log('🔄 [Client] current_question_id:', data.current_question_id);
       
       // Charger la question séparément si elle existe
       if (data.current_question_id) {
-        const { data: questionData } = await supabase
+        console.log('🔄 [Client] Chargement question:', data.current_question_id);
+        const { data: questionData, error: qError } = await supabase
           .from('questions')
           .select('*')
           .eq('id', data.current_question_id)
           .single();
         
+        console.log('🔄 [Client] question chargée:', questionData, 'erreur:', qError);
+        
         if (questionData) {
+          console.log('✅ [Client] Question définie:', questionData);
           setCurrentQuestion(questionData);
+        } else {
+          console.log('❌ [Client] Pas de questionData');
+          setCurrentQuestion(null);
         }
       } else {
+        console.log('⚠️ [Client] Pas de current_question_id dans game_state');
         setCurrentQuestion(null);
       }
       
@@ -552,6 +564,7 @@ const Client = () => {
         loadFinal(data.final_id);
       }
     } else {
+      console.log('❌ [Client] Pas de game_state');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
