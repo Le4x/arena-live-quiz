@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Plus, ListMusic, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, ListMusic, Trash2, MessageSquareText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { QuestionCreator } from "@/components/QuestionCreator";
 import { RoundCard } from "@/components/admin/RoundCard";
 import { RoundDialog } from "@/components/admin/RoundDialog";
+import { QuestionCard } from "@/components/admin/QuestionCard";
+import { QuestionDialog } from "@/components/admin/QuestionDialog";
 import { useToast } from "@/hooks/use-toast";
 
 const AdminSetup = () => {
@@ -15,7 +16,9 @@ const AdminSetup = () => {
   const [rounds, setRounds] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
+  const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [selectedRound, setSelectedRound] = useState<any | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +51,42 @@ const AdminSetup = () => {
     setRoundDialogOpen(true);
   };
 
+  const handleCreateQuestion = () => {
+    setSelectedQuestion(null);
+    setQuestionDialogOpen(true);
+  };
+
+  const handleEditQuestion = (question: any) => {
+    setSelectedQuestion(question);
+    setQuestionDialogOpen(true);
+  };
+
+  const handleDuplicateQuestion = async (question: any) => {
+    try {
+      const { id, created_at, ...questionData } = question;
+      const { error } = await supabase
+        .from('questions')
+        .insert([{
+          ...questionData,
+          question_text: `${questionData.question_text} (copie)`
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Question dupliquée",
+        description: "La question a été dupliquée avec succès"
+      });
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const deleteRound = async (roundId: string) => {
     try {
       // Supprimer d'abord toutes les questions de cette manche
@@ -72,12 +111,21 @@ const AdminSetup = () => {
   };
 
   const deleteQuestion = async (questionId: string) => {
-    const { error } = await supabase.from('questions').delete().eq('id', questionId);
-    if (error) {
-      toast({ title: "Erreur", description: "Impossible de supprimer la question", variant: "destructive" });
-    } else {
-      toast({ title: "Question supprimée" });
-      loadQuestions();
+    try {
+      const { error } = await supabase.from('questions').delete().eq('id', questionId);
+      if (error) throw error;
+
+      toast({ 
+        title: "Question supprimée",
+        description: "La question a été supprimée avec succès"
+      });
+      loadData();
+    } catch (error: any) {
+      toast({ 
+        title: "Erreur", 
+        description: error.message || "Impossible de supprimer la question", 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -151,19 +199,55 @@ const AdminSetup = () => {
 
             {/* Section Questions */}
             <Card className="p-6 bg-card/80 backdrop-blur-sm border-primary/20">
-              <h2 className="text-2xl font-bold text-primary mb-6">
-                Ajouter des questions
-              </h2>
-              <QuestionCreator rounds={rounds} onQuestionCreated={loadQuestions} />
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
+                  <MessageSquareText className="h-6 w-6" />
+                  Questions ({questions.length})
+                </h2>
+                <Button onClick={handleCreateQuestion} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nouvelle question
+                </Button>
+              </div>
+
+              {questions.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageSquareText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-bold mb-2">Aucune question créée</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Créez votre première question pour commencer
+                  </p>
+                  <Button onClick={handleCreateQuestion} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Créer ma première question
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {questions.map((question) => {
+                    const round = rounds.find(r => r.id === question.round_id);
+                    return (
+                      <QuestionCard
+                        key={question.id}
+                        question={question}
+                        roundTitle={round?.title || "Manche inconnue"}
+                        onEdit={handleEditQuestion}
+                        onDelete={deleteQuestion}
+                        onDuplicate={handleDuplicateQuestion}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           </>
         )}
 
         {/* Liste des questions par manche */}
-        {!loading && rounds.length > 0 && (
+        {!loading && questions.length > 0 && (
           <Card className="p-6 bg-card/80 backdrop-blur-sm border-accent/20">
             <h2 className="text-2xl font-bold text-accent mb-4">
-              Questions par manche ({questions.length} total)
+              Questions par manche
             </h2>
             <div className="space-y-4">
               {rounds.map((round) => {
@@ -179,35 +263,16 @@ const AdminSetup = () => {
                       </span>
                     </h3>
                     
-                    <div className="space-y-2 pl-4 border-l-2 border-accent/30">
+                    <div className="space-y-2">
                       {roundQuestions.map((question) => (
-                        <div
+                        <QuestionCard
                           key={question.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <div className="flex-1">
-                            <div className="font-semibold">{question.question_text}</div>
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                              <span>{question.question_type}</span>
-                              <span>•</span>
-                              <span className="text-green-600">+{question.points} pts</span>
-                              {question.penalty_points > 0 && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-red-600">-{question.penalty_points} pts</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteQuestion(question.id)}
-                            className="hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                          question={question}
+                          roundTitle={round.title}
+                          onEdit={handleEditQuestion}
+                          onDelete={deleteQuestion}
+                          onDuplicate={handleDuplicateQuestion}
+                        />
                       ))}
                     </div>
                   </div>
@@ -223,6 +288,15 @@ const AdminSetup = () => {
         open={roundDialogOpen}
         onOpenChange={setRoundDialogOpen}
         round={selectedRound}
+        onSave={loadData}
+      />
+
+      {/* Dialog pour créer/éditer les questions */}
+      <QuestionDialog
+        open={questionDialogOpen}
+        onOpenChange={setQuestionDialogOpen}
+        question={selectedQuestion}
+        rounds={rounds}
         onSave={loadData}
       />
     </div>
