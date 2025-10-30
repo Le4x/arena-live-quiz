@@ -106,9 +106,13 @@ export const JokerPanel = ({ teamId, finalId, isActive, currentQuestion }: Joker
         console.log('🃏 [JokerPanel] currentQuestion.options:', currentQuestion.options);
         console.log('🃏 [JokerPanel] Type de currentQuestion.options:', typeof currentQuestion.options);
         
-        questionOptions = currentQuestion.options;
+        // Forcer une copie profonde des options
+        questionOptions = typeof currentQuestion.options === 'string' 
+          ? JSON.parse(currentQuestion.options) 
+          : JSON.parse(JSON.stringify(currentQuestion.options));
         correctAnswer = currentQuestion.correct_answer;
-        console.log('🃏 [JokerPanel] Données question:', { questionOptions, correctAnswer });
+        
+        console.log('🃏 [JokerPanel] Données question après copie:', { questionOptions, correctAnswer });
       }
       
       // Émettre l'événement pour tous les clients avec les données de la question
