@@ -33,6 +33,7 @@ const Screen = () => {
   const [timerDuration, setTimerDuration] = useState(30);
   const [final, setFinal] = useState<any>(null);
   const [showPublicVotes, setShowPublicVotes] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -205,6 +206,14 @@ const Screen = () => {
       setShowPublicVotes(false);
     });
 
+    // Écouter les événements de jokers
+    const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
+      console.log('🃏 Screen: Joker reçu:', event);
+      if (event.data?.jokerType === 'eliminate_answer') {
+        eliminateTwoWrongAnswers(event.timestamp);
+      }
+    });
+
     return () => {
       console.log('🧹 Screen: Nettoyage des canaux realtime');
       supabase.removeChannel(teamsChannel);
@@ -214,6 +223,7 @@ const Screen = () => {
       supabase.removeChannel(answersChannel);
       unsubShowVotes();
       unsubHideVotes();
+      unsubJoker();
     };
   }, []); // IMPORTANT: Pas de dépendances pour éviter les reconnexions
 
@@ -222,6 +232,7 @@ const Screen = () => {
     loadBuzzers();
     loadQcmAnswers();
     loadTextAnswers();
+    setEliminatedOptions([]); // Reset les options éliminées
   }, [currentQuestion?.id, gameState?.game_session_id]);
 
   // Pas de polling - uniquement real-time
@@ -470,6 +481,58 @@ const Screen = () => {
       data: data?.map(d => ({ team_id: d.team_id, question_instance_id: d.question_instance_id }))
     });
     if (data) setTextAnswers(data);
+  };
+
+  const eliminateTwoWrongAnswers = (timestamp: number) => {
+    console.log('🎯 Screen: eliminateTwoWrongAnswers avec timestamp:', timestamp);
+    
+    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+      console.log('❌ Screen: Pas d\'options ou de réponse correcte');
+      return;
+    }
+
+    try {
+      const options = typeof currentQuestion.options === 'string' 
+        ? JSON.parse(currentQuestion.options) 
+        : currentQuestion.options;
+
+      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
+      const wrongAnswers = Object.entries(options)
+        .filter(([_, value]) => {
+          const optionValue = String(value).toLowerCase().trim();
+          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
+          return optionValue !== correctAnswer && optionValue !== '' && !eliminatedOptions.includes(String(value));
+        })
+        .map(([_, value]) => String(value))
+        .sort(); // Tri alphabétique pour garantir le même ordre partout
+
+      console.log('🎯 Screen: Mauvaises réponses disponibles:', wrongAnswers);
+
+      if (wrongAnswers.length === 0) {
+        console.log('⚠️ Screen: Aucune mauvaise réponse disponible');
+        return;
+      }
+
+      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
+      const toEliminate: string[] = [];
+      const index1 = timestamp % wrongAnswers.length;
+      toEliminate.push(wrongAnswers[index1]);
+
+      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
+      if (wrongAnswers.length > 1) {
+        let index2 = (timestamp * 3) % wrongAnswers.length;
+        if (index2 === index1) {
+          index2 = (index2 + 1) % wrongAnswers.length;
+        }
+        toEliminate.push(wrongAnswers[index2]);
+      }
+
+      console.log('🎯 Screen: Réponses à éliminer:', toEliminate);
+
+      setEliminatedOptions(prev => [...prev, ...toEliminate]);
+    } catch (error) {
+      console.error('❌ Screen: Erreur élimination:', error);
+    }
   };
 
   return (
@@ -988,11 +1051,16 @@ const Screen = () => {
                       <div className="grid grid-cols-2 gap-6 mt-8">
                         {filledOptions.map(([key, value], index) => {
                           const isCorrect = showReveal && value === correctAnswer;
+                          const isEliminated = eliminatedOptions.includes(String(value));
                           return (
                             <motion.div
                               key={key}
                               initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              animate={{ 
+                                opacity: isEliminated ? 0.3 : 1, 
+                                scale: isEliminated ? 0.95 : 1, 
+                                y: 0 
+                              }}
                               transition={{ delay: index * 0.1, duration: 0.4 }}
                               className="relative"
                             >
@@ -1014,7 +1082,9 @@ const Screen = () => {
                               <div
                                 className={`
                                   relative rounded-2xl p-6 border-2 transition-all duration-500
-                                  ${isCorrect 
+                                  ${isEliminated 
+                                    ? 'bg-red-500/10 border-red-500/30' 
+                                    : isCorrect 
                                     ? 'bg-green-500/20 border-green-400' 
                                     : 'bg-card/60 border-primary/30 hover:border-primary/60 hover:bg-card/80'
                                   }
@@ -1030,17 +1100,22 @@ const Screen = () => {
                                   <div 
                                     className={`
                                       w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-black flex-shrink-0
-                                      ${isCorrect ? 'bg-green-500 text-white' : 'bg-primary/20 text-primary'}
+                                      ${isEliminated 
+                                        ? 'bg-red-500/20 text-red-400' 
+                                        : isCorrect 
+                                        ? 'bg-green-500 text-white' 
+                                        : 'bg-primary/20 text-primary'
+                                      }
                                     `}
                                     style={{
                                       boxShadow: isCorrect ? '0 0 20px hsl(var(--green-500))' : undefined,
                                     }}
                                   >
-                                    {isCorrect ? <Check className="w-8 h-8" /> : key}
+                                    {isEliminated ? <X className="w-8 h-8" /> : isCorrect ? <Check className="w-8 h-8" /> : key}
                                   </div>
                                   
                                   {/* Answer text */}
-                                  <span className={`text-2xl font-semibold flex-1 ${isCorrect ? 'text-green-300' : ''}`}>
+                                  <span className={`text-2xl font-semibold flex-1 ${isEliminated ? 'line-through text-red-400/50' : isCorrect ? 'text-green-300' : ''}`}>
                                     {value as string}
                                   </span>
                                 </div>
