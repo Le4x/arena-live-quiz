@@ -12,17 +12,9 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   const [answers, setAnswers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
 
-  console.log('📊 [QCMAnswersDisplay] Props reçues:', {
-    questionId: currentQuestion?.id,
-    questionType: currentQuestion?.question_type,
-    sessionId: gameState?.game_session_id
-  });
-
   useEffect(() => {
-    if (gameState?.game_session_id) {
-      loadTeams();
-    }
-  }, [gameState?.game_session_id]);
+    loadTeams();
+  }, []);
 
   useEffect(() => {
     console.log('📊 QCMAnswersDisplay - Question changed:', { 
@@ -61,29 +53,12 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
   }, [currentQuestion?.id, currentQuestion?.question_type, gameState?.game_session_id]);
 
   const loadTeams = async () => {
-    if (!gameState?.game_session_id) {
-      console.log('📊 [QCMAnswersDisplay] Pas de session, équipes non chargées');
-      setTeams([]);
-      return;
-    }
-    
-    const { data } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('game_session_id', gameState.game_session_id);
-      
-    if (data) {
-      console.log('📊 [QCMAnswersDisplay] Équipes chargées:', data.length);
-      setTeams(data);
-    } else {
-      setTeams([]);
-    }
+    const { data } = await supabase.from('teams').select('*');
+    if (data) setTeams(data);
   };
 
   const loadAnswers = async () => {
     if (!currentQuestion?.id || !gameState?.game_session_id) return;
-
-    console.log('🔄 [QCMAnswersDisplay] Chargement réponses pour question:', currentQuestion.id);
 
     const { data } = await supabase
       .from('team_answers')
@@ -92,15 +67,11 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
       .eq('game_session_id', gameState.game_session_id)
       .order('answered_at', { ascending: true });
 
-    console.log('📊 [QCMAnswersDisplay] Réponses chargées:', data?.length || 0);
-
     if (data) {
       // Validation automatique et mise à jour en base
-      let hasUpdates = false;
       for (const answer of data) {
         if (answer.is_correct === null) {
           const isCorrect = answer.answer.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
-          console.log('✅ [QCMAnswersDisplay] Validation auto:', answer.teams?.name, isCorrect ? 'CORRECT' : 'INCORRECT');
           await supabase
             .from('team_answers')
             .update({ 
@@ -108,34 +79,22 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
               points_awarded: isCorrect ? (currentQuestion.points || 10) : 0
             })
             .eq('id', answer.id);
-          hasUpdates = true;
         }
       }
       
-      // Recharger les réponses après validation si nécessaire
-      if (hasUpdates) {
-        const { data: updatedData } = await supabase
-          .from('team_answers')
-          .select('*, teams(name, color)')
-          .eq('question_id', currentQuestion.id)
-          .eq('game_session_id', gameState.game_session_id)
-          .order('answered_at', { ascending: true });
-        
-        if (updatedData) {
-          console.log('✅ [QCMAnswersDisplay] Réponses mises à jour affichées');
-          setAnswers(updatedData);
-        }
-      } else {
-        // Pas de validation nécessaire, afficher directement
-        setAnswers(data);
-      }
+      // Recharger les réponses après validation
+      const { data: updatedData } = await supabase
+        .from('team_answers')
+        .select('*, teams(name, color)')
+        .eq('question_id', currentQuestion.id)
+        .eq('game_session_id', gameState.game_session_id)
+        .order('answered_at', { ascending: true });
+      
+      if (updatedData) setAnswers(updatedData);
     }
   };
 
-  if (!currentQuestion || currentQuestion.question_type !== 'qcm') {
-    console.log('📊 [QCMAnswersDisplay] Pas de question QCM, masqué');
-    return null;
-  }
+  if (!currentQuestion || currentQuestion.question_type !== 'qcm') return null;
 
   const correctAnswers = answers.filter(a => a.is_correct === true);
   const incorrectAnswers = answers.filter(a => a.is_correct === false);

@@ -13,13 +13,6 @@ import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
 import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
-import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
-import { ThanksScreen } from "@/components/tv/ThanksScreen";
-import { ArmedBanner } from "@/components/tv/ArmedBanner";
-import { FirstBuzzHighlight } from "@/components/tv/FirstBuzzHighlight";
-import { ConnectedCounter } from "@/components/tv/ConnectedCounter";
-import { ResyncIndicator } from "@/components/tv/ResyncIndicator";
-import { useResync } from "@/hooks/useResync";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -41,26 +34,6 @@ const Screen = () => {
   const [final, setFinal] = useState<any>(null);
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
-  const [firstBuzzTeam, setFirstBuzzTeam] = useState<{ name: string; color: string } | null>(null);
-
-  // Re-sync au chargement
-  const sessionId = gameState?.game_session_id || null;
-  const { snapshot, isResyncing } = useResync(sessionId);
-
-  // Appliquer le snapshot une fois chargé
-  useEffect(() => {
-    if (snapshot && !isResyncing) {
-      console.log('📸 [Screen] Application du snapshot', snapshot);
-      if (snapshot.gameState) setGameState(snapshot.gameState);
-      if (snapshot.teams) setTeams(snapshot.teams);
-      if (snapshot.currentQuestion) setCurrentQuestion(snapshot.currentQuestion);
-      if (snapshot.buzzers) setBuzzers(snapshot.buzzers);
-      if (snapshot.answers) {
-        setQcmAnswers(snapshot.answers);
-        setTextAnswers(snapshot.answers);
-      }
-    }
-  }, [snapshot, isResyncing]);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -140,21 +113,13 @@ const Screen = () => {
           if (teamData) {
             console.log('✅ Screen: Équipe trouvée:', teamData.name, 'Color:', teamData.color);
             
-            // Afficher l'overlay "Premier buzz"
-            setFirstBuzzTeam({ name: teamData.name, color: teamData.color });
-            
             // Définir les données du buzzer en une seule fois
             const notif = { show: true, team: teamData };
             console.log('🎬 Screen: Setting buzzerNotification:', notif);
             setBuzzerNotification(notif);
             playSound('buzz');
             
-            // Cacher l'overlay après 1.5s
-            setTimeout(() => {
-              setFirstBuzzTeam(null);
-            }, 1500);
-            
-            // Cacher la notification après 5 secondes
+            // Cacher après 5 secondes
             setTimeout(() => {
               console.log('⏰ Screen: Fin animation buzzer');
               setBuzzerNotification(null);
@@ -243,10 +208,9 @@ const Screen = () => {
 
     // Écouter les événements de jokers
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🎯 [Screen] JOKER_ACTIVATED reçu:', event);
-      if (event.data?.jokerType === 'fifty_fifty') {
-        console.log('🎯 [Screen] Activation fifty_fifty');
-        eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
+      console.log('🃏 Screen: Joker reçu:', event);
+      if (event.data?.jokerType === 'eliminate_answer') {
+        eliminateTwoWrongAnswers(event.timestamp);
       }
     });
 
@@ -519,48 +483,42 @@ const Screen = () => {
     if (data) setTextAnswers(data);
   };
 
-  const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
-    console.log('🎯 [Screen] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
-    console.log('🎯 [Screen] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
+  const eliminateTwoWrongAnswers = (timestamp: number) => {
+    console.log('🎯 Screen: eliminateTwoWrongAnswers avec timestamp:', timestamp);
     
-    // Utiliser les données de l'événement ou fallback sur currentQuestion
-    const opts = questionOptions || currentQuestion?.options;
-    const correct = correctAnswer || currentQuestion?.correct_answer;
-    
-    if (!opts || !correct) {
-      console.log('❌ [Screen] Pas de options ou correct_answer');
+    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+      console.log('❌ Screen: Pas d\'options ou de réponse correcte');
       return;
     }
 
     try {
-      const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
-      
-      console.log('🎯 [Screen] Options:', options);
-      console.log('🎯 [Screen] Correct answer:', correct);
+      const options = typeof currentQuestion.options === 'string' 
+        ? JSON.parse(currentQuestion.options) 
+        : currentQuestion.options;
 
-      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
-      const wrongAnswers = Object.values(options)
-        .filter((value: any) => {
-          const optionValue = String(value);
-          const isWrong = optionValue !== correct;
-          const notEliminated = !eliminatedOptions.includes(optionValue);
-          return isWrong && optionValue !== '' && notEliminated;
+      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
+      const wrongAnswers = Object.entries(options)
+        .filter(([_, value]) => {
+          const optionValue = String(value).toLowerCase().trim();
+          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
+          return optionValue !== correctAnswer && optionValue !== '' && !eliminatedOptions.includes(String(value));
         })
-        .map((value: any) => String(value))
-        .sort();
+        .map(([_, value]) => String(value))
+        .sort(); // Tri alphabétique pour garantir le même ordre partout
 
-      console.log('🎯 [Screen] Wrong answers:', wrongAnswers);
+      console.log('🎯 Screen: Mauvaises réponses disponibles:', wrongAnswers);
 
       if (wrongAnswers.length === 0) {
-        console.log('⚠️ [Screen] Aucune mauvaise réponse disponible');
+        console.log('⚠️ Screen: Aucune mauvaise réponse disponible');
         return;
       }
 
-      // Utiliser le timestamp comme seed
+      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
       const toEliminate: string[] = [];
       const index1 = timestamp % wrongAnswers.length;
       toEliminate.push(wrongAnswers[index1]);
 
+      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
         if (index2 === index1) {
@@ -569,7 +527,7 @@ const Screen = () => {
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 [Screen] To eliminate:', toEliminate);
+      console.log('🎯 Screen: Réponses à éliminer:', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
@@ -577,48 +535,17 @@ const Screen = () => {
       // Animation d'élimination progressive
       toEliminate.forEach((answer, i) => {
         setTimeout(() => {
-          setEliminatedOptions(prev => {
-            const newEliminated = [...prev, answer];
-            console.log('🎯 [Screen] Eliminated options:', newEliminated);
-            return newEliminated;
-          });
-        }, i * 800);
+          setEliminatedOptions(prev => [...prev, answer]);
+          console.log('🎯 Screen: Éliminé:', answer);
+        }, i * 800); // 800ms entre chaque élimination
       });
     } catch (error) {
-      console.error('❌ [Screen] Erreur élimination:', error);
+      console.error('❌ Screen: Erreur élimination:', error);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-glow relative overflow-hidden">
-      {/* Indicateur de re-sync */}
-      {isResyncing && <ResyncIndicator />}
-
-      {/* Bannière "ÉCLAIR" quand buzzers activés */}
-      <ArmedBanner armed={gameState?.is_buzzer_active || false} />
-
-      {/* Compteur d'équipes connectées */}
-      <ConnectedCounter 
-        count={connectedTeamsCount} 
-        total={teams.length} 
-      />
-
-      {/* Overlay "Premier buzz" */}
-      <FirstBuzzHighlight 
-        teamName={firstBuzzTeam?.name} 
-        teamColor={firstBuzzTeam?.color} 
-      />
-
-      {/* Écran des sponsors */}
-      {gameState?.show_sponsors_screen && currentSession?.id && (
-        <SponsorsScreen sessionId={currentSession.id} />
-      )}
-
-      {/* Écran de remerciements */}
-      {gameState?.show_thanks_screen && currentSession?.id && (
-        <ThanksScreen sessionId={currentSession.id} />
-      )}
-
       {/* Écran d'attente de la finale */}
       {gameState?.final_mode && final?.status === 'pending' && (
         <FinalWaitingScreen />

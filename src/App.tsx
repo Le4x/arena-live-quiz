@@ -12,7 +12,6 @@ import AdminSetup from "./pages/AdminSetup";
 import AdminSounds from "./pages/AdminSounds";
 import AdminSessions from "./pages/AdminSessions";
 import AdminTeams from "./pages/AdminTeams";
-import AdminSponsors from "./pages/AdminSponsors";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -37,7 +36,6 @@ const App = () => (
           <Route path="/admin/sounds" element={<ProtectedRoute><AdminSounds /></ProtectedRoute>} />
           <Route path="/admin/sessions" element={<ProtectedRoute><AdminSessions /></ProtectedRoute>} />
           <Route path="/admin/teams" element={<ProtectedRoute><AdminTeams /></ProtectedRoute>} />
-          <Route path="/admin/sponsors/:sessionId" element={<ProtectedRoute><AdminSponsors /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

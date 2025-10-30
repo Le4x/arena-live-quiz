@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
-import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent, type TeamBuzzedEvent } from "@/lib/runtime/GameEvents";
+import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
@@ -47,7 +47,6 @@ const Client = () => {
   const [final, setFinal] = useState<any>(null);
   const [isFinalist, setIsFinalist] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
-  const previousQuestionIdRef = useRef<string | null>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -63,32 +62,17 @@ const Client = () => {
     if (teamId) {
       loadTeam();
     }
-    
-    // Charger d'abord la session active
-    loadActiveSession();
-  }, [teamId]);
-
-  // Charger le game state une fois qu'on a la session
-  useEffect(() => {
-    if (teamId && sessionId) {
+    // Ne charger le game state que si on a un teamId
+    if (teamId) {
       loadGameState();
       loadAllTeams();
+      loadActiveSession();
       loadFinal();
     }
-  }, [teamId, sessionId]);
-
-  useEffect(() => {
-    if (!teamId || !sessionId) {
-      console.log('⚠️ [Client] useEffect principal: teamId ou sessionId manquant', { teamId, sessionId });
-      return;
-    }
-
-    console.log('✅ [Client] useEffect principal: Démarrage avec', { teamId, sessionId });
 
     const gameStateChannel = supabase
       .channel('client-game-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_state' }, () => {
-        console.log('🔄 [Client] DB change game_state détecté');
         loadGameState();
       })
       .subscribe();
@@ -96,7 +80,6 @@ const Client = () => {
     const teamsChannel = supabase
       .channel('client-teams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        console.log('🔄 [Client] DB change teams détecté');
         loadTeam();
         loadAllTeams();
       })
@@ -105,7 +88,6 @@ const Client = () => {
     const answersChannel = supabase
       .channel('client-answers')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_answers' }, () => {
-        console.log('🔄 [Client] DB change team_answers détecté');
         checkAnswerResult();
       })
       .subscribe();
@@ -113,27 +95,15 @@ const Client = () => {
     const finalsChannel = supabase
       .channel('client-finals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
-        console.log('🔄 [Client] DB change finals détecté');
         loadFinal();
       })
       .subscribe();
 
     // Écouter les événements de jokers via GameEvents
     const unsubJoker = gameEvents.on('JOKER_ACTIVATED', (event: any) => {
-      console.log('🎯 [Client] JOKER_ACTIVATED reçu:', event);
-      console.log('🎯 [Client] event.data:', event.data);
-      console.log('🎯 [Client] event.data.jokerType:', event.data?.jokerType);
-      console.log('🎯 [Client] event.data.questionOptions:', event.data?.questionOptions);
-      console.log('🎯 [Client] event.data.correctAnswer:', event.data?.correctAnswer);
-      console.log('🎯 [Client] event.timestamp:', event.timestamp);
-      
-      if (event.data?.jokerType === 'fifty_fifty') {
-        console.log('🎯 [Client] Activation fifty_fifty avec données:', {
-          questionOptions: event.data.questionOptions,
-          correctAnswer: event.data.correctAnswer
-        });
-        eliminateTwoWrongAnswers(event.timestamp, event.data.questionOptions, event.data.correctAnswer);
-      }
+      console.log('🃏 Effet joker reçu:', event);
+      // TOUS les clients doivent recevoir l'effet du joker
+      handleJokerEffect(event.data.jokerType, event.timestamp);
     });
 
     // Canal de présence GLOBAL partagé par toutes les équipes
@@ -211,56 +181,9 @@ const Client = () => {
       }
     });
 
-    const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', async (event) => {
-      console.log('🎯 Client: START_QUESTION reçu', event);
-      console.log('🎯 Client: Données de l\'événement:', event.data);
-      
-      const { questionId, questionInstanceId, sessionId: eventSessionId, timerDuration, timerStartedAt, questionType, isBuzzerActive } = event.data;
-      
-      setCurrentQuestionInstanceId(questionInstanceId);
-      
-      // Charger la question directement par son ID
-      if (questionId) {
-        console.log('🔄 Client: Chargement question ID:', questionId);
-        const { data: questionData, error: questionError } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('id', questionId)
-          .single();
-        
-        if (questionError) {
-          console.error('❌ [Client] Erreur chargement question:', questionError);
-        } else if (questionData) {
-          console.log('✅ [Client] Question chargée:', questionData);
-          setCurrentQuestion(questionData);
-        }
-      }
-      
-      // Mettre à jour le game state avec les données de l'événement (évite les problèmes de timing)
-      setGameState((prev: any) => ({
-        ...prev,
-        game_session_id: eventSessionId,
-        current_question_id: questionId,
-        current_question_instance_id: questionInstanceId,
-        timer_active: true,
-        timer_started_at: timerStartedAt,
-        timer_duration: timerDuration,
-        timer_remaining: timerDuration,
-        is_buzzer_active: isBuzzerActive,
-      }));
-      
-      console.log('✅ [Client] Timer initialisé:', { timerDuration, timerStartedAt, questionType, isBuzzerActive });
-      
-      // Reset les états
-      setHasBuzzed(false);
-      setHasAnswered(false);
-      setAnswerResult(null);
-      setShowReveal(false);
-      
-      toast({
-        title: "📢 Nouvelle question !",
-        description: questionType === 'blind_test' ? '🎵 Écoutez bien !' : "Une nouvelle question vient d'être envoyée",
-      });
+    const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
+      console.log('🎯 Nouvelle question', event);
+      setCurrentQuestionInstanceId(event.data.questionInstanceId);
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
@@ -316,26 +239,6 @@ const Client = () => {
       toast({ title: '🔄 Session réinitialisée' });
     });
 
-    const unsubTeamBuzzed = gameEvents.on<TeamBuzzedEvent>('TEAM_BUZZED', (event) => {
-      console.log('🔔 Équipe a buzzé:', event);
-      const buzzedTeamId = event.data.teamId;
-      const buzzedTeamName = event.data.teamName;
-      const buzzedTeamColor = event.data.teamColor;
-      
-      // Afficher une notification visible pour TOUS les clients
-      if (buzzedTeamId !== teamId) {
-        // Pour les autres équipes, afficher qui a buzzé
-        toast({
-          title: `⚡ ${buzzedTeamName} a buzzé !`,
-          description: "Les buzzers sont maintenant bloqués",
-          duration: 4000,
-          style: {
-            borderLeft: `4px solid ${buzzedTeamColor}`,
-          }
-        });
-      }
-    });
-
     return () => {
       presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -360,36 +263,28 @@ const Client = () => {
       unsubKick();
       unsubKickTeam();
       unsubJoker();
-      unsubTeamBuzzed();
     };
-  }, [teamId, sessionId, currentQuestionInstanceId]);
+  }, [teamId, currentQuestionInstanceId]);
 
   useEffect(() => {
-    const newQuestionId = currentQuestion?.id;
     console.log('🔄 Client: Question change detected', {
-      questionId: newQuestionId,
-      previousQuestionId: previousQuestionIdRef.current,
+      questionId: currentQuestion?.id,
       instanceId: gameState?.current_question_instance_id
     });
     
-    // Ne réinitialiser QUE si la question a vraiment changé
-    if (newQuestionId !== previousQuestionIdRef.current) {
-      console.log('🔄 Client: Question vraiment changée, reset states');
-      previousQuestionIdRef.current = newQuestionId || null;
-      
-      // Ne PAS annuler le reveal si une animation est en cours
-      if (!showReveal) {
-        // Reset buzzer state when question changes
-        setHasBuzzed(false);
-        setAnswer("");
-        setHasAnswered(false);
-        setAnswerResult(null);
-        setIsBlockedForQuestion(false);
-        setEliminatedOptions([]); // Reset les options éliminées
-        
-        // Reset le flag de notification de timeout
-        hasShownTimeoutToast.current = false;
-      }
+    // Ne PAS annuler le reveal si une animation est en cours
+    // L'animation doit se terminer naturellement
+    if (!showReveal) {
+    // Reset buzzer state when question changes
+    setHasBuzzed(false);
+    setAnswer("");
+    setHasAnswered(false);
+    setAnswerResult(null);
+    setIsBlockedForQuestion(false);
+    setEliminatedOptions([]); // Reset les options éliminées
+    
+    // Reset le flag de notification de timeout
+    hasShownTimeoutToast.current = false;
     }
     
     // Ne rien faire si pas de team (page de login)
@@ -410,7 +305,7 @@ const Client = () => {
     if (gameState?.current_question_instance_id) {
       setCurrentQuestionInstanceId(gameState.current_question_instance_id);
     }
-  }, [currentQuestion?.id, gameState?.current_question_instance_id, team, showReveal]);
+  }, [currentQuestion?.id, gameState?.current_question_instance_id, team]);
 
   // Calcul du timer en temps réel basé sur timer_started_at
   useEffect(() => {
@@ -548,61 +443,20 @@ const Client = () => {
   };
 
   const loadAllTeams = async () => {
-    console.log('📊 [Client.loadAllTeams] Appelé avec sessionId:', sessionId);
-    
-    if (!sessionId) {
-      console.warn('⚠️ [Client] Pas de session ID, équipes non chargées');
-      console.trace('Stack trace pour debug');
-      setAllTeams([]);
-      return;
-    }
-    
-    console.log('🔍 [Client] Chargement équipes pour session:', sessionId);
-    
-    const { data, error } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('game_session_id', sessionId)
-      .order('score', { ascending: false });
-    
-    if (error) {
-      console.error('❌ [Client] Erreur chargement équipes:', error);
-      setAllTeams([]);
-      return;
-    }
-      
+    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
-      console.log('✅ [Client] Équipes chargées pour session:', sessionId, '- Total:', data.length);
       setAllTeams(data);
       // Calculer le classement de l'équipe actuelle
       const rank = data.findIndex(t => t.id === teamId) + 1;
       setTeamRank(rank);
-    } else {
-      console.log('⚠️ [Client] Aucune équipe trouvée');
-      setAllTeams([]);
     }
   };
 
   const loadActiveSession = async () => {
-    console.log('🔍 [Client] Chargement session active...');
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('status', 'active')
-      .maybeSingle();
-      
-    if (error) {
-      console.error('❌ [Client] Erreur chargement session:', error);
-    }
-    
+    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
     if (data) {
-      console.log('✅ [Client] Session active trouvée:', data.name, data.id);
       setSessionId(data.id);
       setActiveSession(data);
-    } else {
-      console.warn('⚠️ [Client] Aucune session active');
-      setSessionId(null);
-      setActiveSession(null);
     }
   };
 
@@ -638,49 +492,20 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    if (!sessionId) {
-      console.log('⚠️ [Client] Pas de session ID, game state non chargé');
-      return;
-    }
-    
-    console.log('🔍 [Client] Chargement game state pour session:', sessionId);
-    
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('game_state')
-      .select('*')
-      .eq('game_session_id', sessionId)
+      .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
       .maybeSingle();
     
-    if (error) {
-      console.error('❌ [Client] Erreur chargement game state:', error);
-    }
-    
     if (data) {
-      console.log('✅ [Client] Game state chargé:', data);
       setGameState(data);
-      
-      // Charger la question si elle existe
-      if (data.current_question_id) {
-        const { data: questionData } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('id', data.current_question_id)
-          .single();
-        
-        if (questionData) {
-          console.log('✅ [Client] Question chargée:', questionData);
-          setCurrentQuestion(questionData);
-        }
-      } else {
-        setCurrentQuestion(null);
-      }
+      setCurrentQuestion(data.questions);
       
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
         loadFinal(data.final_id);
       }
     } else {
-      console.log('⚠️ [Client] Aucun game state trouvé');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
@@ -717,70 +542,94 @@ const Client = () => {
     }
   };
 
-  const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
-    console.log('🎯 [Client] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
-    console.log('🎯 [Client] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
+  const handleJokerEffect = (jokerType: string, timestamp: number) => {
+    console.log('🃏 Effet joker reçu:', { jokerType, questionType: currentQuestion?.question_type, timestamp });
     
-    // Utiliser les données de l'événement ou fallback sur currentQuestion
-    const opts = questionOptions || currentQuestion?.options;
-    const correct = correctAnswer || currentQuestion?.correct_answer;
+    // Appliquer l'effet selon le type
+    if (jokerType === 'eliminate_answer' && currentQuestion?.question_type === 'qcm') {
+      console.log('🎯 Élimination de réponses...');
+      eliminateTwoWrongAnswers(timestamp);
+    }
+    // Ajouter d'autres types de jokers ici si besoin
+  };
+
+  const eliminateTwoWrongAnswers = (timestamp: number) => {
+    console.log('🎯 eliminateTwoWrongAnswers appelée avec timestamp:', timestamp);
+    console.log('🎯 Question actuelle:', currentQuestion);
     
-    if (!opts || !correct) {
-      console.log('❌ [Client] Pas de options ou correct_answer');
+    if (!currentQuestion?.options || !currentQuestion?.correct_answer) {
+      console.log('❌ Pas d\'options ou de réponse correcte');
       return;
     }
 
     try {
-      const options = typeof opts === 'string' ? JSON.parse(opts) : opts;
-      
-      console.log('🎯 [Client] Options parsed:', options);
-      console.log('🎯 [Client] Correct answer:', correct);
+      const options = typeof currentQuestion.options === 'string' 
+        ? JSON.parse(currentQuestion.options) 
+        : currentQuestion.options;
 
-      // Récupérer toutes les mauvaises réponses non éliminées, triées alphabétiquement
-      const wrongAnswers = Object.values(options)
-        .filter((value: any) => {
-          const optionValue = String(value);
-          const isWrong = optionValue !== correct;
-          const notEliminated = !eliminatedOptions.includes(optionValue);
-          console.log(`🎯 [Client] Checking "${optionValue}": isWrong=${isWrong}, notEliminated=${notEliminated}`);
-          return isWrong && optionValue !== '' && notEliminated;
+      console.log('🎯 Options:', options);
+      console.log('🎯 Réponse correcte:', currentQuestion.correct_answer);
+      console.log('🎯 Options déjà éliminées:', eliminatedOptions);
+
+      // Récupérer toutes les mauvaises réponses non éliminées, TRIÉES alphabétiquement
+      const wrongAnswers = Object.entries(options)
+        .filter(([_, value]) => {
+          const optionValue = String(value).toLowerCase().trim();
+          const correctAnswer = currentQuestion.correct_answer.toLowerCase().trim();
+          const isWrong = optionValue !== correctAnswer;
+          const notEmpty = optionValue !== '';
+          const notEliminated = !eliminatedOptions.includes(String(value));
+          console.log(`🎯 Option "${value}":`, { isWrong, notEmpty, notEliminated });
+          return isWrong && notEmpty && notEliminated;
         })
-        .map((value: any) => String(value))
-        .sort();
+        .map(([_, value]) => String(value))
+        .sort(); // Tri alphabétique pour garantir le même ordre partout
 
-      console.log('🎯 [Client] Wrong answers to choose from:', wrongAnswers);
+      console.log('🎯 Mauvaises réponses disponibles (triées):', wrongAnswers);
 
       if (wrongAnswers.length === 0) {
-        console.log('⚠️ [Client] Aucune mauvaise réponse disponible');
+        console.log('⚠️ Aucune mauvaise réponse disponible');
         return;
       }
 
-      // Utiliser le timestamp comme seed
+      // Utiliser le timestamp comme seed pour sélectionner les mêmes réponses partout
       const toEliminate: string[] = [];
       const index1 = timestamp % wrongAnswers.length;
       toEliminate.push(wrongAnswers[index1]);
 
+      // Si il y a au moins 2 mauvaises réponses, en éliminer une deuxième
       if (wrongAnswers.length > 1) {
         let index2 = (timestamp * 3) % wrongAnswers.length;
+        // S'assurer que index2 est différent de index1
         if (index2 === index1) {
           index2 = (index2 + 1) % wrongAnswers.length;
         }
         toEliminate.push(wrongAnswers[index2]);
       }
 
-      console.log('🎯 [Client] Options to eliminate:', toEliminate);
+      console.log('🎯 Réponses à éliminer (seed:', timestamp, '):', toEliminate);
 
       // Jouer le son d'élimination
       playSound('eliminate');
 
-      // Mettre à jour le state immédiatement avec toutes les options à éliminer
-      setEliminatedOptions(prev => {
-        const newEliminated = [...prev, ...toEliminate];
-        console.log('🎯 [Client] New eliminatedOptions state:', newEliminated);
-        return newEliminated;
+      // Animation d'élimination progressive
+      toEliminate.forEach((answer, i) => {
+        setTimeout(() => {
+          setEliminatedOptions(prev => [...prev, answer]);
+          console.log('🎯 Éliminé:', answer);
+        }, i * 800); // 800ms entre chaque élimination
       });
+
+      if (toEliminate.length > 0) {
+        toast({
+          title: "🎯 Réponses éliminées !",
+          description: `${toEliminate.length} mauvaise(s) réponse(s) supprimée(s)`,
+        });
+      } else {
+        console.log('⚠️ Aucune réponse à éliminer');
+      }
     } catch (error) {
-      console.error('❌ [Client] Erreur élimination:', error);
+      console.error('❌ Erreur élimination réponses:', error);
     }
   };
 
@@ -1240,7 +1089,6 @@ const Client = () => {
             teamId={teamId!} 
             finalId={final.id} 
             isActive={final.status === 'active'}
-            currentQuestion={currentQuestion}
           />
         )}
 
@@ -1374,57 +1222,57 @@ const Client = () => {
                     const options = typeof currentQuestion.options === 'string' 
                       ? JSON.parse(currentQuestion.options) 
                       : currentQuestion.options;
-                    // Filtrer les options vides
+                    // Filtrer les options vides ET les options éliminées
                     return Object.entries(options || {})
                       .map(([key, value]) => {
-                        const optionValue = String(value);
+                        const optionValue = value as string;
+                        const isEliminated = eliminatedOptions.includes(String(value));
                         if (optionValue.trim() === '') return null;
-                        
-                        const isEliminated = eliminatedOptions.includes(optionValue);
-                        const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
-                        const isSelectedOption = showReveal && answer === optionValue;
+                      
+                      const isCorrectOption = showReveal && optionValue.toLowerCase().trim() === currentQuestion.correct_answer?.toLowerCase().trim();
+                      const isSelectedOption = showReveal && answer === optionValue;
                       
                       return (
                         <motion.div
                           key={key}
-                          initial={{ opacity: 1, scale: 1, height: 'auto' }}
+                          initial={{ opacity: 1, scale: 1 }}
                           animate={{ 
                             opacity: isEliminated ? 0 : 1,
                             scale: isEliminated ? 0.8 : 1,
                             height: isEliminated ? 0 : 'auto',
-                            overflow: isEliminated ? 'hidden' : 'visible'
+                            marginBottom: isEliminated ? 0 : undefined
                           }}
                           transition={{ duration: 0.8, ease: "easeOut" }}
-                          style={{ marginBottom: isEliminated ? 0 : undefined }}
                         >
-                          <Button
-                            variant="outline"
-                            disabled={hasAnswered || !isTimerActive || isEliminated}
-                            className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
-                              showReveal && isCorrectOption 
-                                ? 'bg-green-500/20 border-green-500 border-2' 
-                                : showReveal && isSelectedOption && answerResult === 'incorrect'
-                                ? 'bg-red-500/20 border-red-500 border-2'
-                                : hasAnswered || !isTimerActive
-                                ? 'opacity-50' 
-                                : ''
-                            }`}
-                            onClick={() => {
-                              if (!isEliminated) {
-                                setAnswer(optionValue);
-                                submitAnswer(optionValue);
-                              }
-                            }}
-                          >
-                            <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
-                            <span className="flex-1">{optionValue}</span>
-                            {showReveal && isCorrectOption && (
-                              <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-                            )}
-                            {showReveal && isSelectedOption && answerResult === 'incorrect' && (
-                              <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
-                            )}
-                          </Button>
+                          {!isEliminated && (
+                        <Button
+                          key={key}
+                          variant="outline"
+                          disabled={hasAnswered || !isTimerActive}
+                          className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
+                            showReveal && isCorrectOption 
+                              ? 'bg-green-500/20 border-green-500 border-2' 
+                              : showReveal && isSelectedOption && answerResult === 'incorrect'
+                              ? 'bg-red-500/20 border-red-500 border-2'
+                              : hasAnswered || !isTimerActive
+                              ? 'opacity-50' 
+                              : ''
+                          }`}
+                          onClick={() => {
+                            setAnswer(optionValue);
+                            submitAnswer(optionValue);
+                          }}
+                        >
+                          <span className="text-primary font-bold mr-2 sm:mr-3">{key}.</span>
+                          <span className="flex-1">{optionValue}</span>
+                          {showReveal && isCorrectOption && (
+                            <Check className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
+                          )}
+                          {showReveal && isSelectedOption && answerResult === 'incorrect' && (
+                            <X className="ml-auto h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
+                          )}
+                        </Button>
+                          )}
                         </motion.div>
                       );
                     }).filter(Boolean);

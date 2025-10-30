@@ -21,11 +21,9 @@ export type GameEventType =
   | 'TOGGLE_BUZZER'
   | 'REVEAL_ANSWER'
   | 'TEAM_BLOCKED'
-  | 'TEAM_BUZZED'
   | 'SHOW_PUBLIC_VOTES'
   | 'HIDE_PUBLIC_VOTES'
-  | 'JOKER_ACTIVATED'
-  | 'PRESENCE_UPDATE';
+  | 'JOKER_ACTIVATED';
 
 export interface GameEvent {
   type: GameEventType;
@@ -39,10 +37,6 @@ export interface StartQuestionEvent extends GameEvent {
     questionId: string;
     questionInstanceId: string;
     sessionId: string;
-    timerDuration: number;
-    timerStartedAt: string;
-    questionType: string;
-    isBuzzerActive: boolean;
   };
 }
 
@@ -64,36 +58,8 @@ export interface JokerActivatedEvent extends GameEvent {
   type: 'JOKER_ACTIVATED';
   data: {
     teamId: string;
-    jokerType: 'fifty_fifty' | 'team_call' | 'public_vote';
+    jokerType: string;
     finalId: string;
-    questionOptions?: any; // Options de la question pour le 50-50
-    correctAnswer?: string; // Bonne réponse pour le 50-50
-  };
-}
-
-export interface TeamBuzzedEvent extends GameEvent {
-  type: 'TEAM_BUZZED';
-  data: {
-    teamId: string;
-    teamName: string;
-    teamColor: string;
-  };
-}
-
-export interface SyncStateEvent extends GameEvent {
-  type: 'SYNC_STATE';
-  data: {
-    gameState: any;
-    teams: any[];
-    currentQuestion: any | null;
-    buzzers: any[];
-  };
-}
-
-export interface PresenceUpdateEvent extends GameEvent {
-  type: 'PRESENCE_UPDATE';
-  data: {
-    presences: Record<string, any>;
   };
 }
 
@@ -125,20 +91,14 @@ export class GameEventsManager {
    * Publier un événement
    */
   async emit<T extends GameEvent>(event: Omit<T, 'timestamp'>): Promise<void> {
-    console.log('📤 [GameEvents.emit] Reçu:', event);
-    
-    // Construire explicitement l'événement pour garantir que data est bien copié
+    console.log('🎯 GameEvents emit received:', event);
     const fullEvent: GameEvent = {
       type: event.type,
-      data: event.data ? { ...event.data } : undefined,
+      data: event.data || {},
       timestamp: this.transport.now(),
     };
-    
-    console.log('📤 [GameEvents.emit] Event complet:', fullEvent);
-    console.log('📤 [GameEvents.emit] Event.data détaillé:', fullEvent.data);
-    
+    console.log('🎯 GameEvents emit sending:', fullEvent);
     await this.transport.publish(this.channel, fullEvent);
-    console.log('📤 [GameEvents.emit] Publié sur canal:', this.channel);
   }
 
   /**
@@ -201,10 +161,10 @@ export const gameEvents = {
     });
   },
 
-  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string, timerDuration: number, timerStartedAt: string, questionType: string, isBuzzerActive: boolean) => {
+  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string) => {
     await getGameEvents().emit<StartQuestionEvent>({
       type: 'START_QUESTION',
-      data: { questionId, questionInstanceId, sessionId, timerDuration, timerStartedAt, questionType, isBuzzerActive },
+      data: { questionId, questionInstanceId, sessionId },
     });
   },
 
@@ -266,19 +226,13 @@ export const gameEvents = {
     });
   },
 
-  activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string, questionOptions?: any, correctAnswer?: string) => {
-    console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId, questionOptions, correctAnswer });
-    await getGameEvents().emit({
-      type: 'JOKER_ACTIVATED',
-      data: { teamId, jokerType, finalId, questionOptions, correctAnswer },
-    });
-    console.log('🎮 [gameEvents.activateJoker] Emit terminé');
-  },
-
-  teamBuzzed: async (teamId: string, teamName: string, teamColor: string) => {
-    await getGameEvents().emit<TeamBuzzedEvent>({
-      type: 'TEAM_BUZZED',
-      data: { teamId, teamName, teamColor },
-    });
+  activateJoker: async (teamId: string, jokerType: string, finalId: string) => {
+    console.log('🎮 activateJoker called with:', { teamId, jokerType, finalId });
+    const eventData = {
+      type: 'JOKER_ACTIVATED' as const,
+      data: { teamId, jokerType, finalId },
+    };
+    console.log('🎮 activateJoker emitting:', eventData);
+    await getGameEvents().emit(eventData);
   },
 };

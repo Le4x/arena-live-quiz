@@ -36,27 +36,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 export class SupabaseTransport implements Transport {
   private channels: Map<string, any> = new Map();
-  private heartbeatInterval: number | null = null;
-  private presenceChannel: any = null;
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
+    // Publier via broadcast Supabase
     const ch = this.getOrCreateChannel(channel);
-    
-    // S'assurer que le canal est souscrit
-    if (ch.state !== 'joined') {
-      await new Promise((resolve) => {
-        ch.subscribe((status: string) => {
-          if (status === 'SUBSCRIBED') {
-            resolve(undefined);
-          }
-        });
-      });
-    }
-    
+    // Force JSON serialization to ensure all data is preserved
+    const serializedPayload = JSON.parse(JSON.stringify(payload));
+    console.log('📡 Transport publish:', { channel, payload: serializedPayload });
     await ch.send({
       type: 'broadcast',
       event: 'message',
-      payload,
+      payload: serializedPayload,
     });
   }
 
@@ -64,69 +54,14 @@ export class SupabaseTransport implements Transport {
     const ch = this.getOrCreateChannel(channel);
     
     ch.on('broadcast', { event: 'message' }, (data: any) => {
+      console.log('📡 Transport receive:', { channel, payload: data.payload });
       handler(data.payload);
     }).subscribe();
-
-    // Démarrer le heartbeat si pas déjà actif
-    this.startHeartbeat(channel);
 
     return () => {
       supabase.removeChannel(ch);
       this.channels.delete(channel);
-      this.stopHeartbeat();
     };
-  }
-
-  /**
-   * Démarrer le heartbeat pour la présence (track toutes les 3s)
-   */
-  private startHeartbeat(sessionId: string): void {
-    if (this.heartbeatInterval) return;
-
-    // Créer canal de présence global
-    this.presenceChannel = supabase.channel('presence:global');
-    
-    this.presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = this.presenceChannel.presenceState();
-        console.log('👥 [Transport] Présence sync:', state);
-      })
-      .subscribe(async (status: string) => {
-        if (status === 'SUBSCRIBED') {
-          // Track immédiatement
-          await this.presenceChannel.track({
-            last_seen_at: Date.now(),
-            online_at: new Date().toISOString(),
-          });
-        }
-      });
-
-    // Heartbeat toutes les 3 secondes
-    this.heartbeatInterval = window.setInterval(async () => {
-      if (this.presenceChannel) {
-        await this.presenceChannel.track({
-          last_seen_at: Date.now(),
-          online_at: new Date().toISOString(),
-        });
-      }
-    }, 3000);
-
-    console.log('💓 [Transport] Heartbeat démarré');
-  }
-
-  /**
-   * Arrêter le heartbeat
-   */
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-    if (this.presenceChannel) {
-      supabase.removeChannel(this.presenceChannel);
-      this.presenceChannel = null;
-    }
-    console.log('💔 [Transport] Heartbeat arrêté');
   }
 
   now(): number {
@@ -148,65 +83,34 @@ export class SupabaseTransport implements Transport {
 }
 
 /**
- * Implémentation WebSocket LAN (pour mode offline avec Socket.IO)
- * Utilise le serveur LAN local (server/index.ts)
+ * Implémentation WebSocket LAN (pour mode offline)
+ * TODO: implémenter plus tard avec WebSocket natif
  */
-import { io, Socket } from 'socket.io-client';
-
 export class LocalWSTransport implements Transport {
-  private socket: Socket | null = null;
+  private ws: WebSocket | null = null;
   private handlers: Map<string, Set<TransportHandler>> = new Map();
-  private connected: boolean = false;
 
-  constructor(serverUrl: string = 'ws://localhost:8787') {
-    console.log('🌐 [LocalWSTransport] Connexion à', serverUrl);
-    
-    this.socket = io(serverUrl, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-    });
-
-    this.socket.on('connect', () => {
-      console.log('✅ [LocalWSTransport] Connecté au serveur LAN');
-      this.connected = true;
-    });
-
-    this.socket.on('disconnect', () => {
-      console.log('❌ [LocalWSTransport] Déconnecté du serveur LAN');
-      this.connected = false;
-    });
-
-    this.socket.on('event', (data: any) => {
-      console.log('📥 [LocalWSTransport] Événement reçu:', data);
-      // Dispatcher aux handlers correspondants
-      this.handlers.forEach((handlerSet, channel) => {
-        handlerSet.forEach(handler => handler(data));
-      });
-    });
+  constructor(serverUrl: string = 'ws://localhost:8080') {
+    this.ws = new WebSocket(serverUrl);
+    this.ws.onmessage = (event) => {
+      const { channel, payload } = JSON.parse(event.data);
+      const handlers = this.handlers.get(channel);
+      if (handlers) {
+        handlers.forEach(h => h(payload));
+      }
+    };
   }
 
   async publish(channel: string, payload: TransportPayload): Promise<void> {
-    if (!this.socket || !this.connected) {
-      console.warn('⚠️ [LocalWSTransport] Socket pas connecté');
-      return;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ channel, payload }));
     }
-
-    console.log('📤 [LocalWSTransport] Envoi sur', channel, ':', payload);
-    this.socket.emit('event', { room: channel, data: payload });
   }
 
   subscribe(channel: string, handler: TransportHandler): () => void {
-    console.log('📡 [LocalWSTransport] Subscribe sur', channel);
-    
     if (!this.handlers.has(channel)) {
       this.handlers.set(channel, new Set());
-      // Rejoindre la room sur le serveur
-      if (this.socket) {
-        this.socket.emit('join', channel);
-      }
     }
-    
     this.handlers.get(channel)!.add(handler);
 
     return () => {
@@ -225,12 +129,11 @@ export class LocalWSTransport implements Transport {
   }
 
   disconnect(): void {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
     this.handlers.clear();
-    this.connected = false;
   }
 }
 

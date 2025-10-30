@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Zap, Trophy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { gameEvents } from "@/lib/runtime/GameEvents";
-import { purgeVolatileForQuestion } from "@/lib/services/reset";
 
 export const BuzzerMonitor = ({ 
   currentQuestionId, 
@@ -28,35 +27,19 @@ export const BuzzerMonitor = ({
   const { toast } = useToast();
 
   const clearBuzzers = async () => {
-    if (!currentQuestionId || !gameState?.game_session_id || !gameState?.current_question_instance_id) return;
-    
-    try {
-      // Purge complète via le service reset
-      await purgeVolatileForQuestion({
-        sessionId: gameState.game_session_id,
-        questionInstanceId: gameState.current_question_instance_id,
-      });
-
-      // Émettre l'événement BUZZER_RESET
-      await gameEvents.resetBuzzer(gameState.current_question_instance_id);
-
-      toast({ title: "🧹 Buzzers et réponses purgés" });
-    } catch (error) {
-      console.error('Erreur reset:', error);
-      toast({ 
-        title: "Erreur lors du reset", 
-        variant: "destructive" 
-      });
-    }
+    if (!currentQuestionId || !gameState?.game_session_id) return;
+    await supabase
+      .from('buzzer_attempts')
+      .delete()
+      .eq('question_id', currentQuestionId)
+      .eq('game_session_id', gameState.game_session_id);
+    toast({ title: "Buzzers réinitialisés" });
   };
 
-  console.log('🎯 BuzzerMonitor: Rendu avec', buzzers.length, 'buzzers, currentQuestionId:', currentQuestionId);
+  console.log('🎯 BuzzerMonitor: Rendu avec', buzzers.length, 'buzzers');
   
   if (!currentQuestionId || buzzers.length === 0) {
-    console.log('⚠️ BuzzerMonitor: Pas de question ou pas de buzzers', {
-      hasQuestionId: !!currentQuestionId,
-      buzzersLength: buzzers.length
-    });
+    console.log('⚠️ BuzzerMonitor: Pas de question ou pas de buzzers');
     return null;
   }
 

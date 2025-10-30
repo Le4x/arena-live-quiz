@@ -15,12 +15,6 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
   const { toast } = useToast();
   const [answers, setAnswers] = useState<any[]>([]);
 
-  console.log('💬 [TextAnswersDisplay] Props reçues:', {
-    currentQuestionId,
-    questionType: currentQuestion?.question_type,
-    sessionId: gameState?.game_session_id
-  });
-
   useEffect(() => {
     console.log('💬 TextAnswersDisplay - Question changed:', { 
       currentQuestionId, 
@@ -103,16 +97,10 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
   };
 
   // Ne rien afficher si pas une question free text
-  if (!currentQuestion || currentQuestion.question_type !== 'free_text') {
-    console.log('💬 [TextAnswersDisplay] Pas de question free_text, masqué');
-    return null;
-  }
+  if (!currentQuestion || currentQuestion.question_type !== 'free_text') return null;
   
   // Afficher le composant même sans réponse pour voir qu'il y a une question active
-  if (!currentQuestionId) {
-    console.log('💬 [TextAnswersDisplay] Pas de currentQuestionId, masqué');
-    return null;
-  }
+  if (!currentQuestionId) return null;
 
   const validatedCount = answers.filter(a => a.is_correct !== null).length;
 

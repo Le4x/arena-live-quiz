@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi, Award, Heart } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
@@ -23,8 +23,6 @@ import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
-import { SideLog, type LogEntry } from "@/components/regie/SideLog";
-import { DemoModePanel } from "@/components/regie/DemoModePanel";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -51,24 +49,12 @@ const Regie = () => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
   const [showPublicVotes, setShowPublicVotes] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-
-  // Ajouter un log
-  const addLog = (message: string, type: LogEntry['type'] = 'info', icon?: string) => {
-    const newLog: LogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      type,
-      message,
-      icon,
-    };
-    setLogs(prev => [newLog, ...prev].slice(0, 50)); // Max 50 logs
-  };
 
   useEffect(() => {
     loadActiveSession();
     loadRounds();
     loadQuestions();
+    loadTeams();
     loadAudioTracks();
 
     // Abonnement changements de teams (score, etc)
@@ -136,61 +122,6 @@ const Regie = () => {
     };
   }, []);
 
-  // Raccourcis clavier
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si focus dans un input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      switch (e.key.toLowerCase()) {
-        case 'a':
-          e.preventDefault();
-          toggleBuzzer();
-          addLog('Buzzers basculés (touche A)', 'success', '⚡');
-          break;
-        case 'r':
-          e.preventDefault();
-          if (currentQuestionId && sessionId) {
-            // Reset question
-            supabase.from('game_state').update({ 
-              current_question_id: null, 
-              current_question_instance_id: null, 
-              is_buzzer_active: false, 
-              timer_active: false, 
-              show_answer: false,
-              answer_result: null,
-              excluded_teams: []
-            }).eq('game_session_id', sessionId);
-            setCurrentQuestionId(null);
-            setCurrentQuestionInstanceId(null);
-            setBuzzers([]);
-            setBlockedTeams([]);
-            addLog('Question réinitialisée (touche R)', 'warning', '🔄');
-          }
-          break;
-        case 'l':
-          e.preventDefault();
-          const newLeaderboardState = !gameState?.show_leaderboard;
-          supabase.from('game_state').update({ show_leaderboard: newLeaderboardState }).eq('game_session_id', sessionId);
-          addLog(newLeaderboardState ? 'Classement affiché (touche L)' : 'Classement masqué (touche L)', 'info', '🏆');
-          break;
-        case 'j':
-          e.preventDefault();
-          const round = rounds.find(r => r.id === currentRoundId);
-          if (round?.jingle_url) {
-            audioEngine.playJingle(round.jingle_url);
-            addLog('Jingle lancé (touche J)', 'info', '🎵');
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuestionId, sessionId, currentRoundId, gameState?.show_leaderboard, rounds]);
-
   // Recharger les buzzers quand la question change
   useEffect(() => {
     console.log('📌 Regie: Question changed, reloading buzzers', { currentQuestionId, sessionId });
@@ -255,58 +186,36 @@ const Regie = () => {
           description: `Position #${i + 1}`,
           duration: 5000 
         });
-        
-        // Émettre l'événement pour tous les clients
-        gameEvents.teamBuzzed(
-          buzzer.team_id, 
-          buzzer.teams?.name || 'Équipe inconnue',
-          buzzer.teams?.color || '#000000'
-        );
       }
       
-      // Lock au premier buzzer pour TOUS les types de questions + ARRÊTER LE TIMER pour blind test
+      // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active) {
-        console.log('🛑 PREMIER BUZZER - Lock automatique pour tout le monde');
+      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
+        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
+        console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
+        
+        // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
+        setTimerWhenBuzzed(timerRemaining);
+        const currentPos = audioEngine.getPosition();
+        const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
+        setAudioPositionWhenBuzzed(relativePos);
+        console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
         
         setBuzzerLocked(true);
+        setTimerActive(false);
         
-        // Pour blind test : arrêter timer et musique
-        if (currentQ?.question_type === 'blind_test') {
-          console.log('🛑 Blind test - Arrêt timer et musique, timer était à', timerRemaining);
-          
-          // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
-          setTimerWhenBuzzed(timerRemaining);
-          const currentPos = audioEngine.getPosition();
-          const relativePos = currentPos - clipStartTime;
-          setAudioPositionWhenBuzzed(relativePos);
-          console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
-          
-          setTimerActive(false);
-          
-          // Arrêter la musique immédiatement
-          console.log('🎵 Arrêt audio avec fade...');
-          audioEngine.stopWithFade(150);
-          
-          // Mettre à jour le timer dans la DB
-          if (sessionId) {
-            supabase.from('game_state').update({ 
-              timer_active: false,
-              timer_remaining: timerRemaining,
-              is_buzzer_active: false // BLOQUER LES BUZZERS POUR TOUT LE MONDE
-            }).eq('game_session_id', sessionId).then(() => {
-              console.log('✅ DB mise à jour: timer_active=false, is_buzzer_active=false');
-            });
-          }
-        } else {
-          // Pour les autres types : juste bloquer les buzzers
-          if (sessionId) {
-            supabase.from('game_state').update({ 
-              is_buzzer_active: false // BLOQUER LES BUZZERS POUR TOUT LE MONDE
-            }).eq('game_session_id', sessionId).then(() => {
-              console.log('✅ DB mise à jour: is_buzzer_active=false');
-            });
-          }
+        // Arrêter la musique immédiatement
+        console.log('🎵 Arrêt audio avec fade...');
+        audioEngine.stopWithFade(150); // Fade rapide
+        
+        // Mettre à jour le timer dans la DB IMMÉDIATEMENT
+        if (sessionId) {
+          supabase.from('game_state').update({ 
+            timer_active: false,
+            timer_remaining: timerRemaining
+          }).eq('game_session_id', sessionId).then(() => {
+            console.log('✅ DB mise à jour: timer_active=false, timer_remaining=', timerRemaining);
+          });
         }
       }
     }
@@ -316,42 +225,17 @@ const Regie = () => {
   }, [buzzers]);
 
   const loadActiveSession = async () => {
-    console.log('🔍 [Regie] Chargement session active...');
-    const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').maybeSingle();
-    
-    if (error) {
-      console.error('❌ [Regie] Erreur chargement session:', error);
-    }
-    
+    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
     if (data) {
-      console.log('✅ [Regie] Session active trouvée:', data.name, data.id);
       setSessionId(data.id);
       setCurrentSession(data);
-    } else {
-      console.warn('⚠️ [Regie] Aucune session active trouvée');
-      setSessionId(null);
-      setCurrentSession(null);
-      setConnectedTeams([]);
     }
   };
-
-  // Charger les équipes quand la session change
-  useEffect(() => {
-    if (sessionId) {
-      loadTeams();
-    }
-  }, [sessionId]);
 
   const loadGameState = async () => {
     if (!sessionId) return;
     const { data } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
-    if (data) {
-      setGameState(data);
-      // Synchroniser les équipes bloquées depuis la DB
-      if (data.excluded_teams) {
-        setBlockedTeams(data.excluded_teams as string[]);
-      }
-    }
+    if (data) setGameState(data);
   };
 
   const loadRounds = async () => {
@@ -365,24 +249,10 @@ const Regie = () => {
   };
 
   const loadTeams = async () => {
-    if (!sessionId) {
-      console.log('⚠️ Pas de session active, équipes non chargées');
-      setConnectedTeams([]);
-      return;
-    }
-    
-    const { data } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('game_session_id', sessionId)
-      .order('score', { ascending: false });
-      
+    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
     if (data) {
-      console.log('✅ Équipes chargées pour session:', sessionId, '- Total:', data.length);
       // Charger les équipes sans présence (sera mise à jour par le canal)
       setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
-    } else {
-      setConnectedTeams([]);
     }
   };
 
@@ -436,32 +306,10 @@ const Regie = () => {
   };
 
   const startQuestion = async (question: any) => {
-    console.log('🚀 [Regie] startQuestion appelée:', { 
-      questionId: question.id, 
-      questionText: question.question_text,
-      sessionId,
-      hasSession: !!sessionId 
-    });
-
-    if (!sessionId) {
-      toast({ 
-        title: '❌ Aucune session active', 
-        description: 'Activez une session d\'abord',
-        variant: 'destructive' 
-      });
-      return;
-    }
-
     const instanceId = crypto.randomUUID();
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
-    
-    console.log('✅ [Regie] Question définie dans le state:', {
-      currentQuestionId: question.id,
-      currentQuestionInstanceId: instanceId,
-      currentRoundId: question.round_id
-    });
     
     // Réinitialiser le compteur de buzzers et les équipes bloquées
     previousBuzzersCount.current = 0;
@@ -516,7 +364,6 @@ const Regie = () => {
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
-      excluded_teams: [], // Réinitialiser les équipes bloquées
       // NE PAS définir current_question_id pour que les clients ne voient pas encore la question
       is_buzzer_active: false,
       timer_active: false
@@ -531,7 +378,7 @@ const Regie = () => {
   };
 
   const sendQuestionToClients = async () => {
-    if (!currentQuestionId || !currentQuestionInstanceId || !sessionId) {
+    if (!currentQuestionId || !sessionId) {
       toast({ title: '❌ Aucune question préparée', variant: 'destructive' });
       return;
     }
@@ -542,17 +389,10 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
 
-    // Capturer les valeurs locales pour éviter les problèmes de closure
-    const qId = currentQuestionId;
-    const qInstanceId = currentQuestionInstanceId;
-    const sId = sessionId;
-
-    console.log('🚀 [Regie.sendQuestionToClients] Envoi question avec:', { qId, qInstanceId, sId });
-
     // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
     await supabase.from('game_state').update({
       timer_active: false
-    }).eq('game_session_id', sId);
+    }).eq('game_session_id', sessionId);
 
     // Attendre un tout petit peu pour que le changement soit propagé
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -562,20 +402,16 @@ const Regie = () => {
     setTimerActive(true);
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
-    const timerStartedAt = new Date().toISOString();
     await supabase.from('game_state').update({
-      current_question_id: qId,
-      current_question_instance_id: qInstanceId,
+      current_question_id: currentQuestionId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
-      timer_started_at: timerStartedAt,
+      timer_started_at: new Date().toISOString(),
       timer_duration: timerDuration,
       timer_remaining: timerDuration // Garder pour compatibilité
-    }).eq('game_session_id', sId);
+    }).eq('game_session_id', sessionId);
 
-    console.log('📤 [Regie] Avant gameEvents.startQuestion:', { qId, qInstanceId, sId, timerDuration, timerStartedAt });
-    await gameEvents.startQuestion(qId, qInstanceId, sId, timerDuration, timerStartedAt, question.question_type, question.question_type === 'blind_test');
-    console.log('✅ [Regie] gameEvents.startQuestion terminé');
+    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack) {
@@ -622,7 +458,15 @@ const Regie = () => {
       excluded_teams: newBlockedTeams
     }).eq('game_session_id', sessionId);
     
-    // NE PAS supprimer le buzzer - on garde l'historique et on utilise excluded_teams pour bloquer
+    // Supprimer le buzzer de l'équipe qui a raté
+    if (currentQuestionId && sessionId) {
+      await supabase
+        .from('buzzer_attempts')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('question_id', currentQuestionId)
+        .eq('game_session_id', sessionId);
+    }
     
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
@@ -941,40 +785,6 @@ const Regie = () => {
     toast({ title: newValue ? '📡 Écran de connexion activé' : '▶️ Retour au jeu' });
   };
 
-  const toggleSponsorsScreen = async () => {
-    const newValue = !gameState?.show_sponsors_screen;
-    
-    await supabase.from('game_state').update({ 
-      show_sponsors_screen: newValue,
-      show_welcome_screen: false,
-      show_waiting_screen: false,
-      show_thanks_screen: false,
-      current_question_id: null,
-      show_answer: false,
-      timer_active: false,
-      is_buzzer_active: false
-    }).eq('game_session_id', sessionId);
-    
-    toast({ title: newValue ? '🏆 Écran sponsors activé' : '▶️ Retour au jeu' });
-  };
-
-  const toggleThanksScreen = async () => {
-    const newValue = !gameState?.show_thanks_screen;
-    
-    await supabase.from('game_state').update({ 
-      show_thanks_screen: newValue,
-      show_welcome_screen: false,
-      show_waiting_screen: false,
-      show_sponsors_screen: false,
-      current_question_id: null,
-      show_answer: false,
-      timer_active: false,
-      is_buzzer_active: false
-    }).eq('game_session_id', sessionId);
-    
-    toast({ title: newValue ? '❤️ Écran de remerciements activé' : '▶️ Retour au jeu' });
-  };
-
   const resetSession = async () => {
     if (!sessionId || !confirm('Réinitialiser toute la session ? Cela supprimera tous les buzzers, réponses et réinitialisera les scores.')) return;
     
@@ -1060,15 +870,9 @@ const Regie = () => {
           
           {/* Centre - Titre de session */}
           <div className="flex-1 text-center">
-            {currentSession ? (
-              <h2 className="text-lg font-semibold text-foreground">
-                Régie: {currentSession.name}
-              </h2>
-            ) : (
-              <h2 className="text-lg font-semibold text-destructive">
-                ⚠️ Aucune session active - Activez une session d'abord
-              </h2>
-            )}
+            <h2 className="text-lg font-semibold text-foreground">
+              Régie: {currentSession?.name || 'Aucune session'}
+            </h2>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => window.location.href = '/'}>
@@ -1094,22 +898,6 @@ const Regie = () => {
             >
               <Wifi className="h-3 w-3 mr-1" />
               Équipes
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_sponsors_screen ? "default" : "outline"}
-              onClick={toggleSponsorsScreen}
-            >
-              <Award className="h-3 w-3 mr-1" />
-              Sponsors
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_thanks_screen ? "default" : "outline"}
-              onClick={toggleThanksScreen}
-            >
-              <Heart className="h-3 w-3 mr-1" />
-              Merci
             </Button>
             <Button 
               size="sm" 
@@ -1358,16 +1146,7 @@ const Regie = () => {
             </TabsContent>
 
             {/* Onglet Effets TV */}
-            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3 space-y-3">
-              {/* Mode Démo */}
-              <DemoModePanel
-                sessionId={sessionId}
-                currentQuestionId={currentQuestionId}
-                currentQuestionInstanceId={currentQuestionInstanceId}
-                currentQuestion={questions.find(q => q.id === currentQuestionId)}
-              />
-
-              {/* Effets TV */}
+            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3">
               <Card className="p-4">
                 <h3 className="font-bold mb-3 text-sm">Effets TV</h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -1394,11 +1173,6 @@ const Regie = () => {
               />
             </TabsContent>
           </Tabs>
-
-          {/* Journal des actions (en bas à droite) */}
-          <div className="h-64 flex-shrink-0">
-            <SideLog logs={logs} />
-          </div>
         </div>
       </div>
       

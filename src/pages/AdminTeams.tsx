@@ -24,10 +24,8 @@ const AdminTeams = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedTeamQR, setSelectedTeamQR] = useState<any>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [activeSession, setActiveSession] = useState<any>(null);
 
   useEffect(() => {
-    loadActiveSession();
     loadTeams();
 
     // S'abonner aux changements en temps réel
@@ -41,41 +39,14 @@ const AdminTeams = () => {
     };
   }, []);
 
-  const loadActiveSession = async () => {
-    const { data } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('status', 'active')
-      .single();
-    
-    if (data) setActiveSession(data);
-  };
-
   const loadTeams = async () => {
     setLoading(true);
-    
-    // Charger d'abord la session active
-    const { data: sessionData } = await supabase
-      .from('game_sessions')
+    const { data } = await supabase
+      .from('teams')
       .select('*')
-      .eq('status', 'active')
-      .maybeSingle();
+      .order('created_at', { ascending: false });
     
-    if (sessionData) {
-      setActiveSession(sessionData);
-      
-      // Charger les équipes de la session active
-      const { data } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('game_session_id', sessionData.id)
-        .order('created_at', { ascending: false });
-      
-      if (data) setTeams(data);
-    } else {
-      setTeams([]);
-    }
-    
+    if (data) setTeams(data);
     setLoading(false);
   };
 
@@ -98,24 +69,10 @@ const AdminTeams = () => {
         loadTeams();
       }
     } else {
-      // Créer une nouvelle équipe liée à la session active
-      if (!activeSession) {
-        toast({
-          title: "Erreur",
-          description: "Aucune session active. Activez une session pour créer des équipes.",
-          variant: "destructive"
-        });
-        return;
-      }
-
+      // Créer une nouvelle équipe
       const { error } = await supabase
         .from('teams')
-        .insert([{ 
-          name: teamData.name, 
-          color: teamData.color, 
-          score: 0,
-          game_session_id: activeSession.id 
-        }]);
+        .insert([{ name: teamData.name, color: teamData.color, score: 0 }]);
 
       if (error) {
         toast({
@@ -234,11 +191,7 @@ const AdminTeams = () => {
               Gestion des Équipes
             </h1>
             <p className="text-muted-foreground text-xl mt-2">
-              {activeSession ? (
-                <>Session : <span className="text-primary font-semibold">{activeSession.name}</span></>
-              ) : (
-                <span className="text-destructive">⚠️ Aucune session active - Activez une session pour créer des équipes</span>
-              )}
+              Créer et gérer les équipes participantes
             </p>
           </div>
           <div className="flex gap-3">
@@ -313,14 +266,12 @@ const AdminTeams = () => {
             <div className="text-center py-12">
               <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
               <p className="text-xl text-muted-foreground mb-4">
-                {activeSession ? "Aucune équipe créée pour cette session" : "Aucune session active"}
+                Aucune équipe créée
               </p>
-              {activeSession && (
-                <Button onClick={handleCreate} variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Créer la première équipe
-                </Button>
-              )}
+              <Button onClick={handleCreate} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Créer la première équipe
+              </Button>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
