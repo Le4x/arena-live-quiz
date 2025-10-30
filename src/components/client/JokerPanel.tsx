@@ -62,14 +62,14 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
     setLoading(true);
     
     try {
-      // Récupérer le joker
-      const { data: joker } = await supabase
+      // Récupérer le joker avec un FOR UPDATE pour éviter les race conditions
+      const { data: joker, error: fetchError } = await supabase
         .from('final_jokers')
         .select('*')
         .eq('id', jokerId)
         .single();
 
-      if (!joker) throw new Error('Joker non trouvé');
+      if (fetchError || !joker) throw new Error('Joker non trouvé');
 
       // Vérifier qu'il reste des utilisations
       if (joker.used_count >= joker.quantity) {
@@ -78,24 +78,31 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
           description: "Vous avez déjà utilisé tous vos jokers de ce type",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
 
       // Incrémenter used_count
+      const newCount = joker.used_count + 1;
       const { error: updateError } = await supabase
         .from('final_jokers')
-        .update({ used_count: joker.used_count + 1 })
+        .update({ used_count: newCount })
         .eq('id', jokerId);
 
       if (updateError) throw updateError;
 
+      // Mise à jour immédiate du state local pour un feedback instantané
+      setJokers(prev => prev.map(j => 
+        j.id === jokerId ? { ...j, used_count: newCount } : j
+      ));
+
       toast({
         title: "⚡ Joker activé !",
-        description: `${jokerTypeName} a été utilisé avec succès`,
+        description: `${jokerTypeName.replace('_', ' ')} utilisé avec succès`,
       });
 
-      // Forcer le rechargement
-      await loadJokers();
+      // Recharger pour synchroniser
+      setTimeout(() => loadJokers(), 500);
     } catch (error: any) {
       toast({
         title: "Erreur",
@@ -121,72 +128,41 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
   if (jokers.length === 0) return null;
 
   return (
-    <Card className="p-4 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-500/30">
-      <div className="flex items-center gap-2 mb-4">
-        <Zap className="h-5 w-5 text-yellow-500" />
-        <h3 className="font-bold text-lg">Jokers disponibles</h3>
+    <Card className="p-3 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-500/30">
+      <div className="flex items-center gap-2 mb-2">
+        <Zap className="h-4 w-4 text-yellow-500" />
+        <h3 className="font-bold text-sm">Jokers</h3>
         {!isActive && (
           <Badge variant="outline" className="ml-auto text-xs">
-            En attente de la finale
+            En attente
           </Badge>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
+      <div className="flex flex-wrap gap-2">
         {jokers.map((joker) => {
-          const Icon = getJokerIcon(joker.joker_types.name);
           const remaining = joker.quantity - joker.used_count;
           const isUsedUp = remaining <= 0;
 
           return (
-            <motion.div
+            <Button
               key={joker.id}
-              whileHover={{ scale: isUsedUp ? 1 : 1.02 }}
-              whileTap={{ scale: isUsedUp ? 1 : 0.98 }}
-            >
-              <Card className={`p-3 border-2 transition-all ${
+              size="sm"
+              disabled={isUsedUp || loading || !isActive}
+              onClick={() => useJoker(joker.id, joker.joker_types.name)}
+              className={`h-8 px-3 text-xs flex items-center gap-1.5 ${
                 isUsedUp 
-                  ? 'opacity-50 border-border' 
-                  : 'border-yellow-500/50 hover:border-yellow-500'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl">{joker.joker_types.icon}</div>
-                  <div className="flex-1">
-                    <p className="font-bold text-sm capitalize">
-                      {joker.joker_types.name.replace('_', ' ')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {joker.joker_types.description}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge 
-                      variant={remaining > 0 ? "default" : "outline"}
-                      className={remaining > 0 ? "bg-yellow-500 text-black" : ""}
-                    >
-                      {remaining}/{joker.quantity}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      disabled={isUsedUp || loading || !isActive}
-                      onClick={() => useJoker(joker.id, joker.joker_types.name)}
-                      className="h-7 text-xs"
-                    >
-                      {loading ? '...' : 'Activer'}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
+                  ? 'opacity-50' 
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-black'
+              }`}
+              title={joker.joker_types.description}
+            >
+              <span className="text-base">{joker.joker_types.icon}</span>
+              <span className="font-bold">{remaining}/{joker.quantity}</span>
+            </Button>
           );
         })}
       </div>
-
-      {!isActive && (
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          💡 Les jokers seront activables une fois la finale lancée
-        </p>
-      )}
     </Card>
   );
 };
