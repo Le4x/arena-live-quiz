@@ -57,9 +57,9 @@ export const RoundCard = ({
       <Card className="p-4 bg-card/80 backdrop-blur-sm border-secondary/20 hover:border-secondary/40 transition-all animate-fade-in">
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
+          <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xl font-bold">{round.title}</h3>
+                <h3 className="text-xl font-bold">{round.title} - {getTypeLabel(round.type)}</h3>
                 {questions.length > 0 && (
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
