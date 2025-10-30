@@ -20,7 +20,9 @@ export type GameEventType =
   | 'WAITING_HIDE'
   | 'TOGGLE_BUZZER'
   | 'REVEAL_ANSWER'
-  | 'TEAM_BLOCKED';
+  | 'TEAM_BLOCKED'
+  | 'SHOW_PUBLIC_VOTES'
+  | 'HIDE_PUBLIC_VOTES';
 
 export interface GameEvent {
   type: GameEventType;

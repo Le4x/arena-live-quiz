@@ -12,6 +12,7 @@ import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
 import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
+import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -31,6 +32,7 @@ const Screen = () => {
   const [connectedTeamIds, setConnectedTeamIds] = useState<Set<string>>(new Set());
   const [timerDuration, setTimerDuration] = useState(30);
   const [final, setFinal] = useState<any>(null);
+  const [showPublicVotes, setShowPublicVotes] = useState(false);
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -194,6 +196,15 @@ const Screen = () => {
     // Plus besoin de l'événement REVEAL_ANSWER pour afficher une notification
     // Le reveal se fait maintenant via show_answer dans la question
 
+    // Événements pour afficher/masquer les votes du public
+    const unsubShowVotes = gameEvents.on('SHOW_PUBLIC_VOTES', () => {
+      setShowPublicVotes(true);
+    });
+
+    const unsubHideVotes = gameEvents.on('HIDE_PUBLIC_VOTES', () => {
+      setShowPublicVotes(false);
+    });
+
     return () => {
       console.log('🧹 Screen: Nettoyage des canaux realtime');
       supabase.removeChannel(teamsChannel);
@@ -201,6 +212,8 @@ const Screen = () => {
       supabase.removeChannel(gameStateChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(answersChannel);
+      unsubShowVotes();
+      unsubHideVotes();
     };
   }, []); // IMPORTANT: Pas de dépendances pour éviter les reconnexions
 
@@ -469,6 +482,15 @@ const Screen = () => {
       {/* Écran d'introduction de la finale */}
       {gameState?.final_mode && final?.status === 'intro' && (
         <FinalIntroScreen final={final} />
+      )}
+
+      {/* Résultats des votes du public */}
+      {gameState?.final_mode && final?.status === 'active' && showPublicVotes && currentQuestion && gameState?.current_question_instance_id && (
+        <PublicVoteResults
+          finalId={final.id}
+          currentQuestionInstanceId={gameState.current_question_instance_id}
+          currentQuestion={currentQuestion}
+        />
       )}
 
       {/* Écran d'accueil */}

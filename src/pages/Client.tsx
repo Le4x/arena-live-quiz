@@ -1001,8 +1001,8 @@ const Client = () => {
           />
         )}
 
-        {/* Barre de timer - Uniquement si timer actif ET question en cours */}
-        {currentQuestion && isTimerActive && timerRemaining > 0 && (
+        {/* Barre de timer - Uniquement si timer actif ET question en cours ET (pas en mode final OU finaliste) */}
+        {currentQuestion && isTimerActive && timerRemaining > 0 && (!gameState?.final_mode || isFinalist) && (
           <TimerBar 
             timerRemaining={timerRemaining}
             timerDuration={timerDuration || 30}
@@ -1011,8 +1011,8 @@ const Client = () => {
           />
         )}
 
-        {/* Buzzer - Uniquement pour blind test - RESPONSIVE */}
-        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (
+        {/* Buzzer - Uniquement pour blind test ET (pas en mode final OU finaliste) - RESPONSIVE */}
+        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (!gameState?.final_mode || isFinalist) && (
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
@@ -1032,8 +1032,8 @@ const Client = () => {
           </Card>
         )}
 
-        {/* Question et réponse - RESPONSIVE */}
-        {currentQuestion && (
+        {/* Question et réponse - Uniquement pour (pas en mode final OU finaliste) - RESPONSIVE */}
+        {currentQuestion && (!gameState?.final_mode || isFinalist) && (
           <Card className="relative overflow-hidden p-4 sm:p-6 bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 border-secondary/30 shadow-2xl animate-fade-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             

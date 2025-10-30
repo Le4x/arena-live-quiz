@@ -13,7 +13,7 @@ import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Hom
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
-import { gameEvents } from "@/lib/runtime/GameEvents";
+import { gameEvents, getGameEvents } from "@/lib/runtime/GameEvents";
 import type { SoundWithCues } from "@/pages/AdminSounds";
 import { QCMAnswersDisplay } from "@/components/QCMAnswersDisplay";
 import { TextAnswersDisplay } from "@/components/TextAnswersDisplay";
@@ -22,6 +22,7 @@ import { AudioDeck } from "@/components/audio/AudioDeck";
 import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
+import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -47,6 +48,7 @@ const Regie = () => {
   const [audioPositionWhenBuzzed, setAudioPositionWhenBuzzed] = useState<number>(0);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
+  const [showPublicVotes, setShowPublicVotes] = useState(false);
 
   useEffect(() => {
     loadActiveSession();
@@ -99,6 +101,24 @@ const Regie = () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(buzzersChannel);
       supabase.removeChannel(presenceChannel);
+    };
+  }, []);
+
+  // Écouteurs pour les votes du public
+  useEffect(() => {
+    const gameEventsManager = getGameEvents();
+    
+    const unsubShowVotes = gameEventsManager.on('SHOW_PUBLIC_VOTES', () => {
+      setShowPublicVotes(true);
+    });
+
+    const unsubHideVotes = gameEventsManager.on('HIDE_PUBLIC_VOTES', () => {
+      setShowPublicVotes(false);
+    });
+
+    return () => {
+      unsubShowVotes();
+      unsubHideVotes();
     };
   }, []);
 
@@ -1144,6 +1164,13 @@ const Regie = () => {
             {/* Onglet Finale */}
             <TabsContent value="finale" className="flex-1 overflow-y-auto space-y-3 mt-3">
               <FinalManager sessionId={sessionId!} gameState={gameState} />
+              
+              {/* Contrôle d'affichage des votes du public */}
+              <PublicVoteControl
+                showPublicVotes={showPublicVotes}
+                finalId={gameState?.final_id}
+                currentQuestionInstanceId={currentQuestionInstanceId}
+              />
             </TabsContent>
           </Tabs>
         </div>
