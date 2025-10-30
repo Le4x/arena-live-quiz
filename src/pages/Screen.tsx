@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Zap, Check, X } from "lucide-react";
+import { motion } from "framer-motion";
 import { playSound } from "@/lib/sounds";
 import { JingleRoundIntro } from "@/components/tv/JingleRoundIntro";
 import { JingleReveal } from "@/components/tv/JingleReveal";
@@ -363,23 +364,230 @@ const Screen = () => {
         />
       )}
 
-      {/* Background effects */}
+      {/* Enhanced Background effects with premium animations */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        {/* Animated gradient waves */}
+        <motion.div 
+          className="absolute inset-0"
+          animate={{
+            background: [
+              'radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.15) 0%, transparent 50%)',
+              'radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.15) 0%, transparent 50%)',
+              'radial-gradient(circle at 50% 50%, hsl(var(--accent) / 0.15) 0%, transparent 50%)',
+              'radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.15) 0%, transparent 50%)',
+            ]
+          }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* Multiple floating orbs with different sizes and speeds */}
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={`orb-${i}`}
+            className="absolute rounded-full blur-3xl"
+            style={{
+              width: 150 + Math.random() * 250,
+              height: 150 + Math.random() * 250,
+              background: i % 3 === 0 
+                ? 'hsl(var(--primary) / 0.12)'
+                : i % 3 === 1 
+                ? 'hsl(var(--secondary) / 0.12)'
+                : 'hsl(var(--accent) / 0.12)',
+              left: `${10 + i * 12}%`,
+              top: `${20 + (i % 3) * 25}%`,
+            }}
+            animate={{
+              y: [0, -80, 0],
+              x: [0, 40, 0],
+              scale: [1, 1.3, 1],
+              opacity: [0.3, 0.7, 0.3],
+            }}
+            transition={{
+              duration: 10 + i * 1.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.8,
+            }}
+          />
+        ))}
+
+        {/* Rotating light rays */}
+        {[...Array(16)].map((_, i) => (
+          <motion.div
+            key={`ray-${i}`}
+            className="absolute top-1/2 left-1/2 w-0.5 origin-left"
+            style={{
+              height: '150vh',
+              background: `linear-gradient(to bottom, transparent, hsl(var(--primary) / 0.08), transparent)`,
+              transform: `rotate(${i * 22.5}deg)`,
+            }}
+            animate={{ 
+              opacity: [0.1, 0.3, 0.1],
+              scaleY: [0.7, 1, 0.7],
+            }}
+            transition={{
+              duration: 5,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+
+        {/* Animated particles floating around */}
+        {[...Array(40)].map((_, i) => {
+          const size = Math.random() * 5 + 2;
+          const duration = Math.random() * 10 + 10;
+          
+          return (
+            <motion.div
+              key={`particle-${i}`}
+              className="absolute rounded-full"
+              style={{
+                width: size,
+                height: size,
+                background: i % 3 === 0 
+                  ? 'hsl(var(--primary) / 0.5)' 
+                  : i % 3 === 1 
+                  ? 'hsl(var(--secondary) / 0.5)'
+                  : 'hsl(var(--accent) / 0.5)',
+                boxShadow: `0 0 ${size * 3}px currentColor`,
+                left: `${Math.random() * 100}%`,
+              }}
+              initial={{ 
+                y: -20,
+                opacity: 0,
+              }}
+              animate={{
+                y: window.innerHeight + 50,
+                opacity: [0, 0.8, 0.8, 0],
+                x: [0, Math.sin(i) * 80, 0],
+              }}
+              transition={{
+                duration: duration,
+                repeat: Infinity,
+                ease: "linear",
+                delay: Math.random() * 5,
+              }}
+            />
+          );
+        })}
+
+        {/* Pulsing circles in corners */}
+        {[
+          { top: '10%', left: '10%', delay: 0 },
+          { top: '10%', right: '10%', delay: 1 },
+          { bottom: '10%', left: '10%', delay: 2 },
+          { bottom: '10%', right: '10%', delay: 3 },
+        ].map((pos, i) => (
+          <motion.div
+            key={`corner-${i}`}
+            className="absolute w-32 h-32 rounded-full border-2 border-primary/20"
+            style={pos}
+            animate={{
+              scale: [1, 1.5, 1],
+              opacity: [0.3, 0.6, 0.3],
+              borderColor: [
+                'hsl(var(--primary) / 0.2)',
+                'hsl(var(--secondary) / 0.3)',
+                'hsl(var(--primary) / 0.2)',
+              ],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              delay: pos.delay,
+            }}
+          />
+        ))}
+
+        {/* Expanding ripples from center */}
+        {[...Array(3)].map((_, i) => (
+          <motion.div
+            key={`ripple-${i}`}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/10"
+            initial={{
+              width: 0,
+              height: 0,
+              opacity: 0.5,
+            }}
+            animate={{
+              width: [0, 800, 1200],
+              height: [0, 800, 1200],
+              opacity: [0.5, 0.2, 0],
+            }}
+            transition={{
+              duration: 6,
+              repeat: Infinity,
+              delay: i * 2,
+              ease: "easeOut",
+            }}
+          />
+        ))}
       </div>
 
       <div className="relative z-10 p-8">
-        {/* Logo et titre */}
-        <header className="text-center py-6 animate-slide-in">
-          <h1 className="text-6xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
+        {/* Logo et titre avec effets premium */}
+        <header className="text-center py-6 animate-slide-in relative">
+          {/* Glow effect behind title */}
+          <motion.div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-48 blur-3xl opacity-30"
+            style={{
+              background: 'radial-gradient(ellipse, hsl(var(--primary)), transparent)',
+            }}
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.2, 0.4, 0.2],
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+
+          <motion.h1 
+            className="relative text-8xl font-black tracking-tight"
+            style={{
+              background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--accent)))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              filter: 'drop-shadow(0 0 20px hsl(var(--primary) / 0.4))',
+            }}
+            animate={{
+              filter: [
+                'drop-shadow(0 0 20px hsl(var(--primary) / 0.4))',
+                'drop-shadow(0 0 35px hsl(var(--primary) / 0.6))',
+                'drop-shadow(0 0 20px hsl(var(--primary) / 0.4))',
+              ]
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
+          >
             {currentSession?.name || 'ARENA'}
-          </h1>
+          </motion.h1>
+          
           {connectedTeamsCount > 0 && (
-            <p className="text-accent text-xl mt-2 font-bold">
+            <motion.p 
+              className="text-accent text-2xl mt-4 font-bold"
+              animate={{
+                opacity: [0.7, 1, 0.7],
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
               {connectedTeamsCount} équipe{connectedTeamsCount > 1 ? 's' : ''} connectée{connectedTeamsCount > 1 ? 's' : ''}
-            </p>
+            </motion.p>
           )}
+
+          {/* Decorative animated line */}
+          <motion.div
+            className="mx-auto mt-6 h-1 rounded-full"
+            style={{
+              background: 'linear-gradient(90deg, transparent, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--accent)), transparent)',
+              width: '400px',
+            }}
+            animate={{
+              opacity: [0.3, 0.8, 0.3],
+              scaleX: [0.8, 1, 0.8],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
         </header>
 
         {/* Intro de manche avec composant TV pro */}
