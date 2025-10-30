@@ -157,6 +157,17 @@ const Client = () => {
         }
       });
 
+    // Mettre à jour last_seen_at toutes les 30 secondes pour maintenir la connexion active
+    const heartbeatInterval = setInterval(async () => {
+      if (teamId && team) {
+        await supabase.from('teams').update({ 
+          last_seen_at: new Date().toISOString(),
+          is_active: true 
+        }).eq('id', teamId);
+        console.log('💓 Heartbeat: last_seen_at mis à jour');
+      }
+    }, 30000); // Toutes les 30 secondes
+
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
       if (teamId) {
@@ -275,6 +286,7 @@ const Client = () => {
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
       presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
@@ -802,14 +814,14 @@ const Client = () => {
       return;
     }
 
-    // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 30 secondes)
+    // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 2 minutes)
     if (teamData.connected_device_id && teamData.last_seen_at) {
       const lastSeen = new Date(teamData.last_seen_at).getTime();
       const now = Date.now();
-      const thirtySecondsAgo = now - 30000; // 30 secondes
+      const twoMinutesAgo = now - 120000; // 2 minutes
 
       // Si l'autre appareil était actif récemment, bloquer
-      if (lastSeen > thirtySecondsAgo) {
+      if (lastSeen > twoMinutesAgo) {
         toast({
           title: "Accès bloqué",
           description: "Un autre appareil est actuellement connecté à cette équipe",
@@ -818,7 +830,7 @@ const Client = () => {
         return;
       }
       
-      // Si l'appareil n'a pas été vu depuis plus de 30s, permettre la prise de contrôle
+      // Si l'appareil n'a pas été vu depuis plus de 2 minutes, permettre la prise de contrôle
       toast({
         title: "Prise de contrôle",
         description: "L'ancien appareil était inactif. Connexion en cours...",
