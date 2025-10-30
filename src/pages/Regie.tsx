@@ -188,34 +188,49 @@ const Regie = () => {
         });
       }
       
-      // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
+      // Lock au premier buzzer pour TOUS les types de questions + ARRÊTER LE TIMER pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
-        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
-        console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
-        
-        // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
-        setTimerWhenBuzzed(timerRemaining);
-        const currentPos = audioEngine.getPosition();
-        const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
-        setAudioPositionWhenBuzzed(relativePos);
-        console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
+      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active) {
+        console.log('🛑 PREMIER BUZZER - Lock automatique pour tout le monde');
         
         setBuzzerLocked(true);
-        setTimerActive(false);
         
-        // Arrêter la musique immédiatement
-        console.log('🎵 Arrêt audio avec fade...');
-        audioEngine.stopWithFade(150); // Fade rapide
-        
-        // Mettre à jour le timer dans la DB IMMÉDIATEMENT
-        if (sessionId) {
-          supabase.from('game_state').update({ 
-            timer_active: false,
-            timer_remaining: timerRemaining
-          }).eq('game_session_id', sessionId).then(() => {
-            console.log('✅ DB mise à jour: timer_active=false, timer_remaining=', timerRemaining);
-          });
+        // Pour blind test : arrêter timer et musique
+        if (currentQ?.question_type === 'blind_test') {
+          console.log('🛑 Blind test - Arrêt timer et musique, timer était à', timerRemaining);
+          
+          // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
+          setTimerWhenBuzzed(timerRemaining);
+          const currentPos = audioEngine.getPosition();
+          const relativePos = currentPos - clipStartTime;
+          setAudioPositionWhenBuzzed(relativePos);
+          console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
+          
+          setTimerActive(false);
+          
+          // Arrêter la musique immédiatement
+          console.log('🎵 Arrêt audio avec fade...');
+          audioEngine.stopWithFade(150);
+          
+          // Mettre à jour le timer dans la DB
+          if (sessionId) {
+            supabase.from('game_state').update({ 
+              timer_active: false,
+              timer_remaining: timerRemaining,
+              is_buzzer_active: false // BLOQUER LES BUZZERS POUR TOUT LE MONDE
+            }).eq('game_session_id', sessionId).then(() => {
+              console.log('✅ DB mise à jour: timer_active=false, is_buzzer_active=false');
+            });
+          }
+        } else {
+          // Pour les autres types : juste bloquer les buzzers
+          if (sessionId) {
+            supabase.from('game_state').update({ 
+              is_buzzer_active: false // BLOQUER LES BUZZERS POUR TOUT LE MONDE
+            }).eq('game_session_id', sessionId).then(() => {
+              console.log('✅ DB mise à jour: is_buzzer_active=false');
+            });
+          }
         }
       }
     }
@@ -235,7 +250,13 @@ const Regie = () => {
   const loadGameState = async () => {
     if (!sessionId) return;
     const { data } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
-    if (data) setGameState(data);
+    if (data) {
+      setGameState(data);
+      // Synchroniser les équipes bloquées depuis la DB
+      if (data.excluded_teams) {
+        setBlockedTeams(data.excluded_teams as string[]);
+      }
+    }
   };
 
   const loadRounds = async () => {
@@ -364,6 +385,7 @@ const Regie = () => {
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
+      excluded_teams: [], // Réinitialiser les équipes bloquées
       // NE PAS définir current_question_id pour que les clients ne voient pas encore la question
       is_buzzer_active: false,
       timer_active: false
@@ -458,15 +480,7 @@ const Regie = () => {
       excluded_teams: newBlockedTeams
     }).eq('game_session_id', sessionId);
     
-    // Supprimer le buzzer de l'équipe qui a raté
-    if (currentQuestionId && sessionId) {
-      await supabase
-        .from('buzzer_attempts')
-        .delete()
-        .eq('team_id', teamId)
-        .eq('question_id', currentQuestionId)
-        .eq('game_session_id', sessionId);
-    }
+    // NE PAS supprimer le buzzer - on garde l'historique et on utilise excluded_teams pour bloquer
     
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
