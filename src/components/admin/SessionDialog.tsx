@@ -27,6 +27,8 @@ export const SessionDialog = ({ open, onOpenChange, session, onSave }: SessionDi
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [hasFinal, setHasFinal] = useState(false);
+  const [finalTeamCount, setFinalTeamCount] = useState(8);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -34,10 +36,13 @@ export const SessionDialog = ({ open, onOpenChange, session, onSave }: SessionDi
     if (session) {
       setName(session.name || "");
       setLogoUrl(session.logo_url || "");
+      setHasFinal(session.has_final || false);
     } else {
       setName("");
       setLogoUrl("");
       setLogoFile(null);
+      setHasFinal(false);
+      setFinalTeamCount(8);
     }
   }, [session, open]);
 
@@ -135,6 +140,7 @@ export const SessionDialog = ({ open, onOpenChange, session, onSave }: SessionDi
       const sessionData = {
         name: name.trim(),
         logo_url: finalLogoUrl || null,
+        has_final: hasFinal,
       };
 
       if (session) {
@@ -207,6 +213,28 @@ export const SessionDialog = ({ open, onOpenChange, session, onSave }: SessionDi
               onChange={(e) => setName(e.target.value)}
               disabled={saving}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Mode Final</Label>
+            <div className="flex items-center gap-3 p-3 border border-border rounded-lg">
+              <input
+                type="checkbox"
+                id="hasFinal"
+                checked={hasFinal}
+                onChange={(e) => setHasFinal(e.target.checked)}
+                className="h-4 w-4"
+                disabled={saving}
+              />
+              <div className="flex-1">
+                <label htmlFor="hasFinal" className="font-medium cursor-pointer">
+                  Activer le mode final
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Une finale sera proposée avec les {finalTeamCount} meilleures équipes
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">

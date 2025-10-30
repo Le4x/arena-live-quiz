@@ -82,17 +82,20 @@ export const JokerPanel = ({ teamId, finalId, isActive }: JokerPanelProps) => {
       }
 
       // Incrémenter used_count
-      await supabase
+      const { error: updateError } = await supabase
         .from('final_jokers')
         .update({ used_count: joker.used_count + 1 })
         .eq('id', jokerId);
 
+      if (updateError) throw updateError;
+
       toast({
         title: "⚡ Joker activé !",
-        description: `${jokerTypeName} a été utilisé`,
+        description: `${jokerTypeName} a été utilisé avec succès`,
       });
 
-      loadJokers();
+      // Forcer le rechargement
+      await loadJokers();
     } catch (error: any) {
       toast({
         title: "Erreur",

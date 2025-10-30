@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Play, Settings, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FinalStatsPanel } from "./FinalStatsPanel";
 
 interface FinalManagerProps {
   sessionId: string;
@@ -309,12 +310,20 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
             )}
 
             {final.status === 'active' && (
-              <div className="p-6 bg-green-500/20 rounded-lg border-2 border-green-500 text-center">
-                <p className="text-2xl font-bold text-green-500">🔥 FINALE EN COURS 🔥</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Les jokers sont activables par les finalistes
-                </p>
-              </div>
+              <>
+                <div className="p-6 bg-green-500/20 rounded-lg border-2 border-green-500 text-center">
+                  <p className="text-2xl font-bold text-green-500">🔥 FINALE EN COURS 🔥</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Les jokers sont activables par les finalistes
+                  </p>
+                </div>
+
+                {/* Statistiques en temps réel */}
+                <FinalStatsPanel 
+                  finalId={final.id} 
+                  currentQuestionInstanceId={gameState?.current_question_instance_id}
+                />
+              </>
             )}
           </div>
         </>
