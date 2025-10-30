@@ -1187,65 +1187,82 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Buzzers et Réponses */}
+          {/* Affichage automatique selon le type de question */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <Tabs defaultValue="buzzers" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="w-full flex-shrink-0 grid grid-cols-3">
-                <TabsTrigger value="buzzers" className="text-xs">Buzzers</TabsTrigger>
-                <TabsTrigger value="qcm" className="text-xs">QCM</TabsTrigger>
-                <TabsTrigger value="text" className="text-xs">Texte</TabsTrigger>
-              </TabsList>
+            <div className="flex-1 overflow-y-auto p-2">
+              {(() => {
+                const currentQ = questions.find(q => q.id === currentQuestionId);
+                const questionType = currentQ?.question_type;
 
-              <TabsContent value="buzzers" className="flex-1 overflow-y-auto mt-2">
-                <BuzzerMonitor 
-                  currentQuestionId={currentQuestionId} 
-                  gameState={gameState} 
-                  buzzers={buzzers}
-                  questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
-                  onCorrectAnswer={handleCorrectAnswer}
-                  onWrongAnswer={handleWrongAnswer}
-                  blockedTeams={blockedTeams}
-                />
+                // Blind test = Buzzers
+                if (questionType === 'blind_test') {
+                  return (
+                    <>
+                      <BuzzerMonitor 
+                        currentQuestionId={currentQuestionId} 
+                        gameState={gameState} 
+                        buzzers={buzzers}
+                        questionPoints={currentQ?.points || 10}
+                        onCorrectAnswer={handleCorrectAnswer}
+                        onWrongAnswer={handleWrongAnswer}
+                        blockedTeams={blockedTeams}
+                      />
 
-                {blockedTeams.length > 0 && (
-                  <Card className="p-2 bg-destructive/10 border-destructive/20 mt-2">
-                    <h3 className="text-xs font-bold text-destructive flex items-center gap-1 mb-2">
-                      <X className="h-3 w-3" />
-                      Bloqués ({blockedTeams.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {blockedTeams.map(teamId => {
-                        const team = connectedTeams.find(t => t.id === teamId);
-                        return team ? (
-                          <div 
-                            key={teamId}
-                            className="flex items-center gap-2 p-1 rounded bg-destructive/20 border border-destructive/30"
-                          >
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
-                            <span className="font-medium text-xs">{team.name}</span>
+                      {blockedTeams.length > 0 && (
+                        <Card className="p-2 bg-destructive/10 border-destructive/20 mt-2">
+                          <h3 className="text-xs font-bold text-destructive flex items-center gap-1 mb-2">
+                            <X className="h-3 w-3" />
+                            Bloqués ({blockedTeams.length})
+                          </h3>
+                          <div className="space-y-1">
+                            {blockedTeams.map(teamId => {
+                              const team = connectedTeams.find(t => t.id === teamId);
+                              return team ? (
+                                <div 
+                                  key={teamId}
+                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20 border border-destructive/30"
+                                >
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
+                                  <span className="font-medium text-xs">{team.name}</span>
+                                </div>
+                              ) : null;
+                            })}
                           </div>
-                        ) : null;
-                      })}
-                    </div>
-                  </Card>
-                )}
-              </TabsContent>
+                        </Card>
+                      )}
+                    </>
+                  );
+                }
 
-              <TabsContent value="qcm" className="flex-1 overflow-y-auto mt-2">
-                <QCMAnswersDisplay 
-                  currentQuestion={questions.find(q => q.id === currentQuestionId)} 
-                  gameState={gameState} 
-                />
-              </TabsContent>
+                // QCM = Réponses QCM
+                if (questionType === 'qcm') {
+                  return (
+                    <QCMAnswersDisplay 
+                      currentQuestion={currentQ} 
+                      gameState={gameState} 
+                    />
+                  );
+                }
 
-              <TabsContent value="text" className="flex-1 overflow-y-auto mt-2">
-                <TextAnswersDisplay 
-                  currentQuestionId={currentQuestionId} 
-                  gameState={gameState}
-                  currentQuestion={questions.find(q => q.id === currentQuestionId)}
-                />
-              </TabsContent>
-            </Tabs>
+                // Texte libre = Réponses texte
+                if (questionType === 'freetext') {
+                  return (
+                    <TextAnswersDisplay 
+                      currentQuestionId={currentQuestionId} 
+                      gameState={gameState}
+                      currentQuestion={currentQ}
+                    />
+                  );
+                }
+
+                // Pas de question = message
+                return (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    Sélectionnez une question pour commencer
+                  </div>
+                );
+              })()}
+            </div>
           </Card>
         </div>
 
