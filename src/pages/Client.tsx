@@ -34,6 +34,7 @@ const Client = () => {
   const [teamRank, setTeamRank] = useState<number>(0);
   const [isRequestingHelp, setIsRequestingHelp] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<any>(null);
   const buzzerButtonRef = useRef<HTMLButtonElement>(null);
   const gameEvents = getGameEvents();
 
@@ -396,7 +397,10 @@ const Client = () => {
 
   const loadActiveSession = async () => {
     const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
-    if (data) setSessionId(data.id);
+    if (data) {
+      setSessionId(data.id);
+      setActiveSession(data);
+    }
   };
 
   const requestHelp = async () => {
@@ -714,6 +718,15 @@ const Client = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+        {/* Logo configurable en haut */}
+        <div className="flex justify-center pt-2 sm:pt-4">
+          <img 
+            src={activeSession?.logo_url || "/music-arena-logo.png"} 
+            alt="Logo" 
+            className="h-12 sm:h-16 w-auto drop-shadow-[0_0_20px_rgba(255,107,0,0.3)]"
+          />
+        </div>
+
         {/* Header équipe premium avec classement - RESPONSIVE */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in" 
               style={{ borderColor: team.color }}>

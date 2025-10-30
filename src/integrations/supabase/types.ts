@@ -79,6 +79,7 @@ export type Database = {
           current_round_index: number | null
           ended_at: string | null
           id: string
+          logo_url: string | null
           name: string
           selected_rounds: Json | null
           started_at: string | null
@@ -89,6 +90,7 @@ export type Database = {
           current_round_index?: number | null
           ended_at?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           selected_rounds?: Json | null
           started_at?: string | null
@@ -99,6 +101,7 @@ export type Database = {
           current_round_index?: number | null
           ended_at?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           selected_rounds?: Json | null
           started_at?: string | null
