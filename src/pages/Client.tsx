@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key, LogOut } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key, LogOut, Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
@@ -1200,25 +1201,43 @@ const Client = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
-      {/* Bouton de déconnexion très discret */}
-      <button
-        onClick={handleDisconnect}
-        className="fixed top-2 right-2 p-1.5 rounded-md bg-muted/30 hover:bg-destructive/80 text-muted-foreground hover:text-destructive-foreground opacity-30 hover:opacity-100 transition-all duration-300 backdrop-blur-sm z-50"
-        title="Se déconnecter"
-      >
-        <LogOut className="h-3 w-3" />
-      </button>
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
+        {/* Bouton de déconnexion amélioré */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleDisconnect}
+              className="fixed top-2 right-2 p-2 rounded-lg bg-card/80 hover:bg-destructive/90 text-muted-foreground hover:text-destructive-foreground opacity-40 hover:opacity-100 transition-all duration-300 backdrop-blur-md shadow-sm hover:shadow-md z-50 border border-border/50 hover:border-destructive/50"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Se déconnecter</TooltipContent>
+        </Tooltip>
 
-      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
-        {/* Logo configurable en haut */}
-        <div className="flex justify-center pt-2 sm:pt-4">
-          <img 
-            src={activeSession?.logo_url || "/music-arena-logo.png"} 
-            alt="Logo" 
-            className="h-12 sm:h-16 w-auto drop-shadow-[0_0_20px_rgba(255,107,0,0.3)]"
-          />
+        {/* Badge de statut de connexion */}
+        <div className="fixed top-2 left-2 z-50">
+          <Badge variant="outline" className="bg-card/80 backdrop-blur-md shadow-sm border-green-500/30 text-green-600 dark:text-green-400">
+            <Wifi className="h-3 w-3 mr-1" />
+            Connecté
+          </Badge>
         </div>
+
+        <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+          {/* Logo configurable en haut avec animation */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex justify-center pt-2 sm:pt-4"
+          >
+            <img 
+              src={activeSession?.logo_url || "/music-arena-logo.png"} 
+              alt="Logo" 
+              className="h-12 sm:h-16 w-auto drop-shadow-[0_0_20px_rgba(255,107,0,0.3)]"
+            />
+          </motion.div>
 
         {/* Header équipe premium avec classement - RESPONSIVE */}
         <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in" 
@@ -1276,16 +1295,23 @@ const Client = () => {
                 </div>
               </div>
 
-              {/* Bouton d'aide - RESPONSIVE */}
-              <Button
-                onClick={requestHelp}
-                disabled={isRequestingHelp}
-                variant="outline"
-                size="lg"
-                className="flex-shrink-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-red h-10 w-10 sm:h-12 sm:w-12 p-0"
-              >
-                <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
-              </Button>
+              {/* Bouton d'aide amélioré - RESPONSIVE */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={requestHelp}
+                    disabled={isRequestingHelp}
+                    variant="outline"
+                    size="lg"
+                    className="flex-shrink-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-red h-10 w-10 sm:h-12 sm:w-12 p-0 hover:scale-110 active:scale-95"
+                  >
+                    <HelpCircle className={`h-5 w-5 sm:h-6 sm:w-6 text-red-500 ${isRequestingHelp ? 'animate-pulse' : ''}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {isRequestingHelp ? 'Demande envoyée...' : 'Demander de l\'aide à la régie'}
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             {/* Barre de progression vs leader (si pas leader) */}
@@ -1345,35 +1371,53 @@ const Client = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
               {hasBuzzed ? (
-                <Button
-                  disabled
-                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent text-primary-foreground shadow-elegant opacity-50"
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
-                  ✅ BUZZÉ !
-                </Button>
+                  <Button
+                    disabled
+                    className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent text-primary-foreground shadow-elegant opacity-50"
+                  >
+                    <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
+                    ✅ BUZZÉ !
+                  </Button>
+                </motion.div>
               ) : gameState?.is_buzzer_active ? (
-                <Button
-                  ref={buzzerButtonRef}
-                  onClick={handleBuzzer}
-                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95"
-                  style={{
-                    boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)'
-                  }}
-                >
-                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
-                  ⚡ BUZZER
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      ref={buzzerButtonRef}
+                      onClick={handleBuzzer}
+                      className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95 animate-pulse"
+                      style={{
+                        boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)',
+                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                      }}
+                    >
+                      <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
+                      ⚡ BUZZER
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Appuyez pour buzzer et donner votre réponse !</TooltipContent>
+                </Tooltip>
               ) : (
-                <div className="w-full h-24 sm:h-36 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-muted">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="w-full h-24 sm:h-36 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-muted backdrop-blur-sm"
+                >
                   <p className="text-lg sm:text-2xl font-bold text-muted-foreground text-center px-4">
                     {firstBuzzerTeam ? (
-                      <>🔒 {firstBuzzerTeam.name} a buzzé !</>
+                      <span className="flex items-center gap-2">
+                        🔒 <span className="text-primary">{firstBuzzerTeam.name}</span> a buzzé !
+                      </span>
                     ) : (
                       <>🔒 Buzzer verrouillé</>
                     )}
                   </p>
-                </div>
+                </motion.div>
               )}
             </div>
           </Card>
@@ -1540,35 +1584,60 @@ const Client = () => {
 
             {currentQuestion.question_type === 'free_text' && (
               <div className="space-y-3 sm:space-y-4">
-                <Input
-                  placeholder="Votre réponse..."
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !hasAnswered && isTimerActive) {
-                      submitAnswer();
-                    }
-                  }}
-                  disabled={hasAnswered || !isTimerActive}
-                  className="bg-input border-border text-sm sm:text-base h-10 sm:h-12"
-                />
-                <Button
-                  onClick={() => submitAnswer()}
-                  disabled={hasAnswered || !isTimerActive}
-                  className="w-full h-10 sm:h-12 text-sm sm:text-base bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-pink disabled:opacity-50"
-                >
-                  <Send className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  Envoyer la réponse
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Input
+                      placeholder="Votre réponse..."
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !hasAnswered && isTimerActive) {
+                          submitAnswer();
+                        }
+                      }}
+                      disabled={hasAnswered || !isTimerActive}
+                      className="bg-input border-border text-sm sm:text-base h-10 sm:h-12 focus:ring-2 focus:ring-primary/50 transition-all"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Appuyez sur Entrée pour envoyer</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={() => submitAnswer()}
+                      disabled={hasAnswered || !isTimerActive || !answer.trim()}
+                      className="w-full h-10 sm:h-12 text-sm sm:text-base bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-pink disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                    >
+                      <Send className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      Envoyer la réponse
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {!answer.trim() ? 'Tapez votre réponse d\'abord' : 
+                     !isTimerActive ? 'Temps écoulé' : 
+                     hasAnswered ? 'Réponse déjà envoyée' : 
+                     'Cliquez pour valider votre réponse'}
+                  </TooltipContent>
+                </Tooltip>
                 {hasAnswered && (
-                  <div className="text-center text-green-500 font-bold text-sm sm:text-base">
-                    ✓ Réponse envoyée
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-green-500 font-bold text-sm sm:text-base flex items-center justify-center gap-2"
+                  >
+                    <Check className="h-5 w-5" />
+                    Réponse enregistrée
+                  </motion.div>
                 )}
                 {!isTimerActive && !hasAnswered && (
-                  <div className="text-center text-destructive font-bold text-sm sm:text-base">
-                    ⏱️ Temps écoulé - Réponses fermées
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-destructive font-bold text-sm sm:text-base flex items-center justify-center gap-2"
+                  >
+                    <X className="h-5 w-5" />
+                    Temps écoulé - Réponses fermées
+                  </motion.div>
                 )}
               </div>
             )}
@@ -1577,12 +1646,35 @@ const Client = () => {
         )}
 
         {!currentQuestion && (
-          <Card className="p-12 bg-card/90 backdrop-blur-sm text-center">
-            <p className="text-xl text-muted-foreground">En attente de la prochaine question...</p>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Card className="p-12 bg-card/90 backdrop-blur-sm text-center border-2 border-primary/20">
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.1, 1],
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="mb-4"
+              >
+                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <Trophy className="h-8 w-8 text-primary-foreground" />
+                </div>
+              </motion.div>
+              <p className="text-xl text-muted-foreground font-medium">En attente de la prochaine question...</p>
+              <p className="text-sm text-muted-foreground/70 mt-2">Restez prêt !</p>
+            </Card>
+          </motion.div>
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 
