@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { gameEvents } from "@/lib/runtime/GameEvents";
 
 interface TextAnswersDisplayProps {
   currentQuestionId: string | null;
@@ -122,6 +123,9 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
         .update({ score: team.score + pointsToAward })
         .eq('id', teamId);
     }
+    
+    // Envoyer la notification au client
+    await gameEvents.revealAnswer(teamId, isCorrect, currentQuestion?.correct_answer || '');
     
     toast({
       title: isCorrect ? "✅ Réponse validée" : "❌ Réponse refusée",
