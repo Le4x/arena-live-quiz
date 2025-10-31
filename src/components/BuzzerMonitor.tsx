@@ -71,7 +71,7 @@ export const BuzzerMonitor = memo(({
           return (
             <div
               key={buzzer.id}
-              className={`flex items-center gap-4 p-4 rounded-lg border-2 ${
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
                 isSecond 
                   ? 'bg-muted/20 opacity-75' 
                   : isBlocked 
@@ -81,6 +81,15 @@ export const BuzzerMonitor = memo(({
               style={{ borderColor: buzzer.teams?.color }}
             >
               <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
+              
+              {/* Icône équipe */}
+              <div 
+                className="w-12 h-12 rounded-full border-2 border-background flex items-center justify-center text-2xl shadow-sm"
+                style={{ backgroundColor: buzzer.teams?.color }}
+              >
+                {buzzer.teams?.avatar || '🎵'}
+              </div>
+              
               <div className="flex-1">
                 <div className="font-bold text-lg flex items-center gap-2">
                   {buzzer.teams?.name}

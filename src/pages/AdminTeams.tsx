@@ -57,7 +57,7 @@ const AdminTeams = () => {
       // Modifier une équipe existante
       const { error } = await supabase
         .from('teams')
-        .update({ name: teamData.name, color: teamData.color })
+        .update({ name: teamData.name, color: teamData.color, avatar: teamData.avatar })
         .eq('id', teamData.id);
 
       if (error) {
@@ -74,7 +74,7 @@ const AdminTeams = () => {
       // Créer une nouvelle équipe
       const { error } = await supabase
         .from('teams')
-        .insert([{ name: teamData.name, color: teamData.color, score: 0 }]);
+        .insert([{ name: teamData.name, color: teamData.color, avatar: teamData.avatar, score: 0 }]);
 
       if (error) {
         toast({

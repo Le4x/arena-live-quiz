@@ -1753,10 +1753,12 @@ const Regie = () => {
                   {connectedTeams.map(t => (
                     <div 
                       key={t.id} 
-                      className="flex items-center gap-1 p-1.5 border rounded bg-muted/30 transition-all hover:bg-muted/50 hover:scale-[1.02] hover:shadow-sm"
+                      className="flex items-center gap-1.5 p-1.5 border rounded bg-muted/30 transition-all hover:bg-muted/50 hover:scale-[1.02] hover:shadow-sm"
                     >
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${t.is_connected ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-400'}`} />
-                      <div className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-background" style={{ backgroundColor: t.color }} />
+                      <div className="w-6 h-6 rounded-full flex-shrink-0 ring-2 ring-background flex items-center justify-center text-xs" style={{ backgroundColor: t.color }}>
+                        {t.avatar || '🎵'}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-xs truncate flex items-center gap-1">
                           {t.name}

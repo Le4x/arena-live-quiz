@@ -12,6 +12,7 @@ interface Team {
   name: string;
   score: number;
   color: string;
+  avatar?: string;
 }
 
 interface LeaderboardPaginatedProps {
@@ -113,11 +114,13 @@ export const LeaderboardPaginated = ({
                       </div>
                     )}
 
-                    {/* Team color */}
+                    {/* Team icon + color */}
                     <div
-                      className="w-10 h-10 rounded-full flex-shrink-0"
+                      className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center text-2xl border-2 border-background shadow-lg"
                       style={{ backgroundColor: team.color }}
-                    />
+                    >
+                      {team.avatar || '🎵'}
+                    </div>
 
                     {/* Team info */}
                     <div className="flex-1 min-w-0">

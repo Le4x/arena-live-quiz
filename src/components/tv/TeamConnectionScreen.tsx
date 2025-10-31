@@ -5,6 +5,7 @@ interface Team {
   id: string;
   name: string;
   color: string;
+  avatar?: string;
 }
 
 interface TeamConnectionScreenProps {
@@ -191,14 +192,23 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
                         }}
                       />
                       <div 
-                        className="relative flex items-center gap-2 p-3 rounded-xl border backdrop-blur-sm transition-all duration-300 group-hover:scale-105"
+                        className="relative flex items-center gap-3 p-3 rounded-xl border backdrop-blur-sm transition-all duration-300 group-hover:scale-105"
                         style={{ 
                           borderColor: team.color,
                           backgroundColor: `${team.color}10`
                         }}
                       >
+                        {/* Icône équipe */}
+                        <div
+                          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-lg border border-background/50"
+                          style={{ backgroundColor: team.color }}
+                        >
+                          {team.avatar || '🎵'}
+                        </div>
+                        
+                        {/* Indicateur connexion */}
                         <motion.div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          className="absolute -right-1 -top-1 w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: team.color }}
                           animate={{
                             scale: [1, 1.3, 1],
@@ -214,7 +224,8 @@ export const TeamConnectionScreen = ({ connectedTeams }: TeamConnectionScreenPro
                             delay: index * 0.08
                           }}
                         />
-                        <span className="text-sm font-bold text-foreground truncate">
+                        
+                        <span className="text-sm font-bold text-foreground truncate flex-1">
                           {team.name}
                         </span>
                       </div>

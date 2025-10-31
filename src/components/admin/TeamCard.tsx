@@ -27,21 +27,23 @@ export const TeamCard = ({ team, onEdit, onDelete, onShowQR }: TeamCardProps) =>
   return (
     <>
       <div
-        className="p-6 rounded-lg border-2 bg-card/80 backdrop-blur-sm hover:bg-card/90 transition-all animate-fade-in"
+        className="p-6 rounded-lg border-2 bg-card/80 backdrop-blur-sm hover:bg-card/90 transition-all animate-fade-in hover:scale-[1.02]"
         style={{ borderColor: team.color }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-full border-4 border-background shadow-lg"
+              className="w-16 h-16 rounded-full border-4 border-background shadow-lg flex items-center justify-center text-3xl transition-transform hover:scale-110"
               style={{ backgroundColor: team.color }}
-            />
+            >
+              {team.avatar || '🎵'}
+            </div>
             <div>
               <h3 className="text-xl font-bold">{team.name}</h3>
               <div className="flex gap-2 mt-1">
                 <Badge variant="outline">{team.score || 0} points</Badge>
                 {team.is_connected && (
-                  <Badge variant="default" className="bg-green-500">En ligne</Badge>
+                  <Badge variant="default" className="bg-green-500 animate-pulse">En ligne</Badge>
                 )}
               </div>
             </div>
