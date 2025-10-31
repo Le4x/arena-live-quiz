@@ -994,23 +994,8 @@ const Client = () => {
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
     
-    console.log('📝 Tentative envoi réponse:', {
-      finalAnswer,
-      team: team?.name,
-      question: currentQuestion?.id,
-      questionType: currentQuestion?.question_type,
-      instanceId: currentQuestionInstanceId,
-      sessionId: gameState?.game_session_id,
-      hasAnswered,
-      isTimerActive
-    });
-    
-    // Pour les questions lyrics, permettre l'envoi tant que la question est active
-    const isLyricsQuestion = currentQuestion?.question_type === 'lyrics';
-    
-    // Bloquer l'envoi si le timer est terminé (sauf pour lyrics)
-    if (!isLyricsQuestion && !isTimerActive) {
-      console.log('❌ Réponse bloquée - timer non actif');
+    // Bloquer l'envoi si le timer est terminé
+    if (!isTimerActive) {
       toast({
         title: "Temps écoulé",
         description: "Les réponses ne sont plus acceptées",
@@ -1019,132 +1004,39 @@ const Client = () => {
       return;
     }
     
-    if (!team) {
-      console.log('❌ Pas d\'équipe');
-      toast({
-        title: "Erreur",
-        description: "Équipe non connectée",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!currentQuestion) {
-      console.log('❌ Pas de question');
-      toast({
-        title: "Erreur",
-        description: "Aucune question active",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!currentQuestionInstanceId) {
-      console.log('❌ Pas d\'instance de question');
-      toast({
-        title: "Erreur",
-        description: "Instance de question manquante",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!finalAnswer.trim()) {
-      console.log('❌ Réponse vide');
-      toast({
-        title: "Erreur",
-        description: "Veuillez entrer une réponse",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!gameState?.game_session_id) {
-      console.log('❌ Pas de session');
-      toast({
-        title: "Erreur",
-        description: "Session de jeu non trouvée",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (hasAnswered && !isLyricsQuestion) {
-      console.log('❌ Déjà répondu');
-      toast({
-        title: "Déjà répondu",
-        description: "Vous avez déjà envoyé une réponse",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
     // Stocker la réponse sélectionnée localement pour l'afficher lors du reveal
     setAnswer(finalAnswer);
 
-    console.log('📤 Envoi réponse à la DB...');
-    
-    // Vérifier si une réponse existe déjà pour cette équipe/question
-    const { data: existing } = await supabase
+    // Ne PAS calculer is_correct ici, sera fait au reveal
+    const { error } = await supabase
       .from('team_answers')
-      .select('id')
-      .eq('team_id', team.id)
-      .eq('question_instance_id', currentQuestionInstanceId)
-      .maybeSingle();
-    
-    if (existing) {
-      console.log('⚠️ Une réponse existe déjà, mise à jour...');
-      // Mettre à jour la réponse existante
-      const { error } = await supabase
-        .from('team_answers')
-        .update({ 
+      .insert([
+        { 
+          team_id: team.id, 
+          question_id: currentQuestion.id,
+          question_instance_id: currentQuestionInstanceId,
           answer: finalAnswer,
-          answered_at: new Date().toISOString()
-        })
-        .eq('id', existing.id);
-        
-      if (error) {
-        console.error('❌ Erreur mise à jour réponse:', error);
-        toast({
-          title: "Erreur",
-          description: `Impossible de mettre à jour la réponse: ${error.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
-    } else {
-      // Créer une nouvelle réponse
-      const { error } = await supabase
-        .from('team_answers')
-        .insert([
-          { 
-            team_id: team.id, 
-            question_id: currentQuestion.id,
-            question_instance_id: currentQuestionInstanceId,
-            answer: finalAnswer,
-            is_correct: null,
-            points_awarded: 0,
-            game_session_id: gameState.game_session_id
-          }
-        ]);
+          is_correct: null,
+          points_awarded: 0,
+          game_session_id: gameState.game_session_id
+        }
+      ]);
 
-      if (error) {
-        console.error('❌ Erreur envoi réponse:', error);
-        toast({
-          title: "Erreur",
-          description: `Impossible d'envoyer la réponse: ${error.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la réponse",
+        variant: "destructive"
+      });
+    } else {
+      setHasAnswered(true);
+      toast({
+        title: "Réponse enregistrée !",
+        description: "En attente de la révélation...",
+      });
     }
-    
-    console.log('✅ Réponse enregistrée avec succès');
-    setHasAnswered(true);
-    toast({
-      title: "Réponse enregistrée !",
-      description: "En attente de la révélation...",
-    });
   };
 
   if (deviceBlocked) {
@@ -1603,27 +1495,23 @@ const Client = () => {
               </div>
             )}
 
-            {(currentQuestion.question_type === 'free_text' || currentQuestion.question_type === 'lyrics') && (
+            {currentQuestion.question_type === 'free_text' && (
               <div className="space-y-3 sm:space-y-4">
                 <Input
-                  placeholder={currentQuestion.question_type === 'lyrics' ? "Paroles manquantes..." : "Votre réponse..."}
+                  placeholder="Votre réponse..."
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !hasAnswered) {
-                      // Pour lyrics, on peut toujours envoyer tant que la question est active
-                      // Pour free_text, on vérifie le timer
-                      if (currentQuestion.question_type === 'lyrics' || isTimerActive) {
-                        submitAnswer();
-                      }
+                    if (e.key === 'Enter' && !hasAnswered && isTimerActive) {
+                      submitAnswer();
                     }
                   }}
-                  disabled={hasAnswered || (currentQuestion.question_type !== 'lyrics' && !isTimerActive)}
+                  disabled={hasAnswered || !isTimerActive}
                   className="bg-input border-border text-sm sm:text-base h-10 sm:h-12"
                 />
                 <Button
                   onClick={() => submitAnswer()}
-                  disabled={hasAnswered || (currentQuestion.question_type !== 'lyrics' && !isTimerActive)}
+                  disabled={hasAnswered || !isTimerActive}
                   className="w-full h-10 sm:h-12 text-sm sm:text-base bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-pink disabled:opacity-50"
                 >
                   <Send className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
@@ -1634,7 +1522,7 @@ const Client = () => {
                     ✓ Réponse envoyée
                   </div>
                 )}
-                {!isTimerActive && !hasAnswered && currentQuestion.question_type !== 'lyrics' && (
+                {!isTimerActive && !hasAnswered && (
                   <div className="text-center text-destructive font-bold text-sm sm:text-base">
                     ⏱️ Temps écoulé - Réponses fermées
                   </div>

@@ -23,7 +23,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
       instanceId: gameState?.current_question_instance_id
     });
     
-    if (currentQuestionId && (currentQuestion?.question_type === 'free_text' || currentQuestion?.question_type === 'lyrics') && gameState?.game_session_id) {
+    if (currentQuestionId && currentQuestion?.question_type === 'free_text' && gameState?.game_session_id) {
       loadAnswers();
 
       // Canal unique pour éviter les conflits
@@ -122,8 +122,8 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
     loadAnswers();
   };
 
-  // Ne rien afficher si pas une question free text ou lyrics
-  if (!currentQuestion || (currentQuestion.question_type !== 'free_text' && currentQuestion.question_type !== 'lyrics')) return null;
+  // Ne rien afficher si pas une question free text
+  if (!currentQuestion || currentQuestion.question_type !== 'free_text') return null;
   
   // Afficher le composant même sans réponse pour voir qu'il y a une question active
   if (!currentQuestionId) return null;
@@ -134,7 +134,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
     <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20 mt-2">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-bold text-accent">
-          {currentQuestion.question_type === 'lyrics' ? 'Paroles proposées' : 'Réponses texte'} ({answers.length})
+          Réponses texte ({answers.length})
         </h3>
         <span className="text-xs text-muted-foreground">
           {validatedCount}/{answers.length} validées

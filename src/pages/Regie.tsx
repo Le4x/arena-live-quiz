@@ -176,35 +176,6 @@ const Regie = () => {
     return () => clearInterval(interval);
   }, [timerActive, timerRemaining, sessionId]);
 
-  // Surveillance du stopTime pour les questions karaoké
-  useEffect(() => {
-    const currentQ = questions.find(q => q.id === currentQuestionId);
-    
-    if (!currentQ || currentQ.question_type !== 'lyrics' || !currentQ.stop_time || currentQ.stop_time <= 0) {
-      return; // Pas de karaoké ou pas de stopTime
-    }
-    
-    console.log('🎵 Surveillance karaoké stopTime:', currentQ.stop_time);
-    
-    const checkInterval = setInterval(() => {
-      const state = audioEngine.getState();
-      
-      if (state.isPlaying && state.currentTime >= currentQ.stop_time) {
-        console.log('⏸️ stopTime atteint, pause de l\'audio', {
-          currentTime: state.currentTime,
-          stopTime: currentQ.stop_time
-        });
-        
-        audioEngine.pause();
-        clearInterval(checkInterval);
-      }
-    }, 100); // Vérifier toutes les 100ms
-    
-    return () => clearInterval(checkInterval);
-  }, [currentQuestionId, questions]);
-
-  // Pas besoin de broadcaster - chaque écran gère son propre AudioEngine
-
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
     if (buzzers.length > previousBuzzersCount.current) {
@@ -472,44 +443,18 @@ const Regie = () => {
     setClipStartTime(0);
     console.log('✅ États locaux réinitialisés');
     
-    // Précharger le son pour les blind tests ET les karaoké
-    if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && question.audio_url) {
-      // Pour les blind test, chercher dans les tracks configurées
-      let track = audioTracks.find(t => t.url === question.audio_url);
-      
-      // Pour les karaoké, créer un track dynamique si pas trouvé
-      if (!track && question.question_type === 'lyrics') {
-        // Extraire le nom du fichier depuis l'URL
-        const fileName = question.audio_url.split('/').pop()?.split('-').slice(1).join('-').replace('.mp3', '') || 'Karaoké';
-        
-        // Créer des cues basés sur stopTime si défini
-        const cues = [];
-        if (question.stop_time && question.stop_time > 0) {
-          cues.push({ label: 'Début', time: 0 });
-          cues.push({ label: 'Stop paroles', time: question.stop_time });
-        }
-        
-        track = {
-          id: `karaoke-${question.id}`,
-          name: fileName,
-          url: question.audio_url,
-          cues: cues
-        };
-        console.log('🎤 Track karaoké créé dynamiquement:', track);
-      }
-      
+    // Précharger le son pour les blind tests - avec chargement complet
+    if (question.question_type === 'blind_test' && question.audio_url) {
+      const track = audioTracks.find(t => t.url === question.audio_url);
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
         toast({ title: '⏳ Chargement audio...', description: track.name });
         
         try {
-          // Précharger dans le cache
+          // Précharger ET charger dans l'engine
           await audioEngine.preloadTrack(track);
-          console.log('✅ Audio préchargé dans le cache');
-          
-          // Charger dans l'engine pour être prêt
-          await audioEngine.loadTrack(track);
-          console.log('✅ Audio chargé dans l\'engine');
+          await audioEngine.loadAndPlay(track);
+          await audioEngine.stop(); // Arrêter immédiatement, on veut juste charger
           
           setCurrentTrack(track);
           toast({ title: '✅ Son prêt', description: track.name });
@@ -545,18 +490,15 @@ const Regie = () => {
       current_round_id: question.round_id,
       current_question_id: null, // Important: ne pas encore montrer aux clients
       timer_remaining: timerDuration,
-      timer_duration: timerDuration, // CRITIQUE: définir timer_duration pour synchronisation Screen
       timer_active: false,
       is_buzzer_active: false,
       show_leaderboard: false,
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
-      excluded_teams: [], // Réinitialiser les équipes bloquées
-      karaoke_playing: false, // Réinitialiser le karaoké
-      karaoke_revealed: false
+      excluded_teams: [] // Réinitialiser les équipes bloquées
     }).eq('game_session_id', sessionId);
-    console.log('✅ Game state réinitialisé en DB avec timer_duration:', timerDuration);
+    console.log('✅ Game state réinitialisé en DB');
     
     // ========== PHASE 5: PRÉPARER POUR DÉMARRAGE ==========
     setTimerRemaining(timerDuration);
@@ -569,28 +511,9 @@ const Regie = () => {
   };
 
   const sendQuestionToClients = async () => {
-    console.log('📤 ENVOYER AUX CLIENTS - État actuel:', {
-      currentQuestionId,
-      currentTrack,
-      currentTrackName: currentTrack?.name,
-      currentTrackUrl: currentTrack?.url,
-      sessionId
-    });
-    
     if (!currentQuestionId || !sessionId) {
       toast({ title: '❌ Aucune question préparée', variant: 'destructive' });
       return;
-    }
-
-    // ⚠️ ACTIVER L'AUDIOCONTEXT (nécessaire pour autoplay dans les navigateurs)
-    try {
-      if (audioEngine['audioContext'].state === 'suspended') {
-        console.log('🔊 Activation AudioContext via interaction utilisateur...');
-        await audioEngine['audioContext'].resume();
-        console.log('✅ AudioContext activé');
-      }
-    } catch (error) {
-      console.error('❌ Erreur activation AudioContext:', error);
     }
 
     const question = questions.find(q => q.id === currentQuestionId);
@@ -598,13 +521,6 @@ const Regie = () => {
 
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
-
-    console.log('📤 Question trouvée:', {
-      questionType: question.question_type,
-      audioUrl: question.audio_url,
-      stopTime: question.stop_time,
-      timerDuration
-    });
 
     // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
     await supabase.from('game_state').update({
@@ -616,87 +532,31 @@ const Regie = () => {
 
     // Réinitialiser le chrono et le relancer
     setTimerRemaining(timerDuration);
-    
-    // Préparer les données à mettre à jour
-    const updateData: any = {
-      current_question_id: currentQuestionId,
-      timer_remaining: timerDuration,
-      timer_active: true,
-      timer_started_at: new Date().toISOString(),
-      timer_duration: timerDuration,
-      show_waiting_screen: false,
-      show_answer: false,
-      answer_result: null
-    };
-    
-    // Pour les questions karaoké, lancer automatiquement la lecture
-    if (question.question_type === 'lyrics') {
-      updateData.karaoke_playing = true;
-      updateData.karaoke_revealed = false;
-      console.log('🎤 Question karaoké détectée - lancement automatique de la musique');
-    }
     setTimerActive(true);
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
     await supabase.from('game_state').update({
-      ...updateData,
-      is_buzzer_active: question.question_type === 'blind_test'
+      current_question_id: currentQuestionId,
+      is_buzzer_active: question.question_type === 'blind_test',
+      timer_active: true,
+      timer_started_at: new Date().toISOString(),
+      timer_duration: timerDuration,
+      timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
-    console.log('🎵 VÉRIFICATION LANCEMENT AUDIO:', {
-      isBlindTestOrLyrics: (question.question_type === 'blind_test' || question.question_type === 'lyrics'),
-      questionType: question.question_type,
-      hasCurrentTrack: !!currentTrack,
-      currentTrackDefined: currentTrack !== null && currentTrack !== undefined,
-      currentTrackKeys: currentTrack ? Object.keys(currentTrack) : 'null'
-    });
-    
-    // Lancer l'audio automatiquement pour les blind tests ET karaoké
-    if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
-      console.log('🎵 Préparation du lancement audio:', currentTrack.name);
-      
-      try {
-        // S'assurer que le track est chargé dans l'engine
-        console.log('🎵 Chargement du track dans l\'engine...');
-        await audioEngine.loadTrack(currentTrack);
-        console.log('✅ Track chargé dans l\'engine');
-        
-        if (question.question_type === 'blind_test') {
-          // Blind test: lancer extrait de 30s depuis CUE1
-          const cue1Time = currentTrack.cues[0]?.time || 0;
-          setClipStartTime(cue1Time);
-          console.log('🎵 Lecture depuis CUE1:', cue1Time);
-          await audioEngine.playClip30s(300);
-          toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé depuis CUE1' });
-        } else if (question.question_type === 'lyrics') {
-          // Karaoké: lancer depuis le début et synchroniser avec le screen
-          const cue1Time = currentTrack.cues[0]?.time || 0;
-          setClipStartTime(cue1Time);
-          console.log('🎤 Lancement karaoké depuis régie');
-          
-          await audioEngine.play(cue1Time);
-          console.log('✅ Karaoké lancé en régie');
-          toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
-        }
-      } catch (error) {
-        console.error('❌ Erreur lancement audio:', error);
-        toast({ 
-          title: '❌ Erreur audio', 
-          description: 'Impossible de lancer l\'audio',
-          variant: 'destructive'
-        });
-      }
+    // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
+    if (question.question_type === 'blind_test' && currentTrack) {
+      console.log('🎵 Lancement automatique de l\'audio depuis l\'extrait:', currentTrack.name);
+      // Sauvegarder la position de départ du clip (CUE1)
+      const cue1Time = currentTrack.cues[0]?.time || 0;
+      setClipStartTime(cue1Time);
+      // Jouer l'extrait de 30s (depuis CUE#1)
+      await audioEngine.playClip30s(300);
+      toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
     } else {
-      if ((question.question_type === 'blind_test' || question.question_type === 'lyrics')) {
-        console.warn('⚠️ Pas de currentTrack défini !', { 
-          questionType: question.question_type,
-          currentTrack,
-          audioUrl: question.audio_url
-        });
-      }
-      toast({ title: '🚀 Question envoyée !', description: `Chrono lancé (${timerDuration}s)` });
+      toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
     }
   };
 
@@ -760,7 +620,9 @@ const Regie = () => {
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
             // S'assurer que le track est chargé dans l'engine
-            await audioEngine.loadTrack(s);
+            await audioEngine.preloadTrack(s);
+            audioEngine['currentTrack'] = s;
+            audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
             
             // Reprendre EXACTEMENT à la position sauvegardée
             const cue1Time = s.cues[0]?.time || 0;
@@ -775,28 +637,18 @@ const Regie = () => {
         }
         
         // Reprendre avec le timer sauvegardé au moment du buzz
-        // Calculer le nouveau timestamp de départ pour que le timer soit synchronisé
-        const now = new Date();
-        const newStartedAt = new Date(now.getTime() - (timerWhenBuzzed * 1000)).toISOString();
-        
         setTimerRemaining(timerWhenBuzzed);
         setTimerActive(true);
         
-        // Récupérer la durée du round
-        const round = rounds.find(r => r.id === currentQ.round_id);
-        const timerDuration = round?.timer_duration || 30;
-        
-        // Mettre à jour le timer dans la DB avec le temps restant sauvegardé ET timestamp synchronisé
+        // Mettre à jour le timer dans la DB avec le temps restant sauvegardé
         await supabase.from('game_state').update({ 
           is_buzzer_active: true, 
           answer_result: null,
           timer_active: true,
-          timer_remaining: timerWhenBuzzed,
-          timer_started_at: newStartedAt, // Timestamp recalculé pour synchronisation
-          timer_duration: timerDuration
+          timer_remaining: timerWhenBuzzed // Reprendre avec le temps sauvegardé
         }).eq('game_session_id', sessionId);
         
-        console.log('⏱️ Reprise timer à', timerWhenBuzzed, 'avec timestamp:', newStartedAt);
+        console.log('⏱️ Reprise timer à', timerWhenBuzzed);
       } else {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
@@ -851,15 +703,11 @@ const Regie = () => {
       timer_duration: null
     }).eq('game_session_id', sessionId);
     setTimerActive(false);
-    
-    // Jouer la solution (CUE2) pour les blind tests
     const q = questions.find(x => x.id === currentQuestionId);
     if (q?.audio_url && q.question_type === 'blind_test') { 
       const s = audioTracks.find(t => t.url === q.audio_url); 
-      if (s) {
-        console.log('🎵 Bonne réponse - lecture de la solution depuis CUE2');
-        // Charger le track et jouer la solution
-        await audioEngine.loadTrack(s);
+      if (s) { 
+        await audioEngine.loadAndPlay(s); 
         await audioEngine.playSolution(8, 300, 300); 
       } 
     }
@@ -911,20 +759,6 @@ const Regie = () => {
     
     // Attribution automatique des points
     const currentQ = questions.find(q => q.id === currentQuestionId);
-    
-    // Pour les questions karaoké, déclencher la reprise de la musique
-    if (currentQ?.question_type === 'lyrics') {
-      console.log('🎵 Déclenchement reprise karaoké');
-      window.dispatchEvent(new Event('resumeKaraoke'));
-      
-      // Reprendre aussi l'audio dans l'engine de la régie
-      if (currentTrack) {
-        audioEngine.play().catch(err => {
-          console.error('❌ Erreur reprise audio régie:', err);
-        });
-      }
-    }
-    
     if (!currentQ || !sessionId) {
       toast({ title: '👁️ Réponse révélée' });
       return;
@@ -965,8 +799,8 @@ const Regie = () => {
         }
         toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
       }
-    } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text' || currentQ.question_type === 'lyrics') {
-      // Pour les textes libres et karaoké : utiliser les validations de la régie
+    } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text') {
+      // Pour les textes libres : utiliser les validations de la régie
       const { data: answers } = await supabase
         .from('team_answers')
         .select('*, teams(score)')
@@ -1178,63 +1012,6 @@ const Regie = () => {
     toast({ title: `${delta > 0 ? '+' : ''}${delta} pts pour ${team.name}` });
   };
 
-  const emergencyReset = async () => {
-    if (!confirm('⚠️ RESET D\'URGENCE ⚠️\n\nCela va arrêter toute l\'activité en cours :\n- Arrêt audio\n- Arrêt timer\n- Fermeture buzzers\n- Réinitialisation écran\n\nConfirmer ?')) return;
-
-    try {
-      // Arrêter l'audio
-      audioEngine.stop();
-      
-      // Arrêter tous les timers
-      setTimerActive(false);
-      
-      // Fermer les buzzers
-      setBuzzerLocked(false);
-      setBlockedTeams([]);
-      
-      if (!sessionId) return;
-
-      // Réinitialiser game_state complètement
-      await supabase.from('game_state').update({
-        is_buzzer_active: false,
-        timer_active: false,
-        timer_remaining: null,
-        timer_started_at: null,
-        timer_duration: null,
-        audio_is_playing: false,
-        audio_current_time: 0,
-        karaoke_playing: false,
-        karaoke_revealed: false,
-        show_leaderboard: false,
-        show_ambient_screen: true,
-        show_round_intro: false,
-        show_pause_screen: false,
-        show_waiting_screen: false,
-        show_answer: false,
-        show_welcome_screen: false,
-        show_team_connection_screen: false,
-        show_sponsors_screen: false,
-        show_thanks_screen: false,
-        answer_result: null,
-        announcement_text: null,
-        excluded_teams: []
-      }).eq('game_session_id', sessionId);
-
-      toast({
-        title: '🛑 Reset d\'urgence effectué',
-        description: 'Tout est à l\'arrêt et réinitialisé',
-        variant: 'default'
-      });
-    } catch (error) {
-      console.error('Erreur reset urgence:', error);
-      toast({
-        title: '❌ Erreur',
-        description: 'Erreur lors du reset',
-        variant: 'destructive'
-      });
-    }
-  };
-
   const resetAllScores = async () => {
     if (!confirm('Réinitialiser tous les scores des équipes ?')) return;
     await supabase.from('teams').update({ score: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
@@ -1294,14 +1071,6 @@ const Regie = () => {
             </h2>
           </div>
           <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="destructive"
-              onClick={emergencyReset}
-              className="animate-pulse"
-            >
-              🛑 RESET
-            </Button>
             <Button size="sm" variant="outline" onClick={() => window.location.href = '/'}>
               <Home className="h-3 w-3 mr-1" />
               Menu
@@ -1447,30 +1216,29 @@ const Regie = () => {
             </Card>
           )}
 
-          {/* Timer */}
-          {currentQuestionId && timerRemaining > 0 && (
-            <Card className="flex-shrink-0 p-2">
+          {/* Timer et Audio combinés */}
+          <Card className="flex-shrink-0 p-2">
+            {currentQuestionId && timerRemaining > 0 && (
               <TimerBar 
                 timerRemaining={timerRemaining}
                 timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
                 timerActive={timerActive}
                 questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
               />
-            </Card>
-          )}
-
-          {/* Lecteur Audio - TOUJOURS VISIBLE pour préchargement */}
-          {audioTracks.length > 0 && (
-            <Card className="flex-shrink-0 p-2">
-              <AudioDeck 
-                tracks={audioTracks}
-                onTrackChange={(track) => {
-                  console.log('🎵 Track changé:', track.name);
-                  setCurrentTrack(track);
-                }}
-              />
-            </Card>
-          )}
+            )}
+            {/* Afficher le deck audio si on a des tracks disponibles */}
+            {audioTracks.length > 0 && (
+              <div className="mt-2">
+                <AudioDeck 
+                  tracks={currentTrack ? [currentTrack] : audioTracks}
+                  onTrackChange={(track) => {
+                    console.log('📻 Track changed:', track.name);
+                    setCurrentTrack(track);
+                  }}
+                />
+              </div>
+            )}
+          </Card>
 
           {/* Contrôles Buzzer + Reveal */}
           <Card className="flex-shrink-0 p-2">
@@ -1530,55 +1298,6 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Contrôles Karaoké (seulement si type lyrics) */}
-          {(() => {
-            const currentQ = questions.find(q => q.id === currentQuestionId);
-            if (currentQ?.question_type !== 'lyrics') return null;
-            
-            return (
-              <Card className="flex-shrink-0 p-2 bg-purple-500/10 border-purple-500/30">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className="text-xl">🎤</span>
-                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400">Karaoké</span>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant={gameState?.karaoke_playing ? "default" : "outline"}
-                    onClick={async () => {
-                      const newState = !gameState?.karaoke_playing;
-                      await supabase.from('game_state').update({ 
-                        karaoke_playing: newState,
-                        karaoke_revealed: false // Reset révélation quand on relance
-                      }).eq('game_session_id', sessionId);
-                      toast({ 
-                        title: newState ? '▶️ Karaoké lancé' : '⏸️ Karaoké en pause' 
-                      });
-                    }}
-                    className="h-7 text-xs"
-                  >
-                    {gameState?.karaoke_playing ? '⏸️ Pause' : '▶️ Lancer'}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={gameState?.karaoke_revealed ? "secondary" : "default"}
-                    onClick={async () => {
-                      await supabase.from('game_state').update({ 
-                        karaoke_revealed: true,
-                        karaoke_playing: true // Reprendre la lecture
-                      }).eq('game_session_id', sessionId);
-                      toast({ title: '✨ Paroles révélées !' });
-                    }}
-                    disabled={gameState?.karaoke_revealed}
-                    className="h-7 text-xs"
-                  >
-                    {gameState?.karaoke_revealed ? '✓ Révélé' : '✨ Révéler'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })()}
-
           {/* Affichage automatique selon le type de question */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto p-2">
@@ -1636,8 +1355,8 @@ const Regie = () => {
                   );
                 }
 
-                // Texte libre ou karaoké = Réponses texte
-                if (questionType === 'free_text' || questionType === 'lyrics') {
+                // Texte libre = Réponses texte
+                if (questionType === 'free_text') {
                   return (
                     <TextAnswersDisplay 
                       currentQuestionId={currentQuestionId} 

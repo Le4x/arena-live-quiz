@@ -78,38 +78,30 @@ export class AudioEngine {
   }
 
   /**
-   * Charger une track sans la jouer
+   * Charger et lire une track
    */
-  async loadTrack(track: Track): Promise<void> {
-    console.log('🎵 AudioEngine.loadTrack:', track.name);
+  async loadAndPlay(track: Track, startAt: number = 0): Promise<void> {
+    console.log('🎵 AudioEngine: loadAndPlay appelé pour', track.name);
+    await this.stop();
     this.currentTrack = track;
 
     // Précharger si pas en cache
     if (!this.bufferCache.has(track.url)) {
-      console.log('📥 Préchargement nécessaire');
+      console.log('📥 AudioEngine: Buffer pas en cache, préchargement...');
       await this.preloadTrack(track);
     } else {
-      console.log('✅ Buffer en cache');
+      console.log('✅ AudioEngine: Buffer déjà en cache');
     }
 
-    // Assigner le buffer
+    // Vérifier que le buffer est bien chargé
     const buffer = this.bufferCache.get(track.url);
     if (!buffer) {
-      console.error('❌ Buffer introuvable!');
+      console.error('❌ AudioEngine: Buffer introuvable après préchargement!');
       throw new Error('Impossible de charger le fichier audio');
     }
 
     this.currentBuffer = buffer;
-    console.log('✅ Track chargé, buffer assigné, durée:', buffer.duration);
-    this.notifyListeners();
-  }
-
-  /**
-   * Charger et lire une track
-   */
-  async loadAndPlay(track: Track, startAt: number = 0): Promise<void> {
-    await this.stop();
-    await this.loadTrack(track);
+    console.log('✅ AudioEngine: Buffer assigné, durée:', buffer.duration);
     await this.play(startAt);
   }
 
@@ -119,39 +111,28 @@ export class AudioEngine {
   async play(startAt?: number): Promise<void> {
     // Activer l'AudioContext si suspendu (requis par les navigateurs)
     if (this.audioContext.state === 'suspended') {
-      console.log('🔊 AudioEngine: AudioContext suspendu, activation...');
-      try {
-        await this.audioContext.resume();
-        console.log('✅ AudioEngine: AudioContext activé');
-      } catch (error) {
-        console.error('❌ Impossible d\'activer AudioContext:', error);
-        throw error;
-      }
+      console.log('🔊 AudioEngine: Activation AudioContext...');
+      await this.audioContext.resume();
+      console.log('✅ AudioEngine: AudioContext activé');
     }
 
     if (!this.currentBuffer) {
-      console.error('⚠️ AudioEngine: Pas de buffer chargé');
-      return;
-    }
-
-    if (!this.currentTrack) {
-      console.error('⚠️ AudioEngine: Pas de currentTrack défini!');
+      console.warn('⚠️ AudioEngine: Pas de buffer chargé');
       return;
     }
 
     this.stop();
 
-    const offset = startAt !== undefined ? startAt : this.pauseTime;
-    console.log('▶️ AudioEngine: Lecture à', offset.toFixed(2), 's');
+    console.log('▶️ AudioEngine: Démarrage lecture à', startAt || this.pauseTime, 'secondes');
     
     this.currentSource = this.audioContext.createBufferSource();
     this.currentSource.buffer = this.currentBuffer;
     this.currentSource.connect(this.gainNode);
 
+    const offset = startAt !== undefined ? startAt : this.pauseTime;
     this.currentSource.start(0, offset);
     this.startTime = this.audioContext.currentTime - offset;
     this.isPlaying = true;
-    console.log('✅ AudioEngine: Lecture démarrée');
     this.notifyListeners();
   }
 

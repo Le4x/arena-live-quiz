@@ -16,7 +16,6 @@ import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
 import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
 import { ThanksScreen } from "@/components/tv/ThanksScreen";
-import { KaraokeDisplay } from "@/components/tv/KaraokeDisplay";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -881,43 +880,7 @@ const Screen = () => {
 
         {/* Question actuelle - Design Premium */}
         {currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
-          <>
-            {/* Affichage karaoké pour les questions lyrics */}
-            {(() => {
-              console.log('🎵 Screen: Vérification karaoké', {
-                questionType: currentQuestion.question_type,
-                hasLyrics: !!currentQuestion.lyrics,
-                lyricsType: typeof currentQuestion.lyrics,
-                hasAudioUrl: !!currentQuestion.audio_url,
-                audioUrl: currentQuestion.audio_url
-              });
-              
-              if (currentQuestion.question_type === 'lyrics' && currentQuestion.lyrics && currentQuestion.audio_url) {
-                const parsedLyrics = typeof currentQuestion.lyrics === 'string' 
-                  ? JSON.parse(currentQuestion.lyrics) 
-                  : currentQuestion.lyrics;
-                
-                console.log('✅ Screen: Affichage karaoké', { 
-                  lyricsCount: parsedLyrics.length,
-                  lyrics: parsedLyrics 
-                });
-                
-                return (
-                  <KaraokeDisplay
-                    lyrics={parsedLyrics}
-                    audioUrl={currentQuestion.audio_url}
-                    stopTime={currentQuestion.stop_time || undefined}
-                    sessionId={currentSession?.id}
-                  />
-                );
-              }
-              
-              return null;
-            })()}
-
-            {/* Affichage normal pour les autres types de questions */}
-            {currentQuestion.question_type !== 'lyrics' && (
-              <motion.div
+          <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -980,8 +943,7 @@ const Screen = () => {
                       />
                       <span className="relative text-primary-foreground">
                         {currentQuestion.question_type === 'qcm' ? 'QCM' : 
-                         currentQuestion.question_type === 'free_text' ? 'TEXTE LIBRE' :
-                         currentQuestion.question_type === 'lyrics' ? 'KARAOKÉ' : 'BLIND TEST'}
+                         currentQuestion.question_type === 'free_text' ? 'TEXTE LIBRE' : 'BLIND TEST'}
                       </span>
                     </motion.div>
 
@@ -1047,8 +1009,6 @@ const Screen = () => {
                           ? qcmAnswers.length 
                           : currentQuestion.question_type === 'free_text'
                           ? textAnswers.length
-                          : currentQuestion.question_type === 'lyrics'
-                          ? textAnswers.length
                           : buzzers.length}
                         <span className="text-muted-foreground mx-1">/</span>
                         {teams.length}
@@ -1064,8 +1024,6 @@ const Screen = () => {
                         width: `${((currentQuestion.question_type === 'qcm' 
                           ? qcmAnswers.length 
                           : currentQuestion.question_type === 'free_text'
-                          ? textAnswers.length
-                          : currentQuestion.question_type === 'lyrics'
                           ? textAnswers.length
                           : buzzers.length) / Math.max(teams.length, 1)) * 100}%` 
                       }}
@@ -1312,8 +1270,6 @@ const Screen = () => {
               </div>
             </div>
           </motion.div>
-            )}
-          </>
         )}
 
         {/* Barre de timer - Uniquement si timer actif ET question en cours */}

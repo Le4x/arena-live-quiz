@@ -22,7 +22,6 @@ import {
 import { Loader2, Music, Image as ImageIcon, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SoundWithCues } from "@/pages/AdminSounds";
-import { LyricsEditor, type LyricLine } from "./LyricsEditor";
 
 interface QuestionDialogProps {
   open: boolean;
@@ -49,8 +48,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [stopTime, setStopTime] = useState<number>(0);
 
   useEffect(() => {
     // Charger les sons depuis localStorage
@@ -96,23 +93,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       } else {
         setOptions({ A: "", B: "", C: "", D: "" });
       }
-
-      // Parser les paroles karaoké
-      if (question.lyrics) {
-        try {
-          const parsedLyrics = typeof question.lyrics === 'string' 
-            ? JSON.parse(question.lyrics) 
-            : question.lyrics;
-          setLyrics(parsedLyrics);
-        } catch {
-          setLyrics([]);
-        }
-      } else {
-        setLyrics([]);
-      }
-      
-      // Charger le stopTime
-      setStopTime(question.stop_time || 0);
     } else {
       // Reset pour création
       setRoundId("");
@@ -127,8 +107,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       setImageFile(null);
       setImagePreview(null);
       setExistingImageUrl(null);
-      setLyrics([]);
-      setStopTime(0);
     }
   }, [question, open, availableSounds]);
 
@@ -192,26 +170,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       }
     }
 
-    // Vérifier les paroles pour le karaoké
-    if (questionType === 'lyrics') {
-      if (lyrics.length === 0) {
-        toast({ 
-          title: "Erreur", 
-          description: "Ajoutez au moins une ligne de paroles", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      if (!audioUrl) {
-        toast({ 
-          title: "Erreur", 
-          description: "Une musique est requise pour le karaoké", 
-          variant: "destructive" 
-        });
-        return;
-      }
-    }
-
     setSaving(true);
     try {
       // Upload image si présente
@@ -231,7 +189,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
           )
         : null;
 
-      const questionData: any = {
+      const questionData = {
         round_id: roundId,
         question_text: questionText.trim(),
         question_type: questionType,
@@ -243,12 +201,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         cue_points: cuePoints ? JSON.stringify(cuePoints) : null,
         options: filteredOptions ? JSON.stringify(filteredOptions) : null
       };
-
-      // Ajouter les paroles si type karaoké
-      if (questionType === 'lyrics') {
-        questionData.lyrics = JSON.stringify(lyrics);
-        questionData.stop_time = stopTime || null;
-      }
 
       if (question) {
         // Mise à jour
@@ -333,7 +285,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
                 <SelectItem value="blind_test">🎵 Blind Test</SelectItem>
                 <SelectItem value="qcm">📋 QCM</SelectItem>
                 <SelectItem value="free_text">✍️ Réponse libre</SelectItem>
-                <SelectItem value="lyrics">🎤 Karaoké</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -363,16 +314,6 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
                 />
               ))}
             </div>
-          )}
-
-          {questionType === 'lyrics' && (
-            <LyricsEditor
-              lyrics={lyrics}
-              onChange={setLyrics}
-              audioUrl={selectedSoundId ? availableSounds.find(s => s.id === selectedSoundId)?.url : audioUrl}
-              stopTime={stopTime}
-              onStopTimeChange={setStopTime}
-            />
           )}
 
           <div className="space-y-2">
