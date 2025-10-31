@@ -598,7 +598,7 @@ const Regie = () => {
     
     // Lancer l'audio automatiquement pour les blind tests ET karaoké AU POINT DE CUE 1 (extrait)
     if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
-      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name);
+      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name, 'currentTrack=', currentTrack);
       
       if (question.question_type === 'blind_test') {
         // Blind test: lancer extrait de 30s depuis CUE1
@@ -610,10 +610,34 @@ const Regie = () => {
         // Karaoké: lancer depuis le début (CUE1 = 0)
         const cue1Time = currentTrack.cues[0]?.time || 0;
         setClipStartTime(cue1Time);
-        await audioEngine.loadAndPlay(currentTrack, cue1Time);
-        toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
+        console.log('🎤 Appel loadAndPlay avec:', { 
+          trackName: currentTrack.name, 
+          trackUrl: currentTrack.url,
+          cue1Time,
+          trackCues: currentTrack.cues 
+        });
+        
+        try {
+          await audioEngine.loadAndPlay(currentTrack, cue1Time);
+          console.log('✅ loadAndPlay réussi, état engine:', audioEngine.getState());
+          toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
+        } catch (error) {
+          console.error('❌ Erreur loadAndPlay:', error);
+          toast({ 
+            title: '❌ Erreur karaoké', 
+            description: 'Impossible de lancer l\'audio',
+            variant: 'destructive'
+          });
+        }
       }
     } else {
+      if ((question.question_type === 'blind_test' || question.question_type === 'lyrics')) {
+        console.warn('⚠️ Pas de currentTrack défini !', { 
+          questionType: question.question_type,
+          currentTrack,
+          audioUrl: question.audio_url
+        });
+      }
       toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
     }
   };
@@ -1298,27 +1322,26 @@ const Regie = () => {
                 questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
               />
             )}
-            {/* Afficher le deck audio si on a des tracks disponibles */}
-            {audioTracks.length > 0 && (
-              <div className="mt-2">
-                <AudioDeck 
-                  tracks={(() => {
-                    // Si on a une question actuelle avec un audio_url, ne montrer que ce track
-                    const currentQ = questions.find(q => q.id === currentQuestionId);
-                    if (currentQ?.audio_url) {
-                      const questionTrack = audioTracks.find(t => t.url === currentQ.audio_url);
-                      if (questionTrack) return [questionTrack];
-                    }
-                    // Sinon, montrer tous les tracks disponibles
-                    return audioTracks;
-                  })()}
-                  onTrackChange={(track) => {
-                    console.log('📻 Track changed:', track.name);
-                    setCurrentTrack(track);
-                  }}
-                />
-              </div>
-            )}
+            {/* Afficher le deck audio SEULEMENT si on a une question actuelle avec audio */}
+            {(() => {
+              const currentQ = questions.find(q => q.id === currentQuestionId);
+              if (!currentQ?.audio_url) return null; // Pas de question audio = pas de lecteur
+              
+              const questionTrack = audioTracks.find(t => t.url === currentQ.audio_url) || currentTrack;
+              if (!questionTrack) return null;
+              
+              return (
+                <div className="mt-2">
+                  <AudioDeck 
+                    tracks={[questionTrack]}
+                     onTrackChange={(track) => {
+                      console.log('🎵 Track changé:', track.name);
+                      setCurrentTrack(track);
+                    }}
+                  />
+                </div>
+              );
+            })()}
           </Card>
 
           {/* Contrôles Buzzer + Reveal */}

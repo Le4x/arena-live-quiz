@@ -33,8 +33,13 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
   }, []);
 
   useEffect(() => {
-    // Précharger toutes les tracks au chargement
-    console.log('📦 AudioDeck: Préchargement de', tracks.length, 'tracks...');
+    // Précharger seulement les tracks si on en a
+    if (tracks.length === 0) {
+      console.log('📦 AudioDeck: Aucune track à précharger');
+      return;
+    }
+    
+    console.log('📦 AudioDeck: Préchargement de', tracks.length, 'track(s)...');
     const preloadPromises = tracks.map(track => {
       return engine.preloadTrack(track)
         .then(() => {
