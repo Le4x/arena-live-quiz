@@ -137,14 +137,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     }
   }, [isRevealed, stopTime]);
 
-  // Mettre à jour currentTime
+  // S'abonner aux mises à jour de temps de l'AudioEngine
   useEffect(() => {
-    const interval = setInterval(() => {
-      const state = audioEngine.getState();
+    const unsubscribe = audioEngine.subscribe((state) => {
       setCurrentTime(state.currentTime);
-    }, 50);
+    });
 
-    return () => clearInterval(interval);
+    return unsubscribe;
   }, []);
 
   // Trouver la ligne actuelle
