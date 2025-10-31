@@ -520,6 +520,7 @@ export type Database = {
           question_text: string
           question_type: string
           round_id: string | null
+          stop_time: number | null
         }
         Insert: {
           audio_url?: string | null
@@ -536,6 +537,7 @@ export type Database = {
           question_text: string
           question_type: string
           round_id?: string | null
+          stop_time?: number | null
         }
         Update: {
           audio_url?: string | null
@@ -552,6 +554,7 @@ export type Database = {
           question_text?: string
           question_type?: string
           round_id?: string | null
+          stop_time?: number | null
         }
         Relationships: [
           {

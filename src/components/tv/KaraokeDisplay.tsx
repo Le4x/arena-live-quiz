@@ -47,8 +47,8 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
       const time = audio.currentTime;
       setCurrentTime(time);
       
-      // Arrêter la musique au stopTime si défini
-      if (stopTime && time >= stopTime && !isPaused && !audio.paused) {
+      // Arrêter la musique au stopTime si défini ET valide (> 0)
+      if (stopTime && stopTime > 0 && time >= stopTime && !isPaused && !audio.paused) {
         console.log('⏸️ PAUSE AUTO - stopTime atteint:', { currentTime: time, stopTime });
         audio.pause();
         setIsPaused(true);
@@ -64,8 +64,8 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
       console.log('▶️ Événement reprise karaoké reçu');
       setIsPaused(false);
       
-      // Si on a un stopTime et qu'on est dessus, reprendre après
-      if (stopTime && audio.currentTime >= stopTime) {
+      // Si on a un stopTime valide et qu'on est dessus, reprendre après
+      if (stopTime && stopTime > 0 && audio.currentTime >= stopTime) {
         audio.currentTime = stopTime + 0.1;
       }
       
