@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi, Award, Heart } from "lucide-react";
+import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi, Award, Heart, Play, Pause, RotateCw, Clock, Volume2, CheckCircle2, AlertCircle, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { getAudioEngine, type Track } from "@/lib/audio/AudioEngine";
@@ -1128,6 +1128,11 @@ const Regie = () => {
 
   const roundQuestions = currentRoundId ? questions.filter(q => q.round_id === currentRoundId) : [];
   const connectedCount = connectedTeams.filter(t => t.is_connected).length;
+  
+  // Statistiques en temps réel
+  const activeBuzzersCount = buzzers.filter(b => !blockedTeams.includes(b.team_id)).length;
+  const totalScore = connectedTeams.reduce((sum, t) => sum + (t.score || 0), 0);
+  const yellowCardsCount = connectedTeams.reduce((sum, t) => sum + (t.yellow_cards || 0), 0);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -1135,14 +1140,59 @@ const Regie = () => {
         {/* Header - Amélioré avec meilleurs contrastes */}
         <div className="p-3 border-b border-border bg-card backdrop-blur-sm shadow-sm flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                 Arena TV
               </h1>
-              <Badge variant={connectedCount > 0 ? "default" : "secondary"} className="gap-2 font-semibold">
-                <Users className="h-3 w-3" />
-                {connectedCount}/{connectedTeams.length}
-              </Badge>
+              
+              {/* Statistiques en temps réel */}
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant={connectedCount > 0 ? "default" : "secondary"} className="gap-1.5 font-semibold transition-all hover:scale-105">
+                      <Users className="h-3 w-3" />
+                      {connectedCount}/{connectedTeams.length}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>Équipes connectées</TooltipContent>
+                </Tooltip>
+                
+                {totalScore > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="gap-1.5 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 transition-all hover:scale-105">
+                        <Trophy className="h-3 w-3" />
+                        {totalScore} pts
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Score total de la session</TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {activeBuzzersCount > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="gap-1.5 bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 animate-pulse">
+                        <Activity className="h-3 w-3" />
+                        {activeBuzzersCount}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Buzzers actifs</TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {yellowCardsCount > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="gap-1.5 bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-400">
+                        <AlertCircle className="h-3 w-3" />
+                        {yellowCardsCount} 🟨
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Cartons jaunes actifs</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             
             {/* Centre - Titre de session avec badge statut */}
@@ -1200,9 +1250,19 @@ const Regie = () => {
           </Card>
 
           {/* Questions - Tableau compact */}
-          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="p-2 border-b flex-shrink-0 bg-muted/30">
-              <h3 className="font-bold text-xs">Questions ({roundQuestions.length})</h3>
+          <Card className="flex-1 overflow-hidden flex flex-col min-h-0 transition-all hover:shadow-md">
+            <div className="p-2 border-b flex-shrink-0 bg-gradient-to-r from-muted/50 to-muted/30">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-xs flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                  Questions ({roundQuestions.length})
+                </h3>
+                {currentQuestionId && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400">
+                    Active
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               <table className="w-full text-xs">
@@ -1214,18 +1274,25 @@ const Regie = () => {
                       'free_text': '✍️'
                     };
                     const icon = typeIcons[q.question_type] || '?';
+                    const isActive = currentQuestionId === q.id;
                     
                     return (
                       <tr 
                         key={q.id} 
-                        className={`border-b hover:bg-muted/50 cursor-pointer ${currentQuestionId === q.id ? 'bg-primary/10' : ''}`}
+                        className={`border-b hover:bg-muted/50 cursor-pointer transition-all ${isActive ? 'bg-primary/10 shadow-sm' : ''}`}
                         onClick={() => startQuestion(q)}
                       >
-                        <td className="p-2 w-6 text-center">{icon}</td>
-                        <td className="p-2">
-                          <div className="truncate font-medium">{q.question_text}</div>
+                        <td className="p-2 w-6 text-center">
+                          <span className={isActive ? 'animate-pulse text-lg' : ''}>{icon}</span>
                         </td>
-                        <td className="p-2 w-12 text-right text-muted-foreground">{q.points}p</td>
+                        <td className="p-2">
+                          <div className={`truncate ${isActive ? 'font-bold' : 'font-medium'}`}>{q.question_text}</div>
+                        </td>
+                        <td className="p-2 w-12 text-right">
+                          <Badge variant={isActive ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                            {q.points}p
+                          </Badge>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1270,18 +1337,82 @@ const Regie = () => {
             </Card>
           )}
 
-          {/* Timer et Audio */}
-          <Card className="flex-shrink-0 p-2">
+          {/* Timer et Audio - Section améliorée */}
+          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-blue-500/5 border-blue-500/20">
             {currentQuestionId && timerRemaining > 0 && (
-              <TimerBar 
-                timerRemaining={timerRemaining}
-                timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
-                timerActive={timerActive}
-                questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
-              />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400">Chronomètre</h3>
+                  </div>
+                  
+                  {/* Contrôles Timer */}
+                  <div className="flex gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setTimerActive(!timerActive);
+                            supabase.from('game_state').update({ 
+                              timer_active: !timerActive 
+                            }).eq('game_session_id', sessionId);
+                          }}
+                        >
+                          {timerActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{timerActive ? 'Pause' : 'Reprendre'}</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            const duration = rounds.find(r => r.id === currentRoundId)?.timer_duration || 30;
+                            setTimerRemaining(duration);
+                            setTimerActive(false);
+                            supabase.from('game_state').update({ 
+                              timer_remaining: duration,
+                              timer_active: false 
+                            }).eq('game_session_id', sessionId);
+                            toast({ title: '🔄 Timer réinitialisé' });
+                          }}
+                        >
+                          <RotateCw className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reset timer</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                
+                <TimerBar 
+                  timerRemaining={timerRemaining}
+                  timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
+                  timerActive={timerActive}
+                  questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
+                />
+              </div>
             )}
+            
             {audioTracks.length > 0 && (
-              <div className="mt-2">
+              <div className={currentQuestionId && timerRemaining > 0 ? "mt-3 pt-3 border-t border-border" : ""}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Volume2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">Audio</h3>
+                  {currentTrack && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-500/10 border-purple-500/30">
+                      {currentTrack.name}
+                    </Badge>
+                  )}
+                </div>
                 <AudioDeck 
                   tracks={currentTrack ? [currentTrack] : audioTracks}
                   onTrackChange={(track) => setCurrentTrack(track)}
@@ -1620,22 +1751,30 @@ const Regie = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
                   {connectedTeams.map(t => (
-                    <div key={t.id} className="flex items-center gap-1 p-1.5 border rounded bg-muted/30">
-                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                    <div 
+                      key={t.id} 
+                      className="flex items-center gap-1 p-1.5 border rounded bg-muted/30 transition-all hover:bg-muted/50 hover:scale-[1.02] hover:shadow-sm"
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${t.is_connected ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-400'}`} />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-background" style={{ backgroundColor: t.color }} />
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-xs truncate flex items-center gap-1">
                           {t.name}
                           {t.yellow_cards > 0 && (
-                            <span className="text-yellow-500">
+                            <span className="text-yellow-500 animate-pulse">
                               {'🟨'.repeat(t.yellow_cards)}
                             </span>
                           )}
                           {t.is_excluded && (
-                            <span className="text-red-500 text-xs font-bold ml-1">(EXCLU)</span>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 ml-1">EXCLU</Badge>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">{t.score} pts</div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">{t.score} pts</span>
+                          {t.score > 0 && (
+                            <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-0.5 flex-shrink-0">
                         {t.is_excluded ? (
