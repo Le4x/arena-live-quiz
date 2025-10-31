@@ -450,11 +450,21 @@ const Regie = () => {
       
       // Pour les karaoké, créer un track dynamique si pas trouvé
       if (!track && question.question_type === 'lyrics') {
+        // Extraire le nom du fichier depuis l'URL
+        const fileName = question.audio_url.split('/').pop()?.split('-').slice(1).join('-').replace('.mp3', '') || 'Karaoké';
+        
+        // Créer des cues basés sur stopTime si défini
+        const cues = [];
+        if (question.stop_time && question.stop_time > 0) {
+          cues.push({ label: 'Début', time: 0 });
+          cues.push({ label: 'Stop paroles', time: question.stop_time });
+        }
+        
         track = {
           id: `karaoke-${question.id}`,
-          name: question.question_text || 'Karaoké',
+          name: fileName,
           url: question.audio_url,
-          cues: []
+          cues: cues
         };
         console.log('🎤 Track karaoké créé dynamiquement:', track);
       }
@@ -559,15 +569,23 @@ const Regie = () => {
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
-    // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
-    if (question.question_type === 'blind_test' && currentTrack) {
-      console.log('🎵 Lancement automatique de l\'audio depuis l\'extrait:', currentTrack.name);
-      // Sauvegarder la position de départ du clip (CUE1)
-      const cue1Time = currentTrack.cues[0]?.time || 0;
-      setClipStartTime(cue1Time);
-      // Jouer l'extrait de 30s (depuis CUE#1)
-      await audioEngine.playClip30s(300);
-      toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
+    // Lancer l'audio automatiquement pour les blind tests ET karaoké AU POINT DE CUE 1 (extrait)
+    if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
+      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name);
+      
+      if (question.question_type === 'blind_test') {
+        // Blind test: lancer extrait de 30s depuis CUE1
+        const cue1Time = currentTrack.cues[0]?.time || 0;
+        setClipStartTime(cue1Time);
+        await audioEngine.playClip30s(300);
+        toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
+      } else if (question.question_type === 'lyrics') {
+        // Karaoké: lancer depuis le début (CUE1 = 0)
+        const cue1Time = currentTrack.cues[0]?.time || 0;
+        setClipStartTime(cue1Time);
+        await audioEngine.play(cue1Time);
+        toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
+      }
     } else {
       toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
     }
@@ -777,6 +795,13 @@ const Regie = () => {
     if (currentQ?.question_type === 'lyrics') {
       console.log('🎵 Déclenchement reprise karaoké');
       window.dispatchEvent(new Event('resumeKaraoke'));
+      
+      // Reprendre aussi l'audio dans l'engine de la régie
+      if (currentTrack) {
+        audioEngine.play().catch(err => {
+          console.error('❌ Erreur reprise audio régie:', err);
+        });
+      }
     }
     
     if (!currentQ || !sessionId) {

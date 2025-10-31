@@ -125,15 +125,20 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
 
   const currentLine = getCurrentLine();
 
-  // Debug render
+  // Debug render - Log toutes les 0.5s pour éviter le spam
   useEffect(() => {
-    console.log('🎵 Rendu karaoké:', {
-      currentTime: currentTime.toFixed(1),
-      hasCurrentLine: !!currentLine,
-      currentLineText: currentLine?.text,
-      isPaused,
-      totalLyrics: lyrics.length
-    });
+    const shouldLog = Math.floor(currentTime * 2) % 10 === 0; // Log toutes les 5 secondes
+    if (shouldLog) {
+      console.log('🎵 Rendu karaoké:', {
+        currentTime: currentTime.toFixed(1),
+        hasCurrentLine: !!currentLine,
+        currentLineText: currentLine?.text,
+        currentLineStart: currentLine?.startTime,
+        currentLineEnd: currentLine?.endTime,
+        isPaused,
+        totalLyrics: lyrics.length
+      });
+    }
   }, [currentTime, currentLine, isPaused, lyrics.length]);
 
   return (
