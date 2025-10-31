@@ -48,11 +48,36 @@ const Screen = () => {
     console.log('🚀 Screen: Initialisation des canaux realtime');
     loadData();
     
-    // Realtime subscriptions avec rechargement complet
+    // Realtime subscriptions avec rechargement complet et IMMEDIAT
     const teamsChannel = supabase
-      .channel('screen-teams')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        console.log('🔄 Screen: Teams changed');
+      .channel('screen-teams-realtime')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'teams' 
+      }, (payload) => {
+        console.log('🔄 Screen: Teams UPDATE realtime', payload);
+        // Mise à jour immédiate du state local
+        if (payload.new) {
+          setTeams(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
+        }
+        // Puis reload complet pour être sûr
+        loadData();
+      })
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'teams' 
+      }, () => {
+        console.log('🔄 Screen: Teams INSERT realtime');
+        loadData();
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'teams' 
+      }, () => {
+        console.log('🔄 Screen: Teams DELETE realtime');
         loadData();
       })
       .subscribe();

@@ -80,14 +80,18 @@ const Client = () => {
       .subscribe();
 
     const teamsChannel = supabase
-      .channel('client-teams')
+      .channel('client-teams-realtime')
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'teams',
         filter: teamId ? `id=eq.${teamId}` : undefined
       }, (payload) => {
-        console.log('🔄 Team updated realtime:', payload);
+        console.log('🔄 Client: Team updated realtime', payload);
+        // Mise à jour IMMEDIATE du state local
+        if (payload.new) {
+          setTeam(payload.new);
+        }
         reloadTeamData();
         loadAllTeams();
       })

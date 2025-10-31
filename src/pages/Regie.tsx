@@ -49,6 +49,8 @@ const Regie = () => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [clipStartTime, setClipStartTime] = useState<number>(0); // Position du CUE1 dans la piste
   const [showPublicVotes, setShowPublicVotes] = useState(false);
+  const [audioPreloaded, setAudioPreloaded] = useState(false);
+  const [audioPreloading, setAudioPreloading] = useState(false);
 
   useEffect(() => {
     loadActiveSession();
@@ -57,9 +59,16 @@ const Regie = () => {
     loadTeams();
     loadAudioTracks();
 
-    // Abonnement changements de teams (score, etc)
-    const teamsChannel = supabase.channel('regie-teams')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadTeams)
+    // Abonnement changements de teams (score, yellow_cards, etc) - IMMEDIAT
+    const teamsChannel = supabase.channel('regie-teams-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'teams' 
+      }, (payload) => {
+        console.log('🔄 Regie: Teams changed realtime', payload);
+        loadTeams();
+      })
       .subscribe();
 
     // Abonnement buzzers GLOBAL
@@ -398,24 +407,32 @@ const Regie = () => {
     setClipStartTime(0);
     console.log('✅ États locaux réinitialisés');
     
-    // Précharger le son pour les blind tests - avec chargement complet
+    // Précharger le son pour les blind tests - GARDER EN MÉMOIRE
     if (question.question_type === 'blind_test' && question.audio_url) {
       const track = audioTracks.find(t => t.url === question.audio_url);
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
+        setAudioPreloading(true);
+        setAudioPreloaded(false);
         toast({ title: '⏳ Chargement audio...', description: track.name });
         
         try {
-          // Précharger ET charger dans l'engine
+          // Précharger le son SANS le jouer - juste charger en mémoire
           await audioEngine.preloadTrack(track);
-          await audioEngine.loadAndPlay(track);
-          await audioEngine.stop(); // Arrêter immédiatement, on veut juste charger
           
           setCurrentTrack(track);
-          toast({ title: '✅ Son prêt', description: track.name });
-          console.log('✅ Audio complètement préchargé et prêt');
+          setAudioPreloaded(true);
+          setAudioPreloading(false);
+          toast({ 
+            title: '✅ Son prêt à diffuser', 
+            description: track.name,
+            duration: 3000
+          });
+          console.log('✅ Audio complètement préchargé en mémoire et prêt');
         } catch (error) {
           console.error('❌ Erreur préchargement:', error);
+          setAudioPreloading(false);
+          setAudioPreloaded(false);
           toast({ 
             title: '⚠️ Erreur audio', 
             description: 'Le son n\'a pas pu être chargé',
@@ -426,6 +443,8 @@ const Regie = () => {
       }
     } else {
       setCurrentTrack(null);
+      setAudioPreloaded(false);
+      setAudioPreloading(false);
     }
     
     await supabase.from('question_instances').insert({
@@ -473,6 +492,16 @@ const Regie = () => {
 
     const question = questions.find(q => q.id === currentQuestionId);
     if (!question) return;
+    
+    // Vérifier que l'audio est préchargé pour les blind tests
+    if (question.question_type === 'blind_test' && !audioPreloaded) {
+      toast({ 
+        title: '⚠️ Audio non préchargé', 
+        description: 'Veuillez attendre que le son soit chargé',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
@@ -1152,13 +1181,35 @@ const Regie = () => {
           {/* Contrôle principal - Envoyer question */}
           {currentQuestionId && (
             <Card className="flex-shrink-0 p-2">
-              <Button 
-                size="sm"
-                className="w-full bg-green-600 hover:bg-green-700"
-                onClick={sendQuestionToClients}
-              >
-                🚀 Envoyer aux clients
-              </Button>
+              <div className="space-y-2">
+                {/* Indicateur de préchargement audio */}
+                {questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && (
+                  <div className="flex items-center gap-2 text-xs">
+                    {audioPreloading ? (
+                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                        ⏳ Chargement audio...
+                      </Badge>
+                    ) : audioPreloaded ? (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                        ✅ Audio prêt
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+                        ⚠️ Audio non chargé
+                      </Badge>
+                    )}
+                  </div>
+                )}
+                
+                <Button 
+                  size="sm"
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={sendQuestionToClients}
+                  disabled={questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && !audioPreloaded}
+                >
+                  🚀 Envoyer aux clients
+                </Button>
+              </div>
             </Card>
           )}
 
