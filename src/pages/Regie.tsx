@@ -845,6 +845,54 @@ const Regie = () => {
     toast({ title: '🙈 Réponse cachée' });
   };
 
+  const activateTransition = async () => {
+    if (!sessionId) return;
+    
+    console.log('🔄 Activation écran de transition');
+    
+    // Arrêter tout
+    audioEngine.stop();
+    setTimerActive(false);
+    setBuzzerLocked(true);
+    
+    // Purger les données de la question précédente
+    await supabase
+      .from('buzzer_attempts')
+      .delete()
+      .eq('game_session_id', sessionId);
+    
+    if (currentQuestionInstanceId) {
+      await supabase
+        .from('team_answers')
+        .delete()
+        .eq('question_instance_id', currentQuestionInstanceId);
+    }
+    
+    // Réinitialiser les états locaux
+    setBuzzers([]);
+    setBlockedTeams([]);
+    previousBuzzersCount.current = 0;
+    
+    // Activer l'écran de transition
+    await supabase.from('game_state').update({
+      current_question_id: null,
+      current_question_instance_id: null,
+      show_waiting_screen: true,
+      show_leaderboard: false,
+      show_answer: false,
+      answer_result: null,
+      timer_active: false,
+      is_buzzer_active: false,
+      excluded_teams: [],
+      announcement_text: '⏳ Préparation de la prochaine question...'
+    }).eq('game_session_id', sessionId);
+    
+    toast({ 
+      title: '✨ Transition activée', 
+      description: 'Système purgé, prêt pour la prochaine question'
+    });
+  };
+
   const showLeaderboard = async () => {
     await supabase.from('game_state').update({ show_leaderboard: true }).eq('game_session_id', sessionId);
     toast({ title: '🏆 Classement affiché' });
@@ -1110,6 +1158,14 @@ const Regie = () => {
                   ⏸️ Attente
                 </>
               )}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={activateTransition}
+              className="bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
+            >
+              ✨ Transition
             </Button>
             <Button size="sm" variant="outline" onClick={showLeaderboard}>
               <Trophy className="h-3 w-3 mr-1" />
