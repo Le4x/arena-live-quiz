@@ -548,7 +548,9 @@ const Regie = () => {
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
-      excluded_teams: [] // Réinitialiser les équipes bloquées
+      excluded_teams: [], // Réinitialiser les équipes bloquées
+      karaoke_playing: false, // Réinitialiser le karaoké
+      karaoke_revealed: false
     }).eq('game_session_id', sessionId);
     console.log('✅ Game state réinitialisé en DB');
     
@@ -1425,6 +1427,55 @@ const Regie = () => {
               </Button>
             </div>
           </Card>
+
+          {/* Contrôles Karaoké (seulement si type lyrics) */}
+          {(() => {
+            const currentQ = questions.find(q => q.id === currentQuestionId);
+            if (currentQ?.question_type !== 'lyrics') return null;
+            
+            return (
+              <Card className="flex-shrink-0 p-2 bg-purple-500/10 border-purple-500/30">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-xl">🎤</span>
+                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400">Karaoké</span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant={gameState?.karaoke_playing ? "default" : "outline"}
+                    onClick={async () => {
+                      const newState = !gameState?.karaoke_playing;
+                      await supabase.from('game_state').update({ 
+                        karaoke_playing: newState,
+                        karaoke_revealed: false // Reset révélation quand on relance
+                      }).eq('game_session_id', sessionId);
+                      toast({ 
+                        title: newState ? '▶️ Karaoké lancé' : '⏸️ Karaoké en pause' 
+                      });
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    {gameState?.karaoke_playing ? '⏸️ Pause' : '▶️ Lancer'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={gameState?.karaoke_revealed ? "secondary" : "default"}
+                    onClick={async () => {
+                      await supabase.from('game_state').update({ 
+                        karaoke_revealed: true,
+                        karaoke_playing: true // Reprendre la lecture
+                      }).eq('game_session_id', sessionId);
+                      toast({ title: '✨ Paroles révélées !' });
+                    }}
+                    disabled={gameState?.karaoke_revealed}
+                    className="h-7 text-xs"
+                  >
+                    {gameState?.karaoke_revealed ? '✓ Révélé' : '✨ Révéler'}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })()}
 
           {/* Affichage automatique selon le type de question */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">

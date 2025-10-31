@@ -218,6 +218,8 @@ export type Database = {
           game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
+          karaoke_playing: boolean | null
+          karaoke_revealed: boolean | null
           leaderboard_page: number | null
           show_ambient_screen: boolean | null
           show_answer: boolean | null
@@ -250,6 +252,8 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
+          karaoke_playing?: boolean | null
+          karaoke_revealed?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
           show_answer?: boolean | null
@@ -282,6 +286,8 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
+          karaoke_playing?: boolean | null
+          karaoke_revealed?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
           show_answer?: boolean | null
