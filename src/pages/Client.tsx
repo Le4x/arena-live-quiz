@@ -1037,11 +1037,20 @@ const Client = () => {
     
     if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
 
+    console.log('📤 Client - Envoi réponse:', {
+      teamId: team.id,
+      questionId: currentQuestion.id,
+      instanceId: currentQuestionInstanceId,
+      sessionId: gameState.game_session_id,
+      answer: finalAnswer,
+      questionType: currentQuestion.question_type
+    });
+
     // Stocker la réponse sélectionnée localement pour l'afficher lors du reveal
     setAnswer(finalAnswer);
 
     // Ne PAS calculer is_correct ici, sera fait au reveal
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('team_answers')
       .insert([
         { 
@@ -1053,15 +1062,18 @@ const Client = () => {
           points_awarded: 0,
           game_session_id: gameState.game_session_id
         }
-      ]);
+      ])
+      .select();
 
     if (error) {
+      console.error('❌ Client - Erreur envoi réponse:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer la réponse",
         variant: "destructive"
       });
     } else {
+      console.log('✅ Client - Réponse enregistrée:', data);
       setHasAnswered(true);
       toast({
         title: "Réponse enregistrée !",

@@ -15,19 +15,23 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
   const { toast } = useToast();
   const [answers, setAnswers] = useState<any[]>([]);
 
+  // Charger les réponses dès que les données sont disponibles
   useEffect(() => {
-    console.log('💬 TextAnswersDisplay - Question changed:', { 
+    console.log('💬 TextAnswersDisplay - Props changed:', { 
       currentQuestionId, 
       questionType: currentQuestion?.question_type,
       sessionId: gameState?.game_session_id,
       instanceId: gameState?.current_question_instance_id
     });
     
-    if (currentQuestionId && currentQuestion?.question_type === 'free_text' && gameState?.game_session_id) {
+    if (currentQuestionId && currentQuestion?.question_type === 'free_text' && gameState?.game_session_id && gameState?.current_question_instance_id) {
+      console.log('💬 TextAnswersDisplay - Conditions OK, loading answers');
       loadAnswers();
 
       // Canal unique pour éviter les conflits
-      const channelName = `text-answers-${currentQuestionId}-${gameState.game_session_id}`;
+      const channelName = `text-answers-${currentQuestionId}-${gameState.current_question_instance_id}`;
+      console.log('💬 TextAnswersDisplay - Subscribing to channel:', channelName);
+      
       const answersChannel = supabase
         .channel(channelName)
         .on('postgres_changes', { 
@@ -44,21 +48,26 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
         });
 
       return () => {
-        console.log('💬 TextAnswersDisplay - Cleaning up channel');
+        console.log('💬 TextAnswersDisplay - Cleaning up channel:', channelName);
         supabase.removeChannel(answersChannel);
       };
     } else {
+      console.log('💬 TextAnswersDisplay - Conditions not met, clearing answers');
       setAnswers([]);
     }
   }, [currentQuestionId, currentQuestion?.question_type, gameState?.game_session_id, gameState?.current_question_instance_id]);
 
   const loadAnswers = async () => {
     if (!currentQuestionId || !gameState?.game_session_id || !gameState?.current_question_instance_id) {
-      console.log('💬 TextAnswersDisplay - Missing required data');
+      console.log('💬 TextAnswersDisplay - Missing required data:', {
+        hasQuestionId: !!currentQuestionId,
+        hasSessionId: !!gameState?.game_session_id,
+        hasInstanceId: !!gameState?.current_question_instance_id
+      });
       return;
     }
 
-    console.log('💬 TextAnswersDisplay - Loading answers...', { 
+    console.log('💬 TextAnswersDisplay - Loading answers with:', { 
       currentQuestionId, 
       sessionId: gameState.game_session_id,
       instanceId: gameState.current_question_instance_id
@@ -74,7 +83,7 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
     if (error) {
       console.error('💬 TextAnswersDisplay - Error loading answers:', error);
     } else {
-      console.log('💬 TextAnswersDisplay - Loaded answers:', data?.length || 0, data);
+      console.log('💬 TextAnswersDisplay - Loaded', data?.length || 0, 'answers:', data);
       if (data) setAnswers(data);
     }
   };
