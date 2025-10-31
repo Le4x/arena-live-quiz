@@ -203,6 +203,31 @@ const Regie = () => {
     return () => clearInterval(checkInterval);
   }, [currentQuestionId, questions]);
 
+  // Broadcaster le currentTime de l'audio pour synchroniser le Screen
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    const broadcastInterval = setInterval(() => {
+      const state = audioEngine.getState();
+      const currentQ = questions.find(q => q.id === currentQuestionId);
+      
+      // Broadcaster seulement pour les questions karaoké
+      if (currentQ?.question_type === 'lyrics' && state.isPlaying) {
+        supabase.from('game_state').update({
+          audio_current_time: state.currentTime,
+          audio_is_playing: state.isPlaying
+        }).eq('game_session_id', sessionId).then(() => {
+          // Log occasionnel
+          if (Math.floor(state.currentTime) % 5 === 0) {
+            console.log('📡 Broadcasting audio time:', state.currentTime.toFixed(2));
+          }
+        });
+      }
+    }, 100); // Broadcaster toutes les 100ms pour synchronisation fluide
+    
+    return () => clearInterval(broadcastInterval);
+  }, [sessionId, currentQuestionId, questions]);
+
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
     if (buzzers.length > previousBuzzersCount.current) {
