@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { gameEvents } from "@/lib/runtime/GameEvents";
 
 interface TextAnswersDisplayProps {
   currentQuestionId: string | null;
@@ -92,7 +91,7 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
   const markAnswer = async (answerId: string, isCorrect: boolean, teamId: string, pointsValue: number) => {
     const pointsToAward = isCorrect ? pointsValue : 0;
     
-    // Marquer la réponse
+    // Marquer la réponse (sans mettre à jour le score - attendre le Reveal)
     const { error } = await supabase
       .from('team_answers')
       .update({ 
@@ -110,26 +109,9 @@ export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQ
       return;
     }
     
-    // Mettre à jour le score de l'équipe
-    const { data: team } = await supabase
-      .from('teams')
-      .select('score')
-      .eq('id', teamId)
-      .single();
-    
-    if (team) {
-      await supabase
-        .from('teams')
-        .update({ score: team.score + pointsToAward })
-        .eq('id', teamId);
-    }
-    
-    // Envoyer la notification au client
-    await gameEvents.revealAnswer(teamId, isCorrect, currentQuestion?.correct_answer || '');
-    
     toast({
       title: isCorrect ? "✅ Réponse validée" : "❌ Réponse refusée",
-      description: isCorrect ? `+${pointsValue} points` : "0 point"
+      description: isCorrect ? `+${pointsValue} points (appuyez sur Reveal pour notifier)` : "0 point (appuyez sur Reveal pour notifier)"
     });
     
     loadAnswers();
