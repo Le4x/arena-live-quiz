@@ -1203,18 +1203,6 @@ const Regie = () => {
                 </>
               )}
             </Button>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={activateTransition}
-              className="bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
-            >
-              ✨ Transition
-            </Button>
-            <Button size="sm" variant="outline" onClick={showLeaderboard}>
-              <Trophy className="h-3 w-3 mr-1" />
-              Classement
-            </Button>
             <Button size="sm" variant="destructive" onClick={resetSession}>
               <RotateCcw className="h-3 w-3" />
             </Button>
@@ -1222,98 +1210,96 @@ const Regie = () => {
         </div>
       </div>
 
-      {/* Main content - Layout en grille compacte */}
-      <div className="flex-1 overflow-hidden grid grid-cols-12 gap-2 px-3 pb-3">
-        {/* Colonne gauche - Questions et contrôles principaux (4 cols) */}
-        <div className="col-span-4 flex flex-col gap-2 overflow-hidden">
-          {/* Sélection de manche - Compact */}
+      {/* Main content - Layout optimisé en 3 colonnes */}
+      <div className="flex-1 overflow-hidden grid grid-cols-12 gap-2 p-2">
+        {/* Colonne gauche - Questions (3 cols) */}
+        <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
+          {/* Sélection de manche - Dropdown compact */}
           <Card className="flex-shrink-0 p-2">
-            <div className="flex gap-1 overflow-x-auto">
+            <select 
+              className="w-full p-1.5 text-xs border rounded bg-background"
+              value={currentRoundId || ''}
+              onChange={(e) => setCurrentRoundId(e.target.value)}
+            >
+              <option value="">Sélectionner une manche...</option>
               {rounds.map(r => (
-                <Button 
-                  key={r.id} 
-                  variant={currentRoundId === r.id ? 'default' : 'outline'} 
-                  size="sm"
-                  className="text-xs whitespace-nowrap"
-                  onClick={() => setCurrentRoundId(r.id)}
-                >
-                  {r.title}
-                </Button>
+                <option key={r.id} value={r.id}>{r.title}</option>
               ))}
-            </div>
+            </select>
           </Card>
 
-          {/* Questions - Liste compacte avec scroll */}
+          {/* Questions - Tableau compact */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="p-2 border-b flex-shrink-0">
-              <h3 className="font-bold text-sm">Questions ({roundQuestions.length})</h3>
+            <div className="p-2 border-b flex-shrink-0 bg-muted/30">
+              <h3 className="font-bold text-xs">Questions ({roundQuestions.length})</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {roundQuestions.map(q => {
-                const typeLabels: Record<string, string> = {
-                  'blind_test': 'Buzzer',
-                  'qcm': 'QCM',
-                  'free_text': 'Texte libre'
-                };
-                const typeLabel = typeLabels[q.question_type] || q.question_type;
-                
-                return (
-                  <div key={q.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="font-medium text-xs truncate">{q.question_text}</div>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 flex-shrink-0">
-                          {typeLabel}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground">{q.points} pts</div>
-                    </div>
-                    <Button size="sm" className="h-7 text-xs" onClick={() => startQuestion(q)}>Lancer</Button>
-                  </div>
-                );
-              })}
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {roundQuestions.map(q => {
+                    const typeIcons: Record<string, string> = {
+                      'blind_test': '🎵',
+                      'qcm': '✓',
+                      'free_text': '✍️'
+                    };
+                    const icon = typeIcons[q.question_type] || '?';
+                    
+                    return (
+                      <tr 
+                        key={q.id} 
+                        className={`border-b hover:bg-muted/50 cursor-pointer ${currentQuestionId === q.id ? 'bg-primary/10' : ''}`}
+                        onClick={() => startQuestion(q)}
+                      >
+                        <td className="p-2 w-6 text-center">{icon}</td>
+                        <td className="p-2">
+                          <div className="truncate font-medium">{q.question_text}</div>
+                        </td>
+                        <td className="p-2 w-12 text-right text-muted-foreground">{q.points}p</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>
 
-        {/* Colonne centrale - Contrôles de jeu (5 cols) */}
-        <div className="col-span-5 flex flex-col gap-2 overflow-hidden">
-          {/* Contrôle principal - Envoyer question */}
+        {/* Colonne centrale - Contrôles et réponses (6 cols) */}
+        <div className="col-span-6 flex flex-col gap-2 overflow-hidden">
+          {/* Question en cours */}
           {currentQuestionId && (
-            <Card className="flex-shrink-0 p-2">
-              <div className="space-y-2">
-                {/* Indicateur de préchargement audio */}
-                {questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && (
-                  <div className="flex items-center gap-2 text-xs">
-                    {audioPreloading ? (
-                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                        ⏳ Chargement audio...
+            <Card className="flex-shrink-0 p-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1">
+                  {questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && (
+                    audioPreloading ? (
+                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+                        ⏳ Chargement...
                       </Badge>
                     ) : audioPreloaded ? (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
                         ✅ Audio prêt
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+                      <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 text-xs">
                         ⚠️ Audio non chargé
                       </Badge>
-                    )}
-                  </div>
-                )}
-                
+                    )
+                  )}
+                </div>
                 <Button 
                   size="sm"
-                  className="w-full bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 h-8"
                   onClick={sendQuestionToClients}
                   disabled={questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && !audioPreloaded}
                 >
-                  🚀 Envoyer aux clients
+                  🚀 Envoyer
                 </Button>
               </div>
             </Card>
           )}
 
-          {/* Timer et Audio combinés */}
+          {/* Timer et Audio */}
           <Card className="flex-shrink-0 p-2">
             {currentQuestionId && timerRemaining > 0 && (
               <TimerBar 
@@ -1323,86 +1309,118 @@ const Regie = () => {
                 questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
               />
             )}
-            {/* Afficher le deck audio si on a des tracks disponibles */}
             {audioTracks.length > 0 && (
               <div className="mt-2">
                 <AudioDeck 
                   tracks={currentTrack ? [currentTrack] : audioTracks}
-                  onTrackChange={(track) => {
-                    console.log('📻 Track changed:', track.name);
-                    setCurrentTrack(track);
-                  }}
+                  onTrackChange={(track) => setCurrentTrack(track)}
                 />
               </div>
             )}
           </Card>
 
-          {/* Contrôles Buzzer + Reveal */}
-          <Card className="flex-shrink-0 p-2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 flex-1">
-                <Radio className="h-3 w-3 text-muted-foreground" />
-                <Button 
-                  size="sm" 
-                  variant={gameState?.is_buzzer_active ? "default" : "outline"}
-                  onClick={toggleBuzzer}
-                  className="h-7 text-xs"
-                >
-                  {gameState?.is_buzzer_active ? '⚡ Actifs' : 'Inactifs'}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={async () => {
-                    if (!currentQuestionInstanceId) {
-                      toast({ title: '❌ Aucune question en cours', variant: 'destructive' });
-                      return;
-                    }
-                    
-                    if (sessionId) {
-                      await supabase.from('buzzer_attempts')
-                        .delete()
-                        .eq('question_instance_id', currentQuestionInstanceId)
-                        .eq('game_session_id', sessionId);
-                    }
-                    
-                    await gameEvents.resetBuzzer(currentQuestionInstanceId);
-                    setBuzzerLocked(false);
-                    setBuzzers([]);
-                    setBlockedTeams([]);
-                    previousBuzzersCount.current = 0;
-                    
-                    await supabase.from('game_state').update({ 
-                      excluded_teams: [],
-                      is_buzzer_active: true
-                    }).eq('game_session_id', sessionId);
-                    
-                    toast({ title: '🔄 Reset' });
-                  }}>
-                  Reset
-                </Button>
-              </div>
-
+          {/* NOUVEAU - Contrôles de diffusion unifiés */}
+          <Card className="flex-shrink-0 p-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
+            <h3 className="text-xs font-bold mb-2 text-purple-600">Contrôles de diffusion</h3>
+            <div className="grid grid-cols-3 gap-1">
+              {/* Ligne 1: Buzzer, Reveal, Intro */}
               <Button 
                 size="sm" 
-                variant={gameState?.show_answer ? "outline" : "default"}
-                onClick={gameState?.show_answer ? hideReveal : showReveal}
-                className="h-7 text-xs"
+                variant={gameState?.is_buzzer_active ? "default" : "outline"}
+                onClick={toggleBuzzer}
+                className="h-8 text-xs"
               >
-                {gameState?.show_answer ? '🙈 Cacher' : '👁️ Révéler'}
+                <Radio className="h-3 w-3 mr-1" />
+                {gameState?.is_buzzer_active ? 'Actif' : 'Inactif'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant={gameState?.show_answer ? "default" : "outline"}
+                onClick={gameState?.show_answer ? hideReveal : showReveal}
+                className="h-8 text-xs"
+              >
+                {gameState?.show_answer ? '🙈' : '👁️'} Révéler
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 text-xs" 
+                onClick={showRoundIntro}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Intro
+              </Button>
+              
+              {/* Ligne 2: Classement, Transition, Reset Buzzer */}
+              <Button 
+                size="sm" 
+                variant={gameState?.show_leaderboard ? "default" : "outline"}
+                className="h-8 text-xs" 
+                onClick={gameState?.show_leaderboard ? hideLeaderboard : showLeaderboard}
+              >
+                <Trophy className="h-3 w-3 mr-1" />
+                {gameState?.show_leaderboard ? 'Masquer' : 'Scores'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={activateTransition}
+                className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
+              >
+                ✨ Transition
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={async () => {
+                  if (!currentQuestionInstanceId) {
+                    toast({ title: '❌ Aucune question', variant: 'destructive' });
+                    return;
+                  }
+                  if (sessionId) {
+                    await supabase.from('buzzer_attempts')
+                      .delete()
+                      .eq('question_instance_id', currentQuestionInstanceId)
+                      .eq('game_session_id', sessionId);
+                  }
+                  await gameEvents.resetBuzzer(currentQuestionInstanceId);
+                  setBuzzerLocked(false);
+                  setBuzzers([]);
+                  setBlockedTeams([]);
+                  previousBuzzersCount.current = 0;
+                  await supabase.from('game_state').update({ 
+                    excluded_teams: [],
+                    is_buzzer_active: true
+                  }).eq('game_session_id', sessionId);
+                  toast({ title: '🔄 Reset buzzer' });
+                }}>
+                🔄 Reset
               </Button>
             </div>
           </Card>
 
-          {/* Affichage automatique selon le type de question */}
+          {/* Réponses et buzzers */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="p-2 border-b flex-shrink-0 bg-muted/30">
+              <h3 className="text-xs font-bold">
+                {(() => {
+                  const currentQ = questions.find(q => q.id === currentQuestionId);
+                  if (!currentQ) return 'Réponses';
+                  const typeNames: Record<string, string> = {
+                    'blind_test': 'Buzzers',
+                    'qcm': 'Réponses QCM',
+                    'free_text': 'Réponses libres'
+                  };
+                  return typeNames[currentQ.question_type] || 'Réponses';
+                })()}
+              </h3>
+            </div>
             <div className="flex-1 overflow-y-auto p-2">
               {(() => {
                 const currentQ = questions.find(q => q.id === currentQuestionId);
                 const questionType = currentQ?.question_type;
 
-                // Blind test = Buzzers
                 if (questionType === 'blind_test') {
                   return (
                     <>
@@ -1415,20 +1433,19 @@ const Regie = () => {
                         onWrongAnswer={handleWrongAnswer}
                         blockedTeams={blockedTeams}
                       />
-
                       {blockedTeams.length > 0 && (
-                        <Card className="p-2 bg-destructive/10 border-destructive/20 mt-2">
-                          <h3 className="text-xs font-bold text-destructive flex items-center gap-1 mb-2">
+                        <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
+                          <h4 className="text-xs font-bold text-destructive flex items-center gap-1 mb-1">
                             <X className="h-3 w-3" />
                             Bloqués ({blockedTeams.length})
-                          </h3>
+                          </h4>
                           <div className="space-y-1">
                             {blockedTeams.map(teamId => {
                               const team = connectedTeams.find(t => t.id === teamId);
                               return team ? (
                                 <div 
                                   key={teamId}
-                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20 border border-destructive/30"
+                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20"
                                 >
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
                                   <span className="font-medium text-xs">{team.name}</span>
@@ -1436,13 +1453,12 @@ const Regie = () => {
                               ) : null;
                             })}
                           </div>
-                        </Card>
+                        </div>
                       )}
                     </>
                   );
                 }
 
-                // QCM = Réponses QCM
                 if (questionType === 'qcm') {
                   return (
                     <QCMAnswersDisplay 
@@ -1452,7 +1468,6 @@ const Regie = () => {
                   );
                 }
 
-                // Texte libre = Réponses texte
                 if (questionType === 'free_text') {
                   return (
                     <TextAnswersDisplay 
@@ -1463,10 +1478,9 @@ const Regie = () => {
                   );
                 }
 
-                // Pas de question = message
                 return (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    Sélectionnez une question pour commencer
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
+                    Sélectionnez et lancez une question
                   </div>
                 );
               })()}
@@ -1474,12 +1488,12 @@ const Regie = () => {
           </Card>
         </div>
 
-        {/* Colonne droite - Équipes et Effets (3 cols) */}
+        {/* Colonne droite - Équipes et Finale (3 cols) */}
         <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
           <Tabs defaultValue="equipes" className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="w-full flex-shrink-0 grid grid-cols-2">
               <TabsTrigger value="equipes" className="text-xs">Équipes</TabsTrigger>
-              <TabsTrigger value="effets" className="text-xs">TV/Finale</TabsTrigger>
+              <TabsTrigger value="finale" className="text-xs">Finale</TabsTrigger>
             </TabsList>
 
             <TabsContent value="equipes" className="flex-1 overflow-hidden mt-2">
@@ -1590,30 +1604,22 @@ const Regie = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-2 space-y-2">
+            <TabsContent value="finale" className="flex-1 overflow-y-auto mt-2 space-y-2">
               <Card className="p-2">
-                <h3 className="font-bold text-xs mb-2">Effets TV</h3>
-                <div className="grid grid-cols-2 gap-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={showRoundIntro}>
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Intro
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={hideLeaderboard}>
-                    Masquer
-                  </Button>
-                </div>
-              </Card>
-
-              <Card className="p-2">
-                <h3 className="font-bold text-xs mb-2">🏆 Finale</h3>
+                <h3 className="font-bold text-xs mb-2 flex items-center gap-1">
+                  <Trophy className="h-3 w-3" />
+                  Mode Finale
+                </h3>
                 <FinalManager sessionId={sessionId!} gameState={gameState} />
-                <div className="mt-2">
-                  <PublicVoteControl
-                    showPublicVotes={showPublicVotes}
-                    finalId={gameState?.final_id}
-                    currentQuestionInstanceId={currentQuestionInstanceId}
-                  />
-                </div>
+              </Card>
+              
+              <Card className="p-2">
+                <h3 className="font-bold text-xs mb-2">Vote public</h3>
+                <PublicVoteControl
+                  showPublicVotes={showPublicVotes}
+                  finalId={gameState?.final_id}
+                  currentQuestionInstanceId={currentQuestionInstanceId}
+                />
               </Card>
             </TabsContent>
           </Tabs>
