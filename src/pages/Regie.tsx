@@ -420,6 +420,10 @@ const Regie = () => {
           // Précharger le son SANS le jouer - juste charger en mémoire
           await audioEngine.preloadTrack(track);
           
+          // IMPORTANT: Définir le track et buffer dans l'engine pour que playClip30s() fonctionne
+          audioEngine['currentTrack'] = track;
+          audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(track.url) || null;
+          
           setCurrentTrack(track);
           setAudioPreloaded(true);
           setAudioPreloading(false);
