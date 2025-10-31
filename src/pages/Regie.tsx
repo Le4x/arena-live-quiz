@@ -578,6 +578,17 @@ const Regie = () => {
       return;
     }
 
+    // ⚠️ ACTIVER L'AUDIOCONTEXT (nécessaire pour autoplay dans les navigateurs)
+    try {
+      if (audioEngine['audioContext'].state === 'suspended') {
+        console.log('🔊 Activation AudioContext via interaction utilisateur...');
+        await audioEngine['audioContext'].resume();
+        console.log('✅ AudioContext activé');
+      }
+    } catch (error) {
+      console.error('❌ Erreur activation AudioContext:', error);
+    }
+
     const question = questions.find(q => q.id === currentQuestionId);
     if (!question) return;
 

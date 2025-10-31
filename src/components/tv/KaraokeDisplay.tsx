@@ -73,7 +73,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
       cues: []
     };
 
-    // Charger le track dans l'AudioEngine (sans jouer)
     audioEngine.loadTrack(track).then(() => {
       setIsAudioReady(true);
     }).catch(error => {
@@ -90,12 +89,9 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   useEffect(() => {
     if (!isAudioReady) return;
 
-    console.log('🎵 KaraokeDisplay: isPlaying changé à', isPlaying);
     if (isPlaying) {
-      console.log('▶️ Démarrage lecture depuis 0');
       audioEngine.play(0);
     } else {
-      console.log('⏸️ Pause audio');
       audioEngine.pause();
     }
   }, [isPlaying, isAudioReady]);
@@ -125,29 +121,18 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   // S'abonner aux mises à jour de temps de l'AudioEngine
   useEffect(() => {
-    console.log('🎤 KaraokeDisplay: S\'abonne aux updates AudioEngine');
     const unsubscribe = audioEngine.subscribe((state) => {
-      console.log('🎵 Update:', state.currentTime.toFixed(2), 'isPlaying:', state.isPlaying);
       setCurrentTime(state.currentTime);
     });
 
-    return () => {
-      console.log('🎤 KaraokeDisplay: Désabonnement AudioEngine');
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   // Trouver la ligne actuelle
   const getCurrentLine = () => {
-    const line = lyrics.find(l => 
+    return lyrics.find(l => 
       currentTime >= l.startTime && currentTime < l.endTime
     );
-    
-    if (line) {
-      console.log('📝 Ligne actuelle:', line.text, `(${currentTime.toFixed(2)}s entre ${line.startTime}-${line.endTime})`);
-    }
-    
-    return line;
   };
 
   const getProgressForLine = (line: LyricLine) => {
