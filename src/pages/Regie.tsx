@@ -277,7 +277,30 @@ const Regie = () => {
         console.error('❌ Erreur chargement game state:', error);
         return;
       }
-      if (data) setGameState(data);
+      if (data) {
+        setGameState(data);
+        
+        // Restaurer les variables locales depuis le game_state pour persistance après rechargement
+        if (data.current_question_id) {
+          console.log('🔄 Restauration de la question en cours:', data.current_question_id);
+          setCurrentQuestionId(data.current_question_id);
+        }
+        if (data.current_question_instance_id) {
+          console.log('🔄 Restauration de l\'instance de question:', data.current_question_instance_id);
+          setCurrentQuestionInstanceId(data.current_question_instance_id);
+        }
+        if (data.current_round_id) {
+          console.log('🔄 Restauration de la manche:', data.current_round_id);
+          setCurrentRoundId(data.current_round_id);
+        }
+        if (data.excluded_teams && Array.isArray(data.excluded_teams)) {
+          setBlockedTeams(data.excluded_teams as string[]);
+        }
+        if (data.timer_active) {
+          setTimerActive(true);
+          setTimerRemaining(data.timer_remaining || 0);
+        }
+      }
     } catch (error) {
       console.error('❌ Exception lors du chargement du game state:', error);
     }
