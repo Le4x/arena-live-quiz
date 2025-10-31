@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { getAudioEngine } from "@/lib/audio/AudioEngine";
 import { supabase } from "@/integrations/supabase/client";
+import { useKaraokePlayer } from "@/hooks/useKaraokePlayer";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
@@ -13,11 +13,15 @@ interface KaraokeDisplayProps {
 }
 
 export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: KaraokeDisplayProps) => {
-  const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const audioEngine = getAudioEngine();
+
+  console.log('🎵 KaraokeDisplay: Rendu', { 
+    lyricsCount: lyrics.length,
+    lyrics: lyrics.map(l => ({ id: l.id, text: l.text, start: l.startTime, end: l.endTime })),
+    audioUrl,
+    stopTime 
+  });
 
   // Écouter les commandes depuis game_state
   useEffect(() => {
@@ -31,15 +35,16 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
         table: 'game_state',
         filter: `game_session_id=eq.${sessionId}`
       }, (payload: any) => {
-        const newPlaying = payload.new.karaoke_playing;
-        const newRevealed = payload.new.karaoke_revealed;
+        console.log('🎮 KaraokeDisplay: game_state update', payload.new);
         
-        if (newPlaying !== undefined) {
-          setIsPlaying(newPlaying);
+        if (payload.new.karaoke_playing !== undefined) {
+          console.log('▶️ isPlaying:', payload.new.karaoke_playing);
+          setIsPlaying(payload.new.karaoke_playing);
         }
         
-        if (newRevealed !== undefined) {
-          setIsRevealed(newRevealed);
+        if (payload.new.karaoke_revealed !== undefined) {
+          console.log('🎉 isRevealed:', payload.new.karaoke_revealed);
+          setIsRevealed(payload.new.karaoke_revealed);
         }
       })
       .subscribe();
@@ -52,6 +57,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
       .single()
       .then(({ data }) => {
         if (data) {
+          console.log('📊 KaraokeDisplay: État initial', data);
           setIsPlaying(data.karaoke_playing || false);
           setIsRevealed(data.karaoke_revealed || false);
         }
@@ -62,78 +68,20 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     };
   }, [sessionId]);
 
-  // Charger l'audio au montage
-  useEffect(() => {
-    if (!audioUrl) return;
-
-    const track = {
-      id: 'karaoke',
-      name: 'Karaoké',
-      url: audioUrl,
-      cues: []
-    };
-
-    audioEngine.loadTrack(track).then(() => {
-      setIsAudioReady(true);
-    }).catch(error => {
-      console.error('❌ Erreur chargement audio:', error);
-    });
-
-    return () => {
-      audioEngine.stop();
-      setIsAudioReady(false);
-    };
-  }, [audioUrl]);
-
-  // Gérer play/pause quand l'audio est prêt ET isPlaying change
-  useEffect(() => {
-    if (!isAudioReady) return;
-
-    if (isPlaying) {
-      audioEngine.play(0);
-    } else {
-      audioEngine.pause();
-    }
-  }, [isPlaying, isAudioReady]);
-
-  // Arrêt automatique au stopTime
-  useEffect(() => {
-    if (!stopTime || !isPlaying || isRevealed) return;
-
-    const checkStopTime = () => {
-      const state = audioEngine.getState();
-      if (state.currentTime >= stopTime) {
-        audioEngine.pause();
-        setIsPlaying(false);
-      }
-    };
-
-    const interval = setInterval(checkStopTime, 100);
-    return () => clearInterval(interval);
-  }, [stopTime, isPlaying, isRevealed]);
-
-  // Reprendre la lecture après révélation
-  useEffect(() => {
-    if (isRevealed && stopTime) {
-      audioEngine.play(stopTime);
-    }
-  }, [isRevealed, stopTime]);
-
-  // S'abonner aux mises à jour de temps de l'AudioEngine
-  useEffect(() => {
-    const unsubscribe = audioEngine.subscribe((state) => {
-      setCurrentTime(state.currentTime);
-    });
-
-    return unsubscribe;
-  }, []);
+  // Hook pour gérer l'audio
+  const { currentTime, isReady, isPaused } = useKaraokePlayer({
+    audioUrl,
+    stopTime,
+    isPlaying,
+    isRevealed
+  });
 
   // Trouver la ligne actuelle
-  const getCurrentLine = () => {
-    return lyrics.find(l => 
-      currentTime >= l.startTime && currentTime < l.endTime
-    );
-  };
+  const currentLine = lyrics.find(l => 
+    currentTime >= l.startTime && currentTime < l.endTime
+  );
+
+  console.log('⏱️ KaraokeDisplay: currentTime:', currentTime.toFixed(2), 'currentLine:', currentLine?.text);
 
   const getProgressForLine = (line: LyricLine) => {
     if (currentTime < line.startTime) return 0;
@@ -143,9 +91,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     const elapsed = currentTime - line.startTime;
     return (elapsed / duration) * 100;
   };
-
-  const currentLine = getCurrentLine();
-  const isPaused = stopTime ? currentTime >= stopTime && !isRevealed : false;
 
   // Préparer le texte avec coloration des mots révélés
   const renderLyricText = (text: string) => {
