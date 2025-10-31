@@ -1530,16 +1530,20 @@ const Client = () => {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !hasAnswered && isTimerActive) {
-                      submitAnswer();
+                    if (e.key === 'Enter' && !hasAnswered) {
+                      // Pour lyrics, on peut toujours envoyer tant que la question est active
+                      // Pour free_text, on vérifie le timer
+                      if (currentQuestion.question_type === 'lyrics' || isTimerActive) {
+                        submitAnswer();
+                      }
                     }
                   }}
-                  disabled={hasAnswered || !isTimerActive}
+                  disabled={hasAnswered || (currentQuestion.question_type !== 'lyrics' && !isTimerActive)}
                   className="bg-input border-border text-sm sm:text-base h-10 sm:h-12"
                 />
                 <Button
                   onClick={() => submitAnswer()}
-                  disabled={hasAnswered || !isTimerActive}
+                  disabled={hasAnswered || (currentQuestion.question_type !== 'lyrics' && !isTimerActive)}
                   className="w-full h-10 sm:h-12 text-sm sm:text-base bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-glow-pink disabled:opacity-50"
                 >
                   <Send className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
@@ -1550,7 +1554,7 @@ const Client = () => {
                     ✓ Réponse envoyée
                   </div>
                 )}
-                {!isTimerActive && !hasAnswered && (
+                {!isTimerActive && !hasAnswered && currentQuestion.question_type !== 'lyrics' && (
                   <div className="text-center text-destructive font-bold text-sm sm:text-base">
                     ⏱️ Temps écoulé - Réponses fermées
                   </div>
