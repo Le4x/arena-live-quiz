@@ -14,6 +14,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
 import { motion } from "framer-motion";
+import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -59,6 +60,32 @@ const Client = () => {
     }
     return deviceId;
   };
+
+  // Hook de reconnexion automatique
+  const reconnectCountRef = useRef(0);
+  
+  useRealtimeReconnect({
+    onReconnect: () => {
+      reconnectCountRef.current++;
+      console.log('🔄 Reconnexion #' + reconnectCountRef.current);
+      
+      // Recharger toutes les données
+      if (teamId) {
+        loadTeam();
+        loadGameState();
+        loadAllTeams();
+        loadActiveSession();
+        loadFinal();
+        loadFirstBuzzer();
+        checkAnswerResult();
+      }
+      
+      toast({
+        title: "🔄 Reconnecté",
+        description: "Connexion rétablie"
+      });
+    }
+  });
 
   useEffect(() => {
     if (teamId) {

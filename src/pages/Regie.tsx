@@ -23,6 +23,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
+import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
 
 const Regie = () => {
   const { toast } = useToast();
@@ -51,6 +52,22 @@ const Regie = () => {
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [audioPreloaded, setAudioPreloaded] = useState(false);
   const [audioPreloading, setAudioPreloading] = useState(false);
+
+  // Hook de reconnexion automatique
+  useRealtimeReconnect({
+    onReconnect: () => {
+      console.log('🔄 Regie: Reconnexion - rechargement des données');
+      loadActiveSession();
+      loadRounds();
+      loadQuestions();
+      loadTeams();
+      loadAudioTracks();
+      loadBuzzers();
+      if (sessionId) {
+        loadGameState();
+      }
+    }
+  });
 
   useEffect(() => {
     loadActiveSession();

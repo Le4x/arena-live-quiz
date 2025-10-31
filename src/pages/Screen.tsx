@@ -16,6 +16,7 @@ import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
 import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
 import { ThanksScreen } from "@/components/tv/ThanksScreen";
+import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
@@ -43,6 +44,14 @@ const Screen = () => {
   useEffect(() => {
     console.log('🔔 Screen: buzzerNotification changed:', buzzerNotification);
   }, [buzzerNotification]);
+
+  // Hook de reconnexion automatique
+  useRealtimeReconnect({
+    onReconnect: () => {
+      console.log('🔄 Screen: Reconnexion - rechargement des données');
+      loadData();
+    }
+  });
 
   useEffect(() => {
     console.log('🚀 Screen: Initialisation des canaux realtime');
