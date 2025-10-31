@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/integrations/supabase/client";
+import { getAudioEngine } from "@/lib/audio/AudioEngine";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
@@ -12,44 +12,50 @@ interface KaraokeDisplayProps {
   sessionId?: string;
 }
 
-export const KaraokeDisplay = ({ lyrics, stopTime, sessionId }: KaraokeDisplayProps) => {
+export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: KaraokeDisplayProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
+  const audioEngine = getAudioEngine();
+  const hasStartedRef = useRef(false);
 
-  // Synchroniser le temps depuis game_state (broadcast par la Régie)
+  // Lancer l'audio automatiquement quand isPlaying devient true
   useEffect(() => {
-    if (!sessionId) {
-      console.log('⚠️ KaraokeDisplay - Pas de sessionId');
-      return;
+    if (isPlaying && audioUrl && !hasStartedRef.current) {
+      console.log('🎤 KaraokeDisplay - Lancement audio:', audioUrl);
+      hasStartedRef.current = true;
+      
+      const track = {
+        id: 'karaoke',
+        name: 'Karaoké',
+        url: audioUrl,
+        cues: []
+      };
+      
+      audioEngine.loadAndPlay(track, 0).catch(error => {
+        console.error('❌ KaraokeDisplay - Erreur lecture audio:', error);
+      });
     }
     
-    console.log('🎵 KaraokeDisplay - Écoute audio_current_time pour session:', sessionId);
+    if (!isPlaying && hasStartedRef.current) {
+      hasStartedRef.current = false;
+      audioEngine.stop();
+    }
+  }, [isPlaying, audioUrl]);
+
+  // Synchroniser le temps avec l'AudioEngine local
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const state = audioEngine.getState();
+      if (state.isPlaying) {
+        setCurrentTime(state.currentTime);
+      }
+    }, 50);
     
-    // Channel pour écouter les changements de game_state en temps réel
-    const channel = supabase
-      .channel(`karaoke-sync-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'game_state',
-          filter: `game_session_id=eq.${sessionId}`
-        },
-        (payload: any) => {
-          if (payload.new.audio_current_time !== undefined) {
-            setCurrentTime(payload.new.audio_current_time);
-            
-            // Log occasionnel
-            if (Math.floor(payload.new.audio_current_time) % 5 === 0) {
-              console.log('🎵 KaraokeDisplay - Temps reçu:', payload.new.audio_current_time.toFixed(2));
-            }
-          }
-        }
-      )
-      .subscribe();
-    
-    // Écouter l'événement de reprise karaoké
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Écouter l'événement de reprise karaoké
+  useEffect(() => {
     const handleResumeKaraoke = () => {
       console.log('▶️ KaraokeDisplay - Révélation reçue');
       setIsRevealed(true);
@@ -58,10 +64,9 @@ export const KaraokeDisplay = ({ lyrics, stopTime, sessionId }: KaraokeDisplayPr
     window.addEventListener('resumeKaraoke', handleResumeKaraoke);
     
     return () => {
-      supabase.removeChannel(channel);
       window.removeEventListener('resumeKaraoke', handleResumeKaraoke);
     };
-  }, [sessionId]);
+  }, []);
 
   // Trouver la ligne actuelle
   const getCurrentLine = () => {
