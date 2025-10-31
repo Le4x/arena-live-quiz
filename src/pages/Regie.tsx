@@ -1151,60 +1151,9 @@ const Regie = () => {
               <Home className="h-3 w-3 mr-1" />
               Menu
             </Button>
-            <Button size="sm" variant="outline" onClick={() => window.open('/screen', '_blank')}>
-              <Monitor className="h-3 w-3 mr-1" />
-              Écran
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_welcome_screen ? "default" : "outline"}
-              onClick={toggleWelcomeScreen}
-            >
-              <Home className="h-3 w-3 mr-1" />
-              Accueil
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_team_connection_screen ? "default" : "outline"}
-              onClick={toggleTeamConnectionScreen}
-            >
-              <Wifi className="h-3 w-3 mr-1" />
-              Équipes
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_sponsors_screen ? "default" : "outline"}
-              onClick={toggleSponsorsScreen}
-            >
-              <Award className="h-3 w-3 mr-1" />
-              Sponsors
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_thanks_screen ? "default" : "outline"}
-              onClick={toggleThanksScreen}
-            >
-              <Heart className="h-3 w-3 mr-1" />
-              Merci
-            </Button>
-            <Button 
-              size="sm" 
-              variant={gameState?.show_waiting_screen ? "outline" : "secondary"}
-              onClick={toggleWaitingScreen}
-            >
-              {gameState?.show_waiting_screen ? (
-                <>
-                  <Eye className="h-3 w-3 mr-1" />
-                  Reprendre
-                </>
-              ) : (
-                <>
-                  ⏸️ Attente
-                </>
-              )}
-            </Button>
             <Button size="sm" variant="destructive" onClick={resetSession}>
               <RotateCcw className="h-3 w-3" />
+              Reset
             </Button>
           </div>
         </div>
@@ -1319,11 +1268,77 @@ const Regie = () => {
             )}
           </Card>
 
-          {/* NOUVEAU - Contrôles de diffusion unifiés */}
+          {/* Contrôles de diffusion unifiés */}
           <Card className="flex-shrink-0 p-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
             <h3 className="text-xs font-bold mb-2 text-purple-600">Contrôles de diffusion</h3>
             <div className="grid grid-cols-3 gap-1">
-              {/* Ligne 1: Buzzer, Reveal, Intro */}
+              {/* Ligne 1: Écrans TV */}
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => window.open('/screen', '_blank')}
+                className="h-8 text-xs"
+              >
+                <Monitor className="h-3 w-3 mr-1" />
+                Écran
+              </Button>
+              <Button 
+                size="sm" 
+                variant={gameState?.show_welcome_screen ? "default" : "outline"}
+                onClick={toggleWelcomeScreen}
+                className="h-8 text-xs"
+              >
+                <Home className="h-3 w-3 mr-1" />
+                Accueil
+              </Button>
+              <Button 
+                size="sm" 
+                variant={gameState?.show_team_connection_screen ? "default" : "outline"}
+                onClick={toggleTeamConnectionScreen}
+                className="h-8 text-xs"
+              >
+                <Wifi className="h-3 w-3 mr-1" />
+                Équipes
+              </Button>
+              
+              {/* Ligne 2: Plus d'écrans */}
+              <Button 
+                size="sm" 
+                variant={gameState?.show_sponsors_screen ? "default" : "outline"}
+                onClick={toggleSponsorsScreen}
+                className="h-8 text-xs"
+              >
+                <Award className="h-3 w-3 mr-1" />
+                Sponsors
+              </Button>
+              <Button 
+                size="sm" 
+                variant={gameState?.show_thanks_screen ? "default" : "outline"}
+                onClick={toggleThanksScreen}
+                className="h-8 text-xs"
+              >
+                <Heart className="h-3 w-3 mr-1" />
+                Merci
+              </Button>
+              <Button 
+                size="sm" 
+                variant={gameState?.show_waiting_screen ? "default" : "outline"}
+                onClick={toggleWaitingScreen}
+                className="h-8 text-xs"
+              >
+                {gameState?.show_waiting_screen ? (
+                  <>
+                    <Eye className="h-3 w-3 mr-1" />
+                    Reprendre
+                  </>
+                ) : (
+                  <>
+                    ⏸️ Attente
+                  </>
+                )}
+              </Button>
+              
+              {/* Ligne 3: Buzzer, Reveal, Intro */}
               <Button 
                 size="sm" 
                 variant={gameState?.is_buzzer_active ? "default" : "outline"}
@@ -1351,7 +1366,7 @@ const Regie = () => {
                 Intro
               </Button>
               
-              {/* Ligne 2: Classement, Transition, Reset Buzzer */}
+              {/* Ligne 4: Classement, Transition, Reset Buzzer */}
               <Button 
                 size="sm" 
                 variant={gameState?.show_leaderboard ? "default" : "outline"}
