@@ -8,6 +8,7 @@ import { JingleReveal } from "@/components/tv/JingleReveal";
 import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
 import { WelcomeScreen } from "@/components/tv/WelcomeScreen";
 import { TeamConnectionScreen } from "@/components/tv/TeamConnectionScreen";
+import { WaitingScreen } from "@/components/tv/WaitingScreen";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
@@ -19,6 +20,7 @@ import { ThanksScreen } from "@/components/tv/ThanksScreen";
 const Screen = () => {
   const gameEvents = getGameEvents();
   const [teams, setTeams] = useState<any[]>([]);
+  const [sponsors, setSponsors] = useState<any[]>([]);
   const [gameState, setGameState] = useState<any>(null);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -312,19 +314,28 @@ const Screen = () => {
   }, [gameState?.answer_result]);
 
   const loadData = async () => {
-    const [teamsRes, gameStateRes] = await Promise.all([
+    // D'abord charger le game state pour avoir la session
+    const gameStateRes = await supabase.from('game_state').select(`
+      *, 
+      questions(*), 
+      game_sessions(*), 
+      current_round_id:rounds!current_round_id(*)
+    `).maybeSingle();
+    
+    const sessionId = gameStateRes.data?.game_session_id;
+    
+    const [teamsRes, sponsorsRes] = await Promise.all([
       supabase.from('teams').select('*').order('score', { ascending: false }),
-      supabase.from('game_state').select(`
-        *, 
-        questions(*), 
-        game_sessions(*), 
-        current_round_id:rounds!current_round_id(*)
-      `).maybeSingle()
+      sessionId ? supabase.from('sponsors').select('*').eq('game_session_id', sessionId).order('display_order', { ascending: true }) : Promise.resolve({ data: [] })
     ]);
 
     if (teamsRes.data) {
       setTeams(teamsRes.data);
       // Le compteur de connectés sera mis à jour par le canal de présence
+    }
+    
+    if (sponsorsRes.data) {
+      setSponsors(sponsorsRes.data);
     }
     
     if (gameStateRes.data) {
@@ -604,17 +615,14 @@ const Screen = () => {
 
       {/* Écran d'attente */}
       {gameState?.show_waiting_screen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm">
-          <div className="text-center space-y-6 animate-fade-in px-4">
-            <div className="text-6xl md:text-8xl animate-pulse">⏸️</div>
-            <h2 className="text-3xl md:text-5xl font-bold bg-gradient-arena bg-clip-text text-transparent animate-pulse-glow">
-              En attente de la prochaine question
-            </h2>
-            <p className="text-xl md:text-2xl text-muted-foreground">
-              Préparez-vous...
-            </p>
-          </div>
-        </div>
+        <WaitingScreen
+          sessionName={currentSession?.name}
+          connectedTeams={teams
+            .filter(t => connectedTeamIds.has(t.id))
+            .map(t => ({ id: t.id, name: t.name, color: t.color }))
+          }
+          sponsors={sponsors}
+        />
       )}
 
       {/* Animation de révélation bonne/mauvaise réponse */}

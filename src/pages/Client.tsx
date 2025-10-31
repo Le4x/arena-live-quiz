@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key } from "lucide-react";
+import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
@@ -48,6 +48,7 @@ const Client = () => {
   const [isFinalist, setIsFinalist] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const previousQuestionIdRef = useRef<string | null>(null);
+  const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -80,8 +81,14 @@ const Client = () => {
 
     const teamsChannel = supabase
       .channel('client-teams')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
-        loadTeam();
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'teams',
+        filter: teamId ? `id=eq.${teamId}` : undefined
+      }, (payload) => {
+        console.log('🔄 Team updated realtime:', payload);
+        reloadTeamData();
         loadAllTeams();
       })
       .subscribe();
@@ -97,6 +104,14 @@ const Client = () => {
       .channel('client-finals')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finals' }, () => {
         loadFinal();
+      })
+      .subscribe();
+
+    // Écouter les buzzers pour savoir qui a buzzé
+    const buzzersChannel = supabase
+      .channel('client-buzzers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+        loadFirstBuzzer();
       })
       .subscribe();
 
@@ -148,6 +163,22 @@ const Client = () => {
         }
       });
 
+    // Mettre à jour last_seen_at toutes les 30 secondes pour maintenir la connexion active
+    const heartbeatInterval = setInterval(async () => {
+      if (teamId && team) {
+        try {
+          await supabase.from('teams').update({ 
+            last_seen_at: new Date().toISOString(),
+            is_active: true 
+          }).eq('id', teamId);
+          console.log('💓 Heartbeat: last_seen_at mis à jour');
+        } catch (error) {
+          console.error('❌ Erreur heartbeat:', error);
+          // Continue quand même, ce n'est pas critique
+        }
+      }
+    }, 30000); // Toutes les 30 secondes
+
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
       if (teamId) {
@@ -183,19 +214,33 @@ const Client = () => {
 
     const unsubKick = gameEvents.on('KICK_ALL', () => {
       toast({ title: "👋 Déconnecté par la régie" });
-      setTimeout(() => window.location.href = '/', 2000);
+      window.location.href = '/client';
     });
 
     const unsubKickTeam = gameEvents.on('KICK_TEAM', (event: any) => {
       if (event.data?.teamId === teamId) {
         toast({ title: "👋 Déconnecté par la régie" });
-        setTimeout(() => window.location.href = '/', 2000);
+        window.location.href = '/client';
       }
     });
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
       console.log('🎯 Nouvelle question', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
+      
+      // Charger immédiatement la nouvelle question
+      loadGameState();
+      
+      // Réinitialiser tous les états pour la nouvelle question
+      setHasBuzzed(false);
+      setAnswer("");
+      setHasAnswered(false);
+      setAnswerResult(null);
+      setShowReveal(false);
+      setIsBlockedForQuestion(false);
+      setEliminatedOptions([]);
+      setFirstBuzzerTeam(null); // Réinitialiser le premier buzzer
+      hasShownTimeoutToast.current = false;
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
@@ -252,6 +297,7 @@ const Client = () => {
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
       presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
@@ -267,6 +313,7 @@ const Client = () => {
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(answersChannel);
       supabase.removeChannel(finalsChannel);
+      supabase.removeChannel(buzzersChannel);
       unsubBuzzerReset();
       unsubStartQuestion();
       unsubReveal();
@@ -377,6 +424,7 @@ const Client = () => {
     if (currentQuestionInstanceId) {
       checkIfBuzzed();
       checkIfAnswered();
+      loadFirstBuzzer();
     }
   }, [currentQuestionInstanceId]);
 
@@ -427,6 +475,29 @@ const Client = () => {
     return;
   };
 
+  const handleDisconnect = async () => {
+    if (!teamId) return;
+    
+    // Déconnecter proprement l'équipe
+    await supabase
+      .from('teams')
+      .update({ 
+        is_active: false,
+        connected_device_id: null 
+      })
+      .eq('id', teamId);
+    
+    toast({
+      title: "Déconnexion réussie",
+      description: "Vous pouvez vous reconnecter",
+    });
+    
+    // Rediriger vers la page client sans paramètre
+    setTimeout(() => {
+      window.location.href = '/client';
+    }, 500);
+  };
+
   const loadTeam = async () => {
     if (!teamId) return;
     const { data } = await supabase
@@ -436,6 +507,19 @@ const Client = () => {
       .single();
     
     if (data) {
+      // Vérifier si l'équipe est exclue
+      if (data.is_excluded) {
+        toast({
+          title: "❌ Équipe exclue",
+          description: "Votre équipe a été exclue du jeu suite à 2 cartons jaunes",
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/client';
+        }, 2000);
+        return;
+      }
+      
       const currentDeviceId = getDeviceId();
       
       // Vérifier si un appareil est déjà connecté
@@ -457,6 +541,35 @@ const Client = () => {
           .eq('id', teamId);
       }
       
+      console.log('✅ Team loaded:', data);
+      setTeam(data);
+    }
+  };
+
+  // Fonction séparée pour les mises à jour en temps réel (sans vérification de device)
+  const reloadTeamData = async () => {
+    if (!teamId) return;
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
+    
+    if (data) {
+      // Vérifier si l'équipe est exclue
+      if (data.is_excluded && !team?.is_excluded) {
+        toast({
+          title: "❌ Équipe exclue",
+          description: "Votre équipe a été exclue du jeu suite à 2 cartons jaunes",
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/client';
+        }, 2000);
+        return;
+      }
+      
+      console.log('🔄 Team data reloaded:', data);
       setTeam(data);
     }
   };
@@ -511,20 +624,47 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    const { data } = await supabase
+    console.log('🔄 [Client] loadGameState appelé');
+    const { data, error } = await supabase
       .from('game_state')
-      .select('*, questions(*), current_round_id:rounds!current_round_id(*)')
+      .select('*')
       .maybeSingle();
+    
+    console.log('🔄 [Client] game_state chargé:', data, 'erreur:', error);
     
     if (data) {
       setGameState(data);
-      setCurrentQuestion(data.questions);
+      console.log('🔄 [Client] current_question_id:', data.current_question_id);
+      
+      // Charger la question séparément si elle existe
+      if (data.current_question_id) {
+        console.log('🔄 [Client] Chargement question:', data.current_question_id);
+        const { data: questionData, error: qError } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('id', data.current_question_id)
+          .single();
+        
+        console.log('🔄 [Client] question chargée:', questionData, 'erreur:', qError);
+        
+        if (questionData) {
+          console.log('✅ [Client] Question définie:', questionData);
+          setCurrentQuestion(questionData);
+        } else {
+          console.log('❌ [Client] Pas de questionData');
+          setCurrentQuestion(null);
+        }
+      } else {
+        console.log('⚠️ [Client] Pas de current_question_id dans game_state');
+        setCurrentQuestion(null);
+      }
       
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
         loadFinal(data.final_id);
       }
     } else {
+      console.log('❌ [Client] Pas de game_state');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
@@ -559,6 +699,24 @@ const Client = () => {
       setFinal(null);
       setIsFinalist(false);
     }
+  };
+
+  const loadFirstBuzzer = async () => {
+    if (!currentQuestionInstanceId || !sessionId) {
+      setFirstBuzzerTeam(null);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('*, teams(*)')
+      .eq('question_instance_id', currentQuestionInstanceId)
+      .eq('game_session_id', sessionId)
+      .order('buzzed_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    setFirstBuzzerTeam(data?.teams || null);
   };
 
   const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
@@ -692,6 +850,16 @@ const Client = () => {
       return;
     }
 
+    // Vérifier si l'équipe est exclue
+    if (teamData.is_excluded) {
+      toast({
+        title: "❌ Équipe exclue",
+        description: "Cette équipe a été exclue du jeu suite à 2 cartons jaunes",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Si c'est le même appareil, permettre la reconnexion (utile si déconnexion brutale)
     if (teamData.connected_device_id === currentDeviceId) {
       // Reconnexion du même appareil - autoriser
@@ -709,14 +877,14 @@ const Client = () => {
       return;
     }
 
-    // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 30 secondes)
+    // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 2 minutes)
     if (teamData.connected_device_id && teamData.last_seen_at) {
       const lastSeen = new Date(teamData.last_seen_at).getTime();
       const now = Date.now();
-      const thirtySecondsAgo = now - 30000; // 30 secondes
+      const twoMinutesAgo = now - 120000; // 2 minutes
 
       // Si l'autre appareil était actif récemment, bloquer
-      if (lastSeen > thirtySecondsAgo) {
+      if (lastSeen > twoMinutesAgo) {
         toast({
           title: "Accès bloqué",
           description: "Un autre appareil est actuellement connecté à cette équipe",
@@ -725,7 +893,7 @@ const Client = () => {
         return;
       }
       
-      // Si l'appareil n'a pas été vu depuis plus de 30s, permettre la prise de contrôle
+      // Si l'appareil n'a pas été vu depuis plus de 2 minutes, permettre la prise de contrôle
       toast({
         title: "Prise de contrôle",
         description: "L'ancien appareil était inactif. Connexion en cours...",
@@ -990,6 +1158,15 @@ const Client = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
+      {/* Bouton de déconnexion très discret */}
+      <button
+        onClick={handleDisconnect}
+        className="fixed top-2 right-2 p-1.5 rounded-md bg-muted/30 hover:bg-destructive/80 text-muted-foreground hover:text-destructive-foreground opacity-30 hover:opacity-100 transition-all duration-300 backdrop-blur-sm z-50"
+        title="Se déconnecter"
+      >
+        <LogOut className="h-3 w-3" />
+      </button>
+
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Logo configurable en haut */}
         <div className="flex justify-center pt-2 sm:pt-4">
@@ -1032,6 +1209,16 @@ const Client = () => {
                   <Badge className={`${getRankBadgeColor()} font-bold px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm flex-shrink-0`}>
                     #{teamRank}
                   </Badge>
+                  {team.yellow_cards > 0 && (
+                    <Badge variant="outline" className="bg-yellow-500/20 border-yellow-500 text-yellow-500 font-bold flex-shrink-0">
+                      {'🟨'.repeat(team.yellow_cards)} {team.yellow_cards}/2
+                    </Badge>
+                  )}
+                  {team.yellow_cards >= 2 && (
+                    <Badge variant="destructive" className="font-bold flex-shrink-0 animate-pulse">
+                      EXCLUS
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                   <p className="text-lg sm:text-2xl font-bold text-primary">
@@ -1110,22 +1297,41 @@ const Client = () => {
         )}
 
         {/* Buzzer - Uniquement pour blind test ET (pas en mode final OU finaliste) - RESPONSIVE */}
-        {gameState?.is_buzzer_active && currentQuestion && currentQuestion.question_type === 'blind_test' && (!gameState?.final_mode || isFinalist) && (
+        {currentQuestion && currentQuestion.question_type === 'blind_test' && (!gameState?.final_mode || isFinalist) && (
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
-              <Button
-                ref={buzzerButtonRef}
-                onClick={handleBuzzer}
-                disabled={hasBuzzed}
-                className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
-                style={{
-                  boxShadow: hasBuzzed ? 'none' : '0 0 40px rgba(255, 120, 0, 0.5)'
-                }}
-              >
-                <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
-                {hasBuzzed ? "✅ BUZZÉ !" : "⚡ BUZZER"}
-              </Button>
+              {hasBuzzed ? (
+                <Button
+                  disabled
+                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent text-primary-foreground shadow-elegant opacity-50"
+                >
+                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
+                  ✅ BUZZÉ !
+                </Button>
+              ) : gameState?.is_buzzer_active ? (
+                <Button
+                  ref={buzzerButtonRef}
+                  onClick={handleBuzzer}
+                  className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)'
+                  }}
+                >
+                  <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16 animate-pulse" />
+                  ⚡ BUZZER
+                </Button>
+              ) : (
+                <div className="w-full h-24 sm:h-36 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-muted">
+                  <p className="text-lg sm:text-2xl font-bold text-muted-foreground text-center px-4">
+                    {firstBuzzerTeam ? (
+                      <>🔒 {firstBuzzerTeam.name} a buzzé !</>
+                    ) : (
+                      <>🔒 Buzzer verrouillé</>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         )}

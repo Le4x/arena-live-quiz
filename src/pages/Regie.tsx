@@ -128,14 +128,14 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
-  // Polling de secours pour les buzzers (500ms pour réactivité sans surcharge)
+  // Polling de secours pour les buzzers (1000ms = équilibre entre réactivité et charge serveur)
   useEffect(() => {
     if (!currentQuestionId || !sessionId) return;
     
     const interval = setInterval(() => {
       console.log('🔄 Regie: Polling buzzers');
       loadBuzzers();
-    }, 500);
+    }, 1000); // Réduit de 500ms à 1000ms pour alléger la charge
     
     return () => clearInterval(interval);
   }, [currentQuestionId, sessionId]);
@@ -188,33 +188,36 @@ const Regie = () => {
         });
       }
       
-      // Lock au premier buzzer + ARRÊTER LE TIMER IMMÉDIATEMENT pour blind test
+      // PREMIER BUZZER = ARRÊT IMMÉDIAT pour blind test
       const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (previousBuzzersCount.current === 0 && buzzers.length === 1 && !buzzerLocked && gameState?.is_buzzer_active && currentQ?.question_type === 'blind_test') {
-        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique, timer était à', timerRemaining);
-        console.log('🎵 Question type:', currentQ?.question_type, 'Audio URL:', currentQ?.audio_url);
+      if (previousBuzzersCount.current === 0 && buzzers.length >= 1 && currentQ?.question_type === 'blind_test') {
+        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique immédiat');
+        console.log('🎵 Timer restant:', timerRemaining, '| Buzzer locked:', buzzerLocked);
         
-        // Sauvegarder le timer et la position audio RELATIVE depuis le CUE1
-        setTimerWhenBuzzed(timerRemaining);
+        // CAPTURER LA POSITION IMMÉDIATEMENT avant tout arrêt
         const currentPos = audioEngine.getPosition();
-        const relativePos = currentPos - clipStartTime; // Position relative depuis le début de l'extrait
+        const relativePos = currentPos - clipStartTime;
+        
+        // ARRÊT INSTANTANÉ de la musique
+        console.log('🎵 STOP audio à position:', currentPos);
+        audioEngine.stopWithFade(30);
+        
+        // Sauvegarder les positions
+        setTimerWhenBuzzed(timerRemaining);
         setAudioPositionWhenBuzzed(relativePos);
-        console.log('💾 Position audio sauvegardée: absolue =', currentPos, ', relative depuis CUE1 =', relativePos);
+        console.log('💾 Sauvegardé - position absolue:', currentPos, '| relative:', relativePos);
         
         setBuzzerLocked(true);
         setTimerActive(false);
         
-        // Arrêter la musique immédiatement
-        console.log('🎵 Arrêt audio avec fade...');
-        audioEngine.stopWithFade(150); // Fade rapide
-        
-        // Mettre à jour le timer dans la DB IMMÉDIATEMENT
+        // Mettre à jour la DB
         if (sessionId) {
           supabase.from('game_state').update({ 
             timer_active: false,
-            timer_remaining: timerRemaining
+            timer_remaining: timerRemaining,
+            is_buzzer_active: false
           }).eq('game_session_id', sessionId).then(() => {
-            console.log('✅ DB mise à jour: timer_active=false, timer_remaining=', timerRemaining);
+            console.log('✅ DB mise à jour - buzzer désactivé');
           });
         }
       }
@@ -225,34 +228,84 @@ const Regie = () => {
   }, [buzzers]);
 
   const loadActiveSession = async () => {
-    const { data } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
-    if (data) {
-      setSessionId(data.id);
-      setCurrentSession(data);
+    try {
+      const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
+      if (error) {
+        console.error('❌ Erreur chargement session active:', error);
+        return;
+      }
+      if (data) {
+        setSessionId(data.id);
+        setCurrentSession(data);
+        
+        // S'assurer que le game_state est lié à cette session
+        await supabase.from('game_state').update({
+          game_session_id: data.id
+        }).eq('id', '00000000-0000-0000-0000-000000000001');
+      }
+    } catch (error) {
+      console.error('❌ Exception lors du chargement de la session:', error);
+      toast({ 
+        title: '⚠️ Erreur de connexion', 
+        description: 'Impossible de charger la session',
+        variant: 'destructive'
+      });
     }
   };
 
   const loadGameState = async () => {
     if (!sessionId) return;
-    const { data } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
-    if (data) setGameState(data);
+    try {
+      const { data, error } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
+      if (error) {
+        console.error('❌ Erreur chargement game state:', error);
+        return;
+      }
+      if (data) setGameState(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement du game state:', error);
+    }
   };
 
   const loadRounds = async () => {
-    const { data } = await supabase.from('rounds').select('*').order('created_at');
-    if (data) setRounds(data);
+    try {
+      const { data, error } = await supabase.from('rounds').select('*').order('created_at');
+      if (error) {
+        console.error('❌ Erreur chargement rounds:', error);
+        return;
+      }
+      if (data) setRounds(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des rounds:', error);
+    }
   };
 
   const loadQuestions = async () => {
-    const { data } = await supabase.from('questions').select('*').order('display_order');
-    if (data) setQuestions(data);
+    try {
+      const { data, error } = await supabase.from('questions').select('*').order('display_order');
+      if (error) {
+        console.error('❌ Erreur chargement questions:', error);
+        return;
+      }
+      if (data) setQuestions(data);
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des questions:', error);
+    }
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('score', { ascending: false });
-    if (data) {
-      // Charger les équipes sans présence (sera mise à jour par le canal)
-      setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
+    try {
+      const { data, error } = await supabase.from('teams').select('*').order('score', { ascending: false });
+      if (error) {
+        console.error('❌ Erreur chargement teams:', error);
+        return;
+      }
+      if (data) {
+        // Charger les équipes sans présence (sera mise à jour par le canal)
+        setConnectedTeams(data.map(t => ({ ...t, is_connected: false })));
+      }
+    } catch (error) {
+      console.error('❌ Exception lors du chargement des équipes:', error);
     }
   };
 
@@ -269,21 +322,27 @@ const Regie = () => {
       return;
     }
     
-    const { data, error } = await supabase.from('buzzer_attempts')
-      .select('*, teams(*)')
-      .eq('question_id', qId)
-      .eq('game_session_id', sId)
-      .order('buzzed_at', { ascending: true });
-    
-    if (error) {
-      console.error('❌ Regie: Erreur chargement buzzers', error);
-      return;
-    }
-    
-    console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
-    if (data) {
-      setBuzzers(data);
-      console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
+    try {
+      const { data, error } = await supabase.from('buzzer_attempts')
+        .select('*, teams(*)')
+        .eq('question_id', qId)
+        .eq('game_session_id', sId)
+        .order('buzzed_at', { ascending: true });
+      
+      if (error) {
+        console.error('❌ Regie: Erreur chargement buzzers', error);
+        // Ne pas vider les buzzers en cas d'erreur réseau temporaire
+        return;
+      }
+      
+      console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
+      if (data) {
+        setBuzzers(data);
+        console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
+      }
+    } catch (error) {
+      console.error('❌ Regie: Exception lors du chargement des buzzers', error);
+      // En cas d'erreur critique, on garde les buzzers existants
     }
   };
 
@@ -306,14 +365,48 @@ const Regie = () => {
   };
 
   const startQuestion = async (question: any) => {
+    console.log('🔄 RESET COMPLET - Démarrage d\'une nouvelle question');
+    
+    // ========== PHASE 1: ARRÊT IMMÉDIAT ==========
+    // Arrêter toute lecture audio en cours
+    audioEngine.stop();
+    console.log('✅ Audio stoppé');
+    
+    // ========== PHASE 2: PURGE BASE DE DONNÉES ==========
+    if (sessionId) {
+      // Supprimer tous les buzzers de la session
+      await supabase
+        .from('buzzer_attempts')
+        .delete()
+        .eq('game_session_id', sessionId);
+      console.log('✅ Buzzers purgés de la DB');
+      
+      // Supprimer toutes les réponses de l'instance précédente si elle existe
+      if (currentQuestionInstanceId) {
+        await supabase
+          .from('team_answers')
+          .delete()
+          .eq('question_instance_id', currentQuestionInstanceId);
+        console.log('✅ Réponses précédentes purgées');
+      }
+    }
+    
+    // ========== PHASE 3: RESET DES ÉTATS LOCAUX ==========
     const instanceId = crypto.randomUUID();
     setCurrentQuestionId(question.id);
     setCurrentQuestionInstanceId(instanceId);
     setCurrentRoundId(question.round_id);
     
-    // Réinitialiser le compteur de buzzers et les équipes bloquées
+    // Réinitialiser tous les compteurs et états
     previousBuzzersCount.current = 0;
     setBlockedTeams([]);
+    setBuzzers([]);
+    setBuzzerLocked(false);
+    setTimerActive(false);
+    setTimerWhenBuzzed(0);
+    setAudioPositionWhenBuzzed(0);
+    setClipStartTime(0);
+    console.log('✅ États locaux réinitialisés');
     
     // Précharger le son pour les blind tests - avec chargement complet
     if (question.question_type === 'blind_test' && question.audio_url) {
@@ -355,26 +448,31 @@ const Regie = () => {
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
     
+    // ========== PHASE 4: RESET GAME STATE EN DB ==========
     // NE PAS envoyer aux clients encore - juste préparer en régie
     await supabase.from('game_state').update({ 
       current_question_instance_id: instanceId, 
       current_round_id: question.round_id,
+      current_question_id: null, // Important: ne pas encore montrer aux clients
       timer_remaining: timerDuration,
+      timer_active: false,
+      is_buzzer_active: false,
       show_leaderboard: false,
       show_waiting_screen: false,
       show_answer: false,
       answer_result: null,
-      // NE PAS définir current_question_id pour que les clients ne voient pas encore la question
-      is_buzzer_active: false,
-      timer_active: false
+      excluded_teams: [] // Réinitialiser les équipes bloquées
     }).eq('game_session_id', sessionId);
+    console.log('✅ Game state réinitialisé en DB');
     
-    setBuzzerLocked(false);
-    setBuzzers([]);
+    // ========== PHASE 5: PRÉPARER POUR DÉMARRAGE ==========
     setTimerRemaining(timerDuration);
-    setTimerActive(false);
     
-    toast({ title: '📝 Question préparée', description: 'Envoyez-la aux clients quand vous êtes prêt' });
+    console.log('✅ RESET COMPLET TERMINÉ - Système prêt');
+    toast({ 
+      title: '🔄 Système réinitialisé', 
+      description: 'Question prête à être envoyée' 
+    });
   };
 
   const sendQuestionToClients = async () => {
@@ -458,16 +556,22 @@ const Regie = () => {
       excluded_teams: newBlockedTeams
     }).eq('game_session_id', sessionId);
     
-    // Supprimer le buzzer de l'équipe qui a raté
+    // Supprimer TOUS les buzzers pour permettre aux autres équipes de re-buzzer
+    // (seule l'équipe bloquée ne pourra plus buzzer via excluded_teams)
     if (currentQuestionId && sessionId) {
       await supabase
         .from('buzzer_attempts')
         .delete()
-        .eq('team_id', teamId)
         .eq('question_id', currentQuestionId)
         .eq('game_session_id', sessionId);
+      
+      // Vider le state local des buzzers
+      setBuzzers([]);
+      previousBuzzersCount.current = 0;
+      console.log('🧹 Tous les buzzers supprimés - équipe bloquée:', teamId);
     }
     
+    // Réactiver le buzzer et relancer la musique pour les autres équipes (après 2s de délai)
     setTimeout(async () => {
       await gameEvents.resetBuzzer(currentQuestionInstanceId!);
       setBuzzerLocked(false);
@@ -476,6 +580,7 @@ const Regie = () => {
       
       // Relancer la musique et le timer pour blind test
       if (currentQ?.question_type === 'blind_test') {
+        console.log('🔄 Relance de la musique après mauvaise réponse');
         if (currentQ?.audio_url) { 
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
@@ -484,16 +589,15 @@ const Regie = () => {
             audioEngine['currentTrack'] = s;
             audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
             
-            // Reprendre à la position absolue = CUE1 + position relative sauvegardée
+            // Reprendre EXACTEMENT à la position sauvegardée
             const cue1Time = s.cues[0]?.time || 0;
             const resumePosition = cue1Time + audioPositionWhenBuzzed;
             const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
             
+            console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ')');
+            
             // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
             await audioEngine.playFromTo(resumePosition, endPosition, 300);
-            
-            console.log('🎵 Reprise musique: CUE1 =', cue1Time, ', position relative =', audioPositionWhenBuzzed, 
-                        ', position absolue =', resumePosition, ', fin prévue à', endPosition);
           }
         }
         
@@ -514,7 +618,12 @@ const Regie = () => {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
       
-      toast({ title: '❌ Mauvaise - Reprise' });
+      const penaltyPoints = currentQ?.penalty_points || 0;
+      if (penaltyPoints > 0) {
+        toast({ title: `❌ Mauvaise réponse - ${penaltyPoints} points perdus` });
+      } else {
+        toast({ title: '❌ Mauvaise réponse - Reprise' });
+      }
     }, 2000);
   };
 
@@ -886,6 +995,24 @@ const Regie = () => {
     toast({ title: '👋 Toutes les équipes déconnectées' });
   };
 
+  const resetTeamConnectionBlock = async (teamId: string) => {
+    const team = connectedTeams.find(t => t.id === teamId);
+    if (!team) return;
+    
+    // Réinitialiser le blocage de connexion
+    await supabase.from('teams').update({ 
+      connected_device_id: null,
+      last_seen_at: null,
+      is_active: false
+    }).eq('id', teamId);
+    
+    loadTeams();
+    toast({ 
+      title: '🔓 Blocage réinitialisé', 
+      description: `${team.name} peut se reconnecter immédiatement` 
+    });
+  };
+
   const roundQuestions = currentRoundId ? questions.filter(q => q.round_id === currentRoundId) : [];
   const connectedCount = connectedTeams.filter(t => t.is_connected).length;
 
@@ -976,78 +1103,103 @@ const Regie = () => {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-3 px-3 pb-3">
-        {/* Left: Questions + Answers */}
-        <div className="flex-1 overflow-hidden flex flex-col gap-3 min-h-0">
-          {/* Questions */}
+      {/* Main content - Layout en grille compacte */}
+      <div className="flex-1 overflow-hidden grid grid-cols-12 gap-2 px-3 pb-3">
+        {/* Colonne gauche - Questions et contrôles principaux (4 cols) */}
+        <div className="col-span-4 flex flex-col gap-2 overflow-hidden">
+          {/* Sélection de manche - Compact */}
+          <Card className="flex-shrink-0 p-2">
+            <div className="flex gap-1 overflow-x-auto">
+              {rounds.map(r => (
+                <Button 
+                  key={r.id} 
+                  variant={currentRoundId === r.id ? 'default' : 'outline'} 
+                  size="sm"
+                  className="text-xs whitespace-nowrap"
+                  onClick={() => setCurrentRoundId(r.id)}
+                >
+                  {r.title}
+                </Button>
+              ))}
+            </div>
+          </Card>
+
+          {/* Questions - Liste compacte avec scroll */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <div className="p-3 border-b flex gap-2 overflow-x-auto flex-shrink-0">
-            {rounds.map(r => (
-              <Button 
-                key={r.id} 
-                variant={currentRoundId === r.id ? 'default' : 'outline'} 
-                size="sm" 
-                onClick={() => setCurrentRoundId(r.id)}
-              >
-                {r.title}
-              </Button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {roundQuestions.map(q => (
-              <div key={q.id} className="flex justify-between items-center p-3 border rounded bg-muted/30">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{q.question_text}</div>
-                  <div className="text-xs text-muted-foreground">{q.points} pts</div>
-                </div>
-                <Button size="sm" onClick={() => startQuestion(q)}>Lancer</Button>
-              </div>
-            ))}
-          </div>
-        </Card>
+            <div className="p-2 border-b flex-shrink-0">
+              <h3 className="font-bold text-sm">Questions ({roundQuestions.length})</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {roundQuestions.map(q => {
+                const typeLabels: Record<string, string> = {
+                  'blind_test': 'Buzzer',
+                  'qcm': 'QCM',
+                  'free_text': 'Texte libre'
+                };
+                const typeLabel = typeLabels[q.question_type] || q.question_type;
+                
+                return (
+                  <div key={q.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-xs truncate">{q.question_text}</div>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 flex-shrink-0">
+                          {typeLabel}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{q.points} pts</div>
+                    </div>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => startQuestion(q)}>Lancer</Button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         </div>
 
-        {/* Right: Audio + Contrôles + Onglets */}
-        <div className="w-full lg:w-96 flex flex-col gap-3 overflow-hidden min-h-0">
-          {/* Audio Deck compact */}
-          {currentTrack && (
-            <Card className="flex-shrink-0 p-3">
-              <AudioDeck 
-                tracks={[currentTrack]}
-                onTrackChange={(track) => {
-                  console.log('📻 Track changed:', track.name);
-                }}
-              />
+        {/* Colonne centrale - Contrôles de jeu (5 cols) */}
+        <div className="col-span-5 flex flex-col gap-2 overflow-hidden">
+          {/* Contrôle principal - Envoyer question */}
+          {currentQuestionId && (
+            <Card className="flex-shrink-0 p-2">
+              <Button 
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={sendQuestionToClients}
+              >
+                🚀 Envoyer aux clients
+              </Button>
             </Card>
           )}
 
-          {/* Barre de timer */}
-          {currentQuestionId && timerRemaining > 0 && (
-            <TimerBar 
-              timerRemaining={timerRemaining}
-              timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
-              timerActive={timerActive}
-              questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
-            />
-          )}
+          {/* Timer et Audio combinés */}
+          <Card className="flex-shrink-0 p-2">
+            {currentQuestionId && timerRemaining > 0 && (
+              <TimerBar 
+                timerRemaining={timerRemaining}
+                timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
+                timerActive={timerActive}
+                questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
+              />
+            )}
+            {/* Afficher le deck audio si on a des tracks disponibles */}
+            {audioTracks.length > 0 && (
+              <div className="mt-2">
+                <AudioDeck 
+                  tracks={currentTrack ? [currentTrack] : audioTracks}
+                  onTrackChange={(track) => {
+                    console.log('📻 Track changed:', track.name);
+                    setCurrentTrack(track);
+                  }}
+                />
+              </div>
+            )}
+          </Card>
 
-          {/* Contrôles compacts Buzzer + Reveal */}
-          <Card className="flex-shrink-0 p-2 bg-card/95 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              {/* Envoyer question aux clients */}
-              {currentQuestionId && (
-                <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={sendQuestionToClients}
-                >
-                  🚀 Envoyer aux clients
-                </Button>
-              )}
-              
-              {/* Buzzers */}
-              <div className="flex items-center gap-1">
+          {/* Contrôles Buzzer + Reveal */}
+          <Card className="flex-shrink-0 p-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 flex-1">
                 <Radio className="h-3 w-3 text-muted-foreground" />
                 <Button 
                   size="sm" 
@@ -1091,7 +1243,6 @@ const Regie = () => {
                 </Button>
               </div>
 
-              {/* Reveal */}
               <Button 
                 size="sm" 
                 variant={gameState?.show_answer ? "outline" : "default"}
@@ -1103,91 +1254,194 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Onglets (Jeu / Équipes / Effets TV / Finale) */}
-          <Tabs defaultValue="jeu" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full flex-shrink-0">
-              <TabsTrigger value="jeu" className="flex-1">Jeu</TabsTrigger>
-              <TabsTrigger value="equipes" className="flex-1">Équipes</TabsTrigger>
-              <TabsTrigger value="effets" className="flex-1">Effets TV</TabsTrigger>
-              <TabsTrigger value="finale" className="flex-1">🏆 Finale</TabsTrigger>
+          {/* Affichage automatique selon le type de question */}
+          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto p-2">
+              {(() => {
+                const currentQ = questions.find(q => q.id === currentQuestionId);
+                const questionType = currentQ?.question_type;
+
+                // Blind test = Buzzers
+                if (questionType === 'blind_test') {
+                  return (
+                    <>
+                      <BuzzerMonitor 
+                        currentQuestionId={currentQuestionId} 
+                        gameState={gameState} 
+                        buzzers={buzzers}
+                        questionPoints={currentQ?.points || 10}
+                        onCorrectAnswer={handleCorrectAnswer}
+                        onWrongAnswer={handleWrongAnswer}
+                        blockedTeams={blockedTeams}
+                      />
+
+                      {blockedTeams.length > 0 && (
+                        <Card className="p-2 bg-destructive/10 border-destructive/20 mt-2">
+                          <h3 className="text-xs font-bold text-destructive flex items-center gap-1 mb-2">
+                            <X className="h-3 w-3" />
+                            Bloqués ({blockedTeams.length})
+                          </h3>
+                          <div className="space-y-1">
+                            {blockedTeams.map(teamId => {
+                              const team = connectedTeams.find(t => t.id === teamId);
+                              return team ? (
+                                <div 
+                                  key={teamId}
+                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20 border border-destructive/30"
+                                >
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
+                                  <span className="font-medium text-xs">{team.name}</span>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </Card>
+                      )}
+                    </>
+                  );
+                }
+
+                // QCM = Réponses QCM
+                if (questionType === 'qcm') {
+                  return (
+                    <QCMAnswersDisplay 
+                      currentQuestion={currentQ} 
+                      gameState={gameState} 
+                    />
+                  );
+                }
+
+                // Texte libre = Réponses texte
+                if (questionType === 'free_text') {
+                  return (
+                    <TextAnswersDisplay 
+                      currentQuestionId={currentQuestionId} 
+                      gameState={gameState}
+                      currentQuestion={currentQ}
+                    />
+                  );
+                }
+
+                // Pas de question = message
+                return (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    Sélectionnez une question pour commencer
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
+        </div>
+
+        {/* Colonne droite - Équipes et Effets (3 cols) */}
+        <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
+          <Tabs defaultValue="equipes" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full flex-shrink-0 grid grid-cols-2">
+              <TabsTrigger value="equipes" className="text-xs">Équipes</TabsTrigger>
+              <TabsTrigger value="effets" className="text-xs">TV/Finale</TabsTrigger>
             </TabsList>
 
-            {/* Onglet Jeu */}
-            <TabsContent value="jeu" className="flex-1 overflow-y-auto space-y-3 mt-3">
-              {/* Buzzers */}
-              <BuzzerMonitor 
-                currentQuestionId={currentQuestionId} 
-                gameState={gameState} 
-                buzzers={buzzers}
-                questionPoints={questions.find(q => q.id === currentQuestionId)?.points || 10}
-                onCorrectAnswer={handleCorrectAnswer}
-                onWrongAnswer={handleWrongAnswer}
-                blockedTeams={blockedTeams}
-              />
-
-              {/* Réponses QCM */}
-              <QCMAnswersDisplay 
-                currentQuestion={questions.find(q => q.id === currentQuestionId)} 
-                gameState={gameState} 
-              />
-
-              {/* Réponses Freetext */}
-              <TextAnswersDisplay 
-                currentQuestionId={currentQuestionId} 
-                gameState={gameState}
-                currentQuestion={questions.find(q => q.id === currentQuestionId)}
-              />
-
-              {/* Équipes bloquées */}
-              {blockedTeams.length > 0 && (
-                <Card className="p-4 bg-destructive/10 border-destructive/20">
-                  <h3 className="text-sm font-bold text-destructive flex items-center gap-2 mb-3">
-                    <X className="h-4 w-4" />
-                    Équipes bloquées ({blockedTeams.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {blockedTeams.map(teamId => {
-                      const team = connectedTeams.find(t => t.id === teamId);
-                      return team ? (
-                        <div 
-                          key={teamId}
-                          className="flex items-center gap-2 p-2 rounded bg-destructive/20 border border-destructive/30"
-                        >
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-                          <span className="font-semibold text-sm">{team.name}</span>
-                          <Badge variant="destructive" className="ml-auto text-xs">Bloqué</Badge>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Onglet Équipes */}
-            <TabsContent value="equipes" className="flex-1 overflow-hidden mt-3">
+            <TabsContent value="equipes" className="flex-1 overflow-hidden mt-2">
               <Card className="h-full overflow-hidden flex flex-col">
-                <div className="p-3 border-b flex justify-between items-center flex-shrink-0">
-                  <h3 className="font-bold text-sm">Équipes</h3>
+                <div className="p-2 border-b flex justify-between items-center flex-shrink-0">
+                  <h3 className="font-bold text-xs">Équipes</h3>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={resetAllScores}>Reset</Button>
-                    <Button size="sm" variant="ghost" onClick={disconnectAll}>Kick</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={resetAllScores}>Reset</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={disconnectAll}>Kick</Button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
                   {connectedTeams.map(t => (
-                    <div key={t.id} className="flex items-center gap-2 p-2 border rounded bg-muted/30">
-                      <div className={`w-2 h-2 rounded-full ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
+                    <div key={t.id} className="flex items-center gap-1 p-1.5 border rounded bg-muted/30">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.is_connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm truncate">{t.name}</div>
-                        <div className="text-xs">{t.score} pts</div>
+                        <div className="font-bold text-xs truncate flex items-center gap-1">
+                          {t.name}
+                          {t.yellow_cards > 0 && (
+                            <span className="text-yellow-500">
+                              {'🟨'.repeat(t.yellow_cards)}
+                            </span>
+                          )}
+                          {t.is_excluded && (
+                            <span className="text-red-500 text-xs font-bold ml-1">(EXCLU)</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{t.score} pts</div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-1</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+1</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => adjustTeamScore(t.id, 5)}>+5</Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        {t.is_excluded ? (
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-5 px-2 text-xs text-green-600 font-bold" 
+                            onClick={async () => {
+                              await supabase.from('teams').update({ 
+                                is_excluded: false,
+                                yellow_cards: 0
+                              }).eq('id', t.id);
+                              toast({ title: '✅ Équipe réintégrée', description: 'Les cartons ont été retirés' });
+                            }}
+                            title="Réintégrer l'équipe"
+                          >
+                            ✅ Réintégrer
+                          </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-5 w-5 p-0 text-xs" 
+                              onClick={async () => {
+                                const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
+                                await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
+                              }}
+                              title="Retirer carton"
+                              disabled={!t.yellow_cards || t.yellow_cards === 0}
+                            >
+                              ↓
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-5 w-5 p-0 text-xs text-yellow-600" 
+                              onClick={async () => {
+                                const newCount = (t.yellow_cards || 0) + 1;
+                                
+                                if (newCount >= 2) {
+                                  // Exclure l'équipe DÉFINITIVEMENT
+                                  await supabase.from('teams').update({ 
+                                    yellow_cards: newCount,
+                                    is_excluded: true,
+                                    is_active: false,
+                                    connected_device_id: null
+                                  }).eq('id', t.id);
+                                  
+                                  // Kick l'équipe immédiatement
+                                  await gameEvents.kickTeam(t.id);
+                                  
+                                  toast({ 
+                                    title: '🟥 Équipe EXCLUE définitivement !', 
+                                    description: `${t.name} a reçu 2 cartons jaunes et ne peut plus se reconnecter`,
+                                    variant: 'destructive' 
+                                  });
+                                } else {
+                                  await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                  toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
+                                }
+                              }}
+                              title="Donner carton jaune"
+                              disabled={t.is_excluded}
+                            >
+                              🟨
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1195,32 +1449,31 @@ const Regie = () => {
               </Card>
             </TabsContent>
 
-            {/* Onglet Effets TV */}
-            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-3">
-              <Card className="p-4">
-                <h3 className="font-bold mb-3 text-sm">Effets TV</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="outline" onClick={showRoundIntro}>
+            <TabsContent value="effets" className="flex-1 overflow-y-auto mt-2 space-y-2">
+              <Card className="p-2">
+                <h3 className="font-bold text-xs mb-2">Effets TV</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={showRoundIntro}>
                     <Sparkles className="h-3 w-3 mr-1" />
                     Intro
                   </Button>
-                  <Button size="sm" variant="outline" onClick={hideLeaderboard}>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={hideLeaderboard}>
                     Masquer
                   </Button>
                 </div>
               </Card>
-            </TabsContent>
 
-            {/* Onglet Finale */}
-            <TabsContent value="finale" className="flex-1 overflow-y-auto space-y-3 mt-3">
-              <FinalManager sessionId={sessionId!} gameState={gameState} />
-              
-              {/* Contrôle d'affichage des votes du public */}
-              <PublicVoteControl
-                showPublicVotes={showPublicVotes}
-                finalId={gameState?.final_id}
-                currentQuestionInstanceId={currentQuestionInstanceId}
-              />
+              <Card className="p-2">
+                <h3 className="font-bold text-xs mb-2">🏆 Finale</h3>
+                <FinalManager sessionId={sessionId!} gameState={gameState} />
+                <div className="mt-2">
+                  <PublicVoteControl
+                    showPublicVotes={showPublicVotes}
+                    finalId={gameState?.final_id}
+                    currentQuestionInstanceId={currentQuestionInstanceId}
+                  />
+                </div>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

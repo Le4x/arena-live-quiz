@@ -1,6 +1,6 @@
 /**
  * AudioDeck - Interface deck audio pro pour la régie
- * Waveform, cue points, hotkeys, fade controls
+ * Waveform avancée avec zones extrait/solution visuelles
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, SkipBack, SkipForward, Volume2, TrendingUp, TrendingDown, Zap } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, TrendingUp, TrendingDown, Zap, Music } from 'lucide-react';
 import { getAudioEngine, type Track, type AudioEngineState } from '@/lib/audio/AudioEngine';
 import { useToast } from '@/hooks/use-toast';
 
@@ -54,6 +54,76 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
       console.log('✅ Tous les fichiers audio sont préchargés');
     });
   }, [tracks]);
+
+  // Dessiner la waveform et les zones
+  useEffect(() => {
+    if (!canvasRef.current || !selectedTrack || state.duration === 0) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Dimensions
+    const width = canvas.width;
+    const height = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Clear
+    ctx.clearRect(0, 0, width, height);
+
+    // Background
+    ctx.fillStyle = 'hsl(var(--muted))';
+    ctx.fillRect(0, 0, width, height);
+
+    // Calculer les positions des zones
+    const cue1 = selectedTrack.cues[0]?.time || 0;
+    const cue2 = selectedTrack.cues[1]?.time || (cue1 + 30);
+    const extractEnd = cue1 + 30;
+    const solutionEnd = Math.min(state.duration, cue2 + 30);
+
+    // Zone extrait (CUE1 à CUE1+30s) - Vert
+    const extractStart = (cue1 / state.duration) * width;
+    const extractWidth = ((extractEnd - cue1) / state.duration) * width;
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.2)'; // green-500 avec transparence
+    ctx.fillRect(extractStart, 0, extractWidth, height);
+    
+    // Bordure gauche extrait
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.8)';
+    ctx.fillRect(extractStart, 0, 3, height);
+
+    // Zone solution (CUE2 à CUE2+30s) - Bleu
+    const solutionStart = (cue2 / state.duration) * width;
+    const solutionWidth = ((solutionEnd - cue2) / state.duration) * width;
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; // blue-500 avec transparence
+    ctx.fillRect(solutionStart, 0, solutionWidth, height);
+    
+    // Bordure gauche solution
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+    ctx.fillRect(solutionStart, 0, 3, height);
+
+    // Dessiner une fausse waveform (barres aléatoires)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    const barCount = 100;
+    const barWidth = width / barCount;
+    for (let i = 0; i < barCount; i++) {
+      const barHeight = (Math.random() * 0.5 + 0.3) * height;
+      const x = i * barWidth;
+      const y = (height - barHeight) / 2;
+      ctx.fillRect(x, y, barWidth - 1, barHeight);
+    }
+
+    // Labels des zones
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = 'rgba(34, 197, 94, 1)';
+    ctx.fillText('EXTRAIT', extractStart + 5, 15);
+    
+    ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+    ctx.fillText('SOLUTION', solutionStart + 5, 15);
+
+  }, [selectedTrack, state.duration]);
 
   useEffect(() => {
     // Raccourcis clavier
@@ -148,8 +218,16 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
     if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
       await engine.loadAndPlay(selectedTrack);
     }
-    await engine.playSolution(8, fadeInDuration, fadeOutDuration);
-    toast({ title: '🎼 Solution lancée (8s)' });
+    // Calculer la durée de la solution : si on a au moins 2 cue points, 
+    // on utilise l'espace entre eux, sinon 30s par défaut
+    let solutionDuration = 30; // Par défaut 30 secondes
+    if (selectedTrack.cues.length >= 2) {
+      const cue1 = selectedTrack.cues[0].time;
+      const cue2 = selectedTrack.cues[1].time;
+      solutionDuration = cue2 - cue1;
+    }
+    await engine.playSolution(solutionDuration, fadeInDuration, fadeOutDuration);
+    toast({ title: `🎼 Solution lancée (${solutionDuration}s)` });
   };
 
   const formatTime = (seconds: number): string => {
@@ -159,68 +237,109 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
   };
 
   return (
-    <Card className="p-3 bg-card/90 backdrop-blur-sm border-primary/20">
-      <div className="space-y-2">
-        {/* Header: Track selector + Status - Compact */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-1 flex-wrap flex-1 max-h-16 overflow-y-auto">
+    <Card className="p-4 bg-gradient-to-br from-card via-card/95 to-muted/30 backdrop-blur-sm border-primary/30 shadow-lg">
+      <div className="space-y-3">
+        {/* Header: Track info + Status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Music className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-foreground">
+                {selectedTrack?.name || 'Aucun son sélectionné'}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {selectedTrack ? `${selectedTrack.cues.length} cue points` : 'Sélectionnez un son'}
+              </p>
+            </div>
+          </div>
+          {state.isPlaying && (
+            <Badge variant="default" className="animate-pulse">
+              <Zap className="h-4 w-4 mr-1" />
+              EN LECTURE
+            </Badge>
+          )}
+        </div>
+
+        {/* Track selector */}
+        {tracks.length > 1 && (
+          <div className="flex gap-2 flex-wrap p-2 bg-muted/30 rounded-lg border border-border">
             {tracks.map((track) => (
               <Button
                 key={track.id}
                 variant={selectedTrack?.id === track.id ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedTrack(track)}
-                className="text-xs h-7 px-2"
+                className="text-xs h-8"
               >
                 {track.name}
               </Button>
             ))}
           </div>
-          {state.isPlaying && (
-            <Badge variant="default" className="animate-pulse text-xs">
-              <Zap className="h-3 w-3 mr-1" />
-              PLAY
-            </Badge>
-          )}
-        </div>
+        )}
 
-        {/* Waveform with Cue Points - Compact */}
-        <div className="relative h-12 bg-muted/50 rounded overflow-hidden border border-border">
+        {/* Waveform avancée avec zones visuelles */}
+        <div className="relative h-32 bg-gradient-to-b from-muted/80 to-muted/40 rounded-lg overflow-hidden border-2 border-border shadow-inner">
           <canvas 
             ref={canvasRef}
+            width={800}
+            height={128}
             className="w-full h-full"
           />
           
-          {/* Playhead */}
+          {/* Playhead avec indicateur de temps */}
           {state.duration > 0 && (
-            <div 
-              className="absolute top-0 bottom-0 w-0.5 bg-primary shadow-lg z-20"
-              style={{ 
-                left: `${(state.currentTime / state.duration) * 100}%` 
-              }}
-            />
+            <>
+              <div 
+                className="absolute top-0 bottom-0 w-1 bg-primary shadow-[0_0_8px_rgba(var(--primary),0.6)] z-30 transition-all duration-75"
+                style={{ 
+                  left: `${(state.currentTime / state.duration) * 100}%` 
+                }}
+              >
+                {/* Triangle en haut */}
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-primary" />
+                {/* Temps actuel */}
+                <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-2 py-0.5 rounded text-xs font-mono font-bold whitespace-nowrap shadow-lg">
+                  {formatTime(state.currentTime)}
+                </div>
+              </div>
+            </>
           )}
           
-          {/* Cue markers on waveform */}
+          {/* Marqueurs CUE avec labels améliorés */}
           {selectedTrack && selectedTrack.cues.length > 0 && state.duration > 0 && (
             <>
               {selectedTrack.cues.map((cue, idx) => (
                 <div
                   key={idx}
-                  className="absolute top-0 bottom-0 w-0.5 bg-accent/60 hover:bg-accent cursor-pointer z-10"
+                  className="absolute top-0 bottom-0 w-1 bg-gradient-to-b from-accent via-accent to-transparent cursor-pointer hover:w-2 transition-all z-20 group"
                   style={{ 
                     left: `${(cue.time / state.duration) * 100}%` 
                   }}
                   onClick={() => engine.jumpToCue(idx)}
                   title={`${cue.label} - ${formatTime(cue.time)}`}
                 >
-                  <div className="absolute -top-5 left-0 transform -translate-x-1/2 text-[10px] font-bold text-accent whitespace-nowrap">
-                    {idx + 1}
+                  {/* Badge CUE */}
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg border border-accent/20">
+                    CUE {idx + 1}: {cue.label}
                   </div>
                 </div>
               ))}
             </>
           )}
+
+          {/* Légende des zones */}
+          <div className="absolute bottom-2 left-2 right-2 flex justify-between text-xs font-medium">
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded">
+              <div className="w-3 h-3 bg-green-500/80 rounded" />
+              <span className="text-white">Extrait (30s)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded">
+              <div className="w-3 h-3 bg-blue-500/80 rounded" />
+              <span className="text-white">Solution</span>
+            </div>
+          </div>
         </div>
 
         {/* Main Controls - Compact */}
@@ -290,7 +409,7 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
             disabled={!selectedTrack}
             className="bg-secondary hover:bg-secondary/90 h-7 text-xs"
           >
-            🎼 Solution 8s
+            🎼 Solution
           </Button>
           
           {/* Cue Points en ligne */}

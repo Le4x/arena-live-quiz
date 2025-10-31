@@ -703,11 +703,14 @@ export type Database = {
           connected_device_id: string | null
           connection_pin: string | null
           created_at: string | null
+          game_session_id: string | null
           id: string
           is_active: boolean | null
+          is_excluded: boolean
           last_seen_at: string | null
           name: string
           score: number | null
+          yellow_cards: number
         }
         Insert: {
           avatar?: string | null
@@ -715,11 +718,14 @@ export type Database = {
           connected_device_id?: string | null
           connection_pin?: string | null
           created_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_excluded?: boolean
           last_seen_at?: string | null
           name: string
           score?: number | null
+          yellow_cards?: number
         }
         Update: {
           avatar?: string | null
@@ -727,13 +733,24 @@ export type Database = {
           connected_device_id?: string | null
           connection_pin?: string | null
           created_at?: string | null
+          game_session_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_excluded?: boolean
           last_seen_at?: string | null
           name?: string
           score?: number | null
+          yellow_cards?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
