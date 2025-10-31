@@ -31,13 +31,10 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
         table: 'game_state',
         filter: `game_session_id=eq.${sessionId}`
       }, (payload: any) => {
-        console.log('🎤 KaraokeDisplay: Game state update:', payload.new);
-        
         const newPlaying = payload.new.karaoke_playing;
         const newRevealed = payload.new.karaoke_revealed;
         
         if (newPlaying !== undefined) {
-          console.log('🎤 KaraokeDisplay: isPlaying changé à', newPlaying);
           setIsPlaying(newPlaying);
         }
         
@@ -55,7 +52,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
       .single()
       .then(({ data }) => {
         if (data) {
-          console.log('🎤 KaraokeDisplay: État initial chargé:', data);
           setIsPlaying(data.karaoke_playing || false);
           setIsRevealed(data.karaoke_revealed || false);
         }
@@ -66,11 +62,10 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     };
   }, [sessionId]);
 
-  // Précharger l'audio au montage
+  // Charger l'audio au montage
   useEffect(() => {
     if (!audioUrl) return;
 
-    console.log('🎤 KaraokeDisplay: Préchargement audio:', audioUrl);
     const track = {
       id: 'karaoke',
       name: 'Karaoké',
@@ -78,15 +73,17 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
       cues: []
     };
 
+    // Charger le track dans l'AudioEngine (sans jouer)
     audioEngine.preloadTrack(track).then(() => {
-      console.log('✅ KaraokeDisplay: Audio préchargé et prêt');
+      // Assigner le buffer à l'AudioEngine
+      audioEngine['currentTrack'] = track;
+      audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(track.url) || null;
       setIsAudioReady(true);
     }).catch(error => {
-      console.error('❌ KaraokeDisplay: Erreur préchargement:', error);
+      console.error('❌ KaraokeDisplay: Erreur chargement:', error);
     });
 
     return () => {
-      console.log('🧹 KaraokeDisplay: Cleanup - arrêt audio');
       audioEngine.stop();
       setIsAudioReady(false);
     };
@@ -94,18 +91,11 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   // Gérer play/pause quand l'audio est prêt ET isPlaying change
   useEffect(() => {
-    if (!isAudioReady) {
-      console.log('⏳ KaraokeDisplay: Audio pas encore prêt');
-      return;
-    }
+    if (!isAudioReady) return;
 
     if (isPlaying) {
-      console.log('▶️ KaraokeDisplay: Lancement lecture audio');
-      audioEngine.play(0).catch(error => {
-        console.error('❌ KaraokeDisplay: Erreur play:', error);
-      });
+      audioEngine.play(0);
     } else {
-      console.log('⏸️ KaraokeDisplay: Pause audio');
       audioEngine.pause();
     }
   }, [isPlaying, isAudioReady]);
@@ -117,7 +107,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     const checkStopTime = () => {
       const state = audioEngine.getState();
       if (state.currentTime >= stopTime) {
-        console.log('⏸️ KaraokeDisplay: Arrêt au stopTime:', stopTime);
         audioEngine.pause();
         setIsPlaying(false);
       }
@@ -130,10 +119,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   // Reprendre la lecture après révélation
   useEffect(() => {
     if (isRevealed && stopTime) {
-      console.log('▶️ KaraokeDisplay: Reprise après révélation');
-      audioEngine.play(stopTime).catch(error => {
-        console.error('❌ KaraokeDisplay: Erreur reprise:', error);
-      });
+      audioEngine.play(stopTime);
     }
   }, [isRevealed, stopTime]);
 
@@ -201,9 +187,9 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-blue-950/90 via-purple-900/80 to-blue-950/90">
-      {/* Effet d'étoiles en arrière-plan */}
+      {/* Effet d'étoiles en arrière-plan (optimisé) */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(50)].map((_, i) => (
+        {[...Array(15)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-white rounded-full"
