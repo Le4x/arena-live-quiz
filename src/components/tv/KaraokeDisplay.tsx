@@ -15,16 +15,50 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
   useEffect(() => {
     if (!audioRef.current) return;
 
-    if (isPlaying) {
-      audioRef.current.play().catch(console.error);
-    } else {
-      audioRef.current.pause();
-    }
-  }, [isPlaying]);
+    const audio = audioRef.current;
+    
+    console.log('🎵 KaraokeDisplay - Chargement audio:', audioUrl);
+    
+    // Réinitialiser l'audio quand on charge une nouvelle chanson
+    audio.currentTime = 0;
+    audio.load();
+    
+    const handleCanPlay = () => {
+      console.log('✅ Audio karaoké chargé et prêt');
+      if (isPlaying) {
+        audio.play().catch(error => {
+          console.error('❌ Erreur lecture audio karaoké:', error);
+        });
+      }
+    };
+    
+    const handlePlay = () => {
+      console.log('▶️ Audio karaoké en lecture');
+    };
+    
+    const handleError = (e: Event) => {
+      console.error('❌ Erreur chargement audio karaoké:', e);
+    };
+    
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('error', handleError);
+    
+    return () => {
+      audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('error', handleError);
+    };
+  }, [isPlaying, audioUrl]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+      const newTime = audioRef.current.currentTime;
+      setCurrentTime(newTime);
+      // Log périodique pour debug
+      if (Math.floor(newTime) !== Math.floor(currentTime)) {
+        console.log('⏱️ Temps karaoké:', newTime.toFixed(1), 's');
+      }
     }
   };
 
@@ -58,6 +92,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
         ref={audioRef}
         src={audioUrl}
         onTimeUpdate={handleTimeUpdate}
+        preload="auto"
       />
 
       <div className="w-full max-w-4xl px-8 space-y-8">

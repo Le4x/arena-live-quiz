@@ -994,8 +994,23 @@ const Client = () => {
   const submitAnswer = async (answerValue?: string) => {
     const finalAnswer = answerValue || answer;
     
-    // Bloquer l'envoi si le timer est terminé
-    if (!isTimerActive) {
+    console.log('📝 Tentative envoi réponse:', {
+      finalAnswer,
+      team: team?.name,
+      question: currentQuestion?.id,
+      questionType: currentQuestion?.question_type,
+      instanceId: currentQuestionInstanceId,
+      sessionId: gameState?.game_session_id,
+      hasAnswered,
+      isTimerActive
+    });
+    
+    // Pour les questions lyrics, permettre l'envoi tant que la question est active
+    const isLyricsQuestion = currentQuestion?.question_type === 'lyrics';
+    
+    // Bloquer l'envoi si le timer est terminé (sauf pour lyrics où on vérifie juste la présence de la question)
+    if (!isLyricsQuestion && !isTimerActive) {
+      console.log('❌ Réponse bloquée - timer non actif');
       toast({
         title: "Temps écoulé",
         description: "Les réponses ne sont plus acceptées",
@@ -1004,11 +1019,22 @@ const Client = () => {
       return;
     }
     
-    if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) return;
+    if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) {
+      console.log('❌ Réponse bloquée - conditions:', {
+        hasTeam: !!team,
+        hasQuestion: !!currentQuestion,
+        hasInstanceId: !!currentQuestionInstanceId,
+        hasFinalAnswer: !!finalAnswer.trim(),
+        hasSessionId: !!gameState?.game_session_id,
+        hasAnswered
+      });
+      return;
+    }
 
     // Stocker la réponse sélectionnée localement pour l'afficher lors du reveal
     setAnswer(finalAnswer);
 
+    console.log('📤 Envoi réponse à la DB...');
     // Ne PAS calculer is_correct ici, sera fait au reveal
     const { error } = await supabase
       .from('team_answers')
@@ -1025,12 +1051,14 @@ const Client = () => {
       ]);
 
     if (error) {
+      console.error('❌ Erreur envoi réponse:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer la réponse",
         variant: "destructive"
       });
     } else {
+      console.log('✅ Réponse envoyée avec succès');
       setHasAnswered(true);
       toast({
         title: "Réponse enregistrée !",
