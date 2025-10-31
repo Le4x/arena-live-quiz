@@ -545,6 +545,7 @@ const Regie = () => {
       current_round_id: question.round_id,
       current_question_id: null, // Important: ne pas encore montrer aux clients
       timer_remaining: timerDuration,
+      timer_duration: timerDuration, // CRITIQUE: définir timer_duration pour synchronisation Screen
       timer_active: false,
       is_buzzer_active: false,
       show_leaderboard: false,
@@ -555,7 +556,7 @@ const Regie = () => {
       karaoke_playing: false, // Réinitialiser le karaoké
       karaoke_revealed: false
     }).eq('game_session_id', sessionId);
-    console.log('✅ Game state réinitialisé en DB');
+    console.log('✅ Game state réinitialisé en DB avec timer_duration:', timerDuration);
     
     // ========== PHASE 5: PRÉPARER POUR DÉMARRAGE ==========
     setTimerRemaining(timerDuration);
@@ -1446,37 +1447,30 @@ const Regie = () => {
             </Card>
           )}
 
-          {/* Timer et Audio combinés */}
-          <Card className="flex-shrink-0 p-2">
-            {currentQuestionId && timerRemaining > 0 && (
+          {/* Timer */}
+          {currentQuestionId && timerRemaining > 0 && (
+            <Card className="flex-shrink-0 p-2">
               <TimerBar 
                 timerRemaining={timerRemaining}
                 timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
                 timerActive={timerActive}
                 questionType={questions.find(q => q.id === currentQuestionId)?.question_type}
               />
-            )}
-            {/* Afficher le deck audio SEULEMENT si on a une question actuelle avec audio */}
-            {(() => {
-              const currentQ = questions.find(q => q.id === currentQuestionId);
-              if (!currentQ?.audio_url) return null; // Pas de question audio = pas de lecteur
-              
-              const questionTrack = audioTracks.find(t => t.url === currentQ.audio_url) || currentTrack;
-              if (!questionTrack) return null;
-              
-              return (
-                <div className="mt-2">
-                  <AudioDeck 
-                    tracks={[questionTrack]}
-                     onTrackChange={(track) => {
-                      console.log('🎵 Track changé:', track.name);
-                      setCurrentTrack(track);
-                    }}
-                  />
-                </div>
-              );
-            })()}
-          </Card>
+            </Card>
+          )}
+
+          {/* Lecteur Audio - TOUJOURS VISIBLE pour préchargement */}
+          {audioTracks.length > 0 && (
+            <Card className="flex-shrink-0 p-2">
+              <AudioDeck 
+                tracks={audioTracks}
+                onTrackChange={(track) => {
+                  console.log('🎵 Track changé:', track.name);
+                  setCurrentTrack(track);
+                }}
+              />
+            </Card>
+          )}
 
           {/* Contrôles Buzzer + Reveal */}
           <Card className="flex-shrink-0 p-2">
