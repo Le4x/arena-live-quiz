@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Toggle } from "@/components/ui/toggle";
 import { Users, Monitor, RotateCcw, Eye, EyeOff, Trophy, Sparkles, X, Radio, Home, Wifi, Award, Heart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -1282,80 +1283,71 @@ const Regie = () => {
                 <Monitor className="h-3 w-3 mr-1" />
                 Écran
               </Button>
-              <Button 
-                size="sm" 
-                variant={gameState?.show_welcome_screen ? "default" : "outline"}
-                onClick={toggleWelcomeScreen}
-                className="h-8 text-xs"
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_welcome_screen}
+                onPressedChange={toggleWelcomeScreen}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Home className="h-3 w-3 mr-1" />
                 Accueil
-              </Button>
-              <Button 
-                size="sm" 
-                variant={gameState?.show_team_connection_screen ? "default" : "outline"}
-                onClick={toggleTeamConnectionScreen}
-                className="h-8 text-xs"
+              </Toggle>
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_team_connection_screen}
+                onPressedChange={toggleTeamConnectionScreen}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Wifi className="h-3 w-3 mr-1" />
                 Équipes
-              </Button>
+              </Toggle>
               
               {/* Ligne 2: Plus d'écrans */}
-              <Button 
-                size="sm" 
-                variant={gameState?.show_sponsors_screen ? "default" : "outline"}
-                onClick={toggleSponsorsScreen}
-                className="h-8 text-xs"
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_sponsors_screen}
+                onPressedChange={toggleSponsorsScreen}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Award className="h-3 w-3 mr-1" />
                 Sponsors
-              </Button>
-              <Button 
-                size="sm" 
-                variant={gameState?.show_thanks_screen ? "default" : "outline"}
-                onClick={toggleThanksScreen}
-                className="h-8 text-xs"
+              </Toggle>
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_thanks_screen}
+                onPressedChange={toggleThanksScreen}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Heart className="h-3 w-3 mr-1" />
                 Merci
-              </Button>
-              <Button 
-                size="sm" 
-                variant={gameState?.show_waiting_screen ? "default" : "outline"}
-                onClick={toggleWaitingScreen}
-                className="h-8 text-xs"
+              </Toggle>
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_waiting_screen}
+                onPressedChange={toggleWaitingScreen}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
-                {gameState?.show_waiting_screen ? (
-                  <>
-                    <Eye className="h-3 w-3 mr-1" />
-                    Reprendre
-                  </>
-                ) : (
-                  <>
-                    ⏸️ Attente
-                  </>
-                )}
-              </Button>
+                ⏸️ Attente
+              </Toggle>
               
               {/* Ligne 3: Buzzer, Reveal, Intro */}
-              <Button 
-                size="sm" 
-                variant={gameState?.is_buzzer_active ? "default" : "outline"}
-                onClick={toggleBuzzer}
-                className="h-8 text-xs"
+              <Toggle 
+                size="sm"
+                pressed={gameState?.is_buzzer_active}
+                onPressedChange={toggleBuzzer}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Radio className="h-3 w-3 mr-1" />
-                {gameState?.is_buzzer_active ? 'Actif' : 'Inactif'}
-              </Button>
-              <Button 
-                size="sm" 
-                variant={gameState?.show_answer ? "default" : "outline"}
-                onClick={gameState?.show_answer ? hideReveal : showReveal}
-                className="h-8 text-xs"
+                Buzzer
+              </Toggle>
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_answer}
+                onPressedChange={() => gameState?.show_answer ? hideReveal() : showReveal()}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
-                {gameState?.show_answer ? '🙈' : '👁️'} Révéler
-              </Button>
+                👁️ Révéler
+              </Toggle>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -1367,15 +1359,15 @@ const Regie = () => {
               </Button>
               
               {/* Ligne 4: Classement, Transition, Reset Buzzer */}
-              <Button 
-                size="sm" 
-                variant={gameState?.show_leaderboard ? "default" : "outline"}
-                className="h-8 text-xs" 
-                onClick={gameState?.show_leaderboard ? hideLeaderboard : showLeaderboard}
+              <Toggle 
+                size="sm"
+                pressed={gameState?.show_leaderboard}
+                onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
+                className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <Trophy className="h-3 w-3 mr-1" />
-                {gameState?.show_leaderboard ? 'Masquer' : 'Scores'}
-              </Button>
+                Scores
+              </Toggle>
               <Button 
                 size="sm" 
                 variant="outline" 
