@@ -77,83 +77,6 @@ const Regie = () => {
     loadQuestions();
     loadTeams();
     loadAudioTracks();
-
-    // Abonnement changements de teams (score, yellow_cards, etc) - IMMEDIAT
-    const teamsChannel = supabase.channel('regie-teams-realtime')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'teams' 
-      }, (payload) => {
-        console.log('🔄 Regie: Teams changed realtime', payload);
-        loadTeams();
-      })
-      .subscribe((status) => {
-        console.log('📡 Teams channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Teams channel error - reconnecting...');
-          setTimeout(() => loadTeams(), 2000);
-        }
-      });
-
-    // Abonnement buzzers GLOBAL
-    const buzzersChannel = supabase.channel('regie-buzzers-global')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'buzzer_attempts' 
-      }, (payload) => {
-        console.log('🔔 Regie: Buzzer INSERT détecté', payload);
-        loadBuzzers();
-      })
-      .subscribe((status) => {
-        console.log('📡 Buzzers channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Buzzers channel error - reconnecting...');
-          setTimeout(() => loadBuzzers(), 2000);
-        }
-      });
-
-    // Canal de présence GLOBAL - écoute toutes les équipes connectées
-    const presenceChannel = supabase.channel('team_presence')
-      .on('presence', { event: 'sync' }, () => {
-        const presenceState = presenceChannel.presenceState();
-        const connectedTeamIds = new Set(
-          Object.values(presenceState)
-            .flat()
-            .map((p: any) => p.team_id)
-            .filter(Boolean)
-        );
-        
-        console.log(`📊 Regie: ${connectedTeamIds.size} équipes connectées`, Array.from(connectedTeamIds));
-        
-        // Mettre à jour les équipes avec le statut de connexion
-        setConnectedTeams(prev => 
-          prev.map(t => ({
-            ...t,
-            is_connected: connectedTeamIds.has(t.id)
-          }))
-        );
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('✅ Regie: Équipe rejointe', key, newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('👋 Regie: Équipe partie', key, leftPresences);
-      })
-      .subscribe((status) => {
-        console.log('📡 Presence channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Presence channel error - reconnecting...');
-          setTimeout(() => loadTeams(), 2000);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(teamsChannel);
-      supabase.removeChannel(buzzersChannel);
-      supabase.removeChannel(presenceChannel);
-    };
   }, []);
 
   // Écouteurs pour les votes du public
@@ -379,7 +302,7 @@ const Regie = () => {
     const qId = currentQuestionId;
     const sId = sessionId;
     
-    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId, currentBuzzersCount: buzzers.length });
+    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId });
     
     if (!qId || !sId) {
       console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
@@ -409,7 +332,7 @@ const Regie = () => {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  }, [currentQuestionId, sessionId, buzzers.length]);
+  }, [currentQuestionId, sessionId]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');
@@ -428,6 +351,97 @@ const Regie = () => {
       } catch { setAudioTracks([]); }
     }
   };
+
+  // Setup channels realtime après les déclarations de loadBuzzers et loadTeams
+  useEffect(() => {
+    console.log('🔄 Regie: Setup channels realtime');
+    
+    // Abonnement changements de teams (score, yellow_cards, etc) - IMMEDIAT
+    const teamsChannel = supabase.channel('regie-teams-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'teams' 
+      }, (payload) => {
+        console.log('🔄 Regie: Teams changed realtime', payload);
+        loadTeams();
+      })
+      .subscribe((status) => {
+        console.log('📡 Teams channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Teams channel error - reconnecting...');
+          setTimeout(() => loadTeams(), 2000);
+        }
+      });
+
+    // Abonnement buzzers GLOBAL avec timestamp unique
+    const buzzersChannel = supabase.channel('regie-buzzers-' + Date.now())
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🔔 Regie: Buzzer INSERT détecté', payload);
+        loadBuzzers();
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🗑️ Regie: Buzzer DELETE détecté', payload);
+        loadBuzzers();
+      })
+      .subscribe((status) => {
+        console.log('📡 Buzzers channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Buzzers channel error - reconnecting...');
+          setTimeout(() => loadBuzzers(), 2000);
+        }
+      });
+
+    // Canal de présence GLOBAL - écoute toutes les équipes connectées
+    const presenceChannel = supabase.channel('team_presence')
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = presenceChannel.presenceState();
+        const connectedTeamIds = new Set(
+          Object.values(presenceState)
+            .flat()
+            .map((p: any) => p.team_id)
+            .filter(Boolean)
+        );
+        
+        console.log(`📊 Regie: ${connectedTeamIds.size} équipes connectées`, Array.from(connectedTeamIds));
+        
+        // Mettre à jour les équipes avec le statut de connexion
+        setConnectedTeams(prev => 
+          prev.map(t => ({
+            ...t,
+            is_connected: connectedTeamIds.has(t.id)
+          }))
+        );
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('✅ Regie: Équipe rejointe', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('👋 Regie: Équipe partie', key, leftPresences);
+      })
+      .subscribe((status) => {
+        console.log('📡 Presence channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Presence channel error - reconnecting...');
+          setTimeout(() => loadTeams(), 2000);
+        }
+      });
+
+    return () => {
+      console.log('🧹 Regie: Cleanup channels');
+      supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(buzzersChannel);
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [loadBuzzers, loadTeams]);
 
   const startQuestion = async (question: any) => {
     console.log('🔄 RESET COMPLET - Démarrage d\'une nouvelle question');
