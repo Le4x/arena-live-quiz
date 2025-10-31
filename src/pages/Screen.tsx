@@ -887,7 +887,7 @@ const Screen = () => {
               <KaraokeDisplay
                 lyrics={typeof currentQuestion.lyrics === 'string' ? JSON.parse(currentQuestion.lyrics) : currentQuestion.lyrics}
                 audioUrl={currentQuestion.audio_url}
-                isPlaying={gameState?.timer_active || false}
+                isPlaying={true}
               />
             )}
 
