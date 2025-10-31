@@ -561,6 +561,14 @@ const Regie = () => {
   };
 
   const sendQuestionToClients = async () => {
+    console.log('📤 ENVOYER AUX CLIENTS - État actuel:', {
+      currentQuestionId,
+      currentTrack,
+      currentTrackName: currentTrack?.name,
+      currentTrackUrl: currentTrack?.url,
+      sessionId
+    });
+    
     if (!currentQuestionId || !sessionId) {
       toast({ title: '❌ Aucune question préparée', variant: 'destructive' });
       return;
@@ -571,6 +579,12 @@ const Regie = () => {
 
     const round = rounds.find(r => r.id === question.round_id);
     const timerDuration = round?.timer_duration || 30;
+
+    console.log('📤 Question trouvée:', {
+      questionType: question.question_type,
+      audioUrl: question.audio_url,
+      stopTime: question.stop_time
+    });
 
     // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
     await supabase.from('game_state').update({
