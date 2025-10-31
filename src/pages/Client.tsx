@@ -1019,14 +1019,62 @@ const Client = () => {
       return;
     }
     
-    if (!team || !currentQuestion || !currentQuestionInstanceId || !finalAnswer.trim() || !gameState?.game_session_id || hasAnswered) {
-      console.log('❌ Réponse bloquée - conditions:', {
-        hasTeam: !!team,
-        hasQuestion: !!currentQuestion,
-        hasInstanceId: !!currentQuestionInstanceId,
-        hasFinalAnswer: !!finalAnswer.trim(),
-        hasSessionId: !!gameState?.game_session_id,
-        hasAnswered
+    if (!team) {
+      console.log('❌ Pas d\'équipe');
+      toast({
+        title: "Erreur",
+        description: "Équipe non connectée",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!currentQuestion) {
+      console.log('❌ Pas de question');
+      toast({
+        title: "Erreur",
+        description: "Aucune question active",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!currentQuestionInstanceId) {
+      console.log('❌ Pas d\'instance de question');
+      toast({
+        title: "Erreur",
+        description: "Instance de question manquante",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!finalAnswer.trim()) {
+      console.log('❌ Réponse vide');
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer une réponse",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!gameState?.game_session_id) {
+      console.log('❌ Pas de session');
+      toast({
+        title: "Erreur",
+        description: "Session de jeu non trouvée",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (hasAnswered) {
+      console.log('❌ Déjà répondu');
+      toast({
+        title: "Déjà répondu",
+        description: "Vous avez déjà envoyé une réponse",
+        variant: "destructive"
       });
       return;
     }
@@ -1054,7 +1102,7 @@ const Client = () => {
       console.error('❌ Erreur envoi réponse:', error);
       toast({
         title: "Erreur",
-        description: "Impossible d'envoyer la réponse",
+        description: `Impossible d'envoyer la réponse: ${error.message}`,
         variant: "destructive"
       });
     } else {

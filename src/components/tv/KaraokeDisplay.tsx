@@ -17,56 +17,56 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
 
     const audio = audioRef.current;
     
-    console.log('🎵 KaraokeDisplay - Chargement audio:', audioUrl);
+    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying, lyricsCount: lyrics.length });
     
-    // Réinitialiser l'audio quand on charge une nouvelle chanson
+    // Réinitialiser l'audio
     audio.currentTime = 0;
     audio.load();
     
     const handleCanPlay = () => {
-      console.log('✅ Audio karaoké chargé et prêt');
+      console.log('✅ Audio prêt, démarrage lecture...');
       if (isPlaying) {
         audio.play().catch(error => {
-          console.error('❌ Erreur lecture audio karaoké:', error);
+          console.error('❌ Erreur lecture:', error);
         });
       }
     };
     
     const handlePlay = () => {
-      console.log('▶️ Audio karaoké en lecture');
+      console.log('▶️ Audio en lecture');
+    };
+    
+    const handleTimeUpdate = () => {
+      const time = audio.currentTime;
+      setCurrentTime(time);
     };
     
     const handleError = (e: Event) => {
-      console.error('❌ Erreur chargement audio karaoké:', e);
+      console.error('❌ Erreur audio:', e);
     };
     
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('play', handlePlay);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('error', handleError);
     
     return () => {
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('error', handleError);
     };
-  }, [isPlaying, audioUrl]);
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const newTime = audioRef.current.currentTime;
-      setCurrentTime(newTime);
-      // Log périodique pour debug
-      if (Math.floor(newTime) !== Math.floor(currentTime)) {
-        console.log('⏱️ Temps karaoké:', newTime.toFixed(1), 's');
-      }
-    }
-  };
+  }, [audioUrl, isPlaying, lyrics.length]);
 
   // Trouver la ligne actuelle (celle qui est en cours de lecture)
   const getCurrentLine = () => {
-    return lyrics.find(line => 
-      currentTime >= line.startTime && currentTime <= line.endTime
+    const line = lyrics.find(l => 
+      currentTime >= l.startTime && currentTime <= l.endTime
     );
+    if (line) {
+      console.log('🎤 Ligne actuelle:', line.text, '| temps:', currentTime.toFixed(1));
+    }
+    return line;
   };
 
   // Trouver la prochaine ligne à afficher en aperçu
@@ -94,37 +94,35 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
   const currentLine = getCurrentLine();
   const nextLine = getNextLine();
 
+  console.log('🎵 Rendu karaoké:', { 
+    currentTime: currentTime.toFixed(1),
+    hasCurrentLine: !!currentLine, 
+    hasNextLine: !!nextLine,
+    totalLyrics: lyrics.length 
+  });
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
       <audio
         ref={audioRef}
         src={audioUrl}
-        onTimeUpdate={handleTimeUpdate}
         preload="auto"
         loop={false}
       />
 
-      <div className="w-full max-w-4xl px-8 space-y-6">
-        {/* Ligne actuelle avec barre de progression */}
+      <div className="w-full max-w-4xl px-8 space-y-8">
+        {/* Ligne actuelle avec barre de progression (texte complet sans ___) */}
         {currentLine && (
           <motion.div
             key={currentLine.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-3"
+            className="space-y-4"
           >
             <div className="relative">
               <div className="text-5xl font-bold text-center text-white drop-shadow-lg">
-                {currentLine.text.split(' ').map((word, i) => (
-                  <span key={i} className="inline-block mx-2">
-                    {word === '___' ? (
-                      <span className="inline-block px-8 py-2 bg-white/20 backdrop-blur-sm rounded-lg border-2 border-white/40">
-                        ___
-                      </span>
-                    ) : word}
-                  </span>
-                ))}
+                {currentLine.text.replace(/___/g, '______')}
               </div>
             </div>
 
@@ -139,15 +137,23 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
           </motion.div>
         )}
 
-        {/* Ligne suivante en aperçu */}
+        {/* Ligne suivante avec les mots manquants (___ visibles) */}
         {nextLine && (
           <motion.div
             key={`next-${nextLine.id}`}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
-            className="text-3xl text-center text-white/60 mt-8"
+            animate={{ opacity: 0.7 }}
+            className="text-4xl text-center text-white/70 mt-12"
           >
-            {nextLine.text}
+            {nextLine.text.split(' ').map((word, i) => (
+              <span key={i} className="inline-block mx-2">
+                {word === '___' ? (
+                  <span className="inline-block px-6 py-1 bg-white/20 backdrop-blur-sm rounded-lg border-2 border-white/40">
+                    ___
+                  </span>
+                ) : word}
+              </span>
+            ))}
           </motion.div>
         )}
 
