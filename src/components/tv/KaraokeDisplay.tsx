@@ -16,8 +16,8 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [isAudioReady, setIsAudioReady] = useState(false);
   const audioEngine = getAudioEngine();
-  const hasLoadedRef = useRef(false);
 
   // Écouter les commandes depuis game_state
   useEffect(() => {
@@ -37,6 +37,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
         const newRevealed = payload.new.karaoke_revealed;
         
         if (newPlaying !== undefined) {
+          console.log('🎤 KaraokeDisplay: isPlaying changé à', newPlaying);
           setIsPlaying(newPlaying);
         }
         
@@ -54,6 +55,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
       .single()
       .then(({ data }) => {
         if (data) {
+          console.log('🎤 KaraokeDisplay: État initial chargé:', data);
           setIsPlaying(data.karaoke_playing || false);
           setIsRevealed(data.karaoke_revealed || false);
         }
@@ -64,45 +66,49 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     };
   }, [sessionId]);
 
-  // Charger et gérer l'audio
+  // Précharger l'audio au montage
   useEffect(() => {
     if (!audioUrl) return;
 
-    // Précharger l'audio une seule fois
-    if (!hasLoadedRef.current) {
-      console.log('🎤 KaraokeDisplay: Préchargement audio:', audioUrl);
-      const track = {
-        id: 'karaoke',
-        name: 'Karaoké',
-        url: audioUrl,
-        cues: []
-      };
+    console.log('🎤 KaraokeDisplay: Préchargement audio:', audioUrl);
+    const track = {
+      id: 'karaoke',
+      name: 'Karaoké',
+      url: audioUrl,
+      cues: []
+    };
 
-      audioEngine.preloadTrack(track).then(() => {
-        console.log('✅ KaraokeDisplay: Audio préchargé');
-        hasLoadedRef.current = true;
-      }).catch(error => {
-        console.error('❌ KaraokeDisplay: Erreur préchargement:', error);
-      });
+    audioEngine.preloadTrack(track).then(() => {
+      console.log('✅ KaraokeDisplay: Audio préchargé et prêt');
+      setIsAudioReady(true);
+    }).catch(error => {
+      console.error('❌ KaraokeDisplay: Erreur préchargement:', error);
+    });
+
+    return () => {
+      console.log('🧹 KaraokeDisplay: Cleanup - arrêt audio');
+      audioEngine.stop();
+      setIsAudioReady(false);
+    };
+  }, [audioUrl]);
+
+  // Gérer play/pause quand l'audio est prêt ET isPlaying change
+  useEffect(() => {
+    if (!isAudioReady) {
+      console.log('⏳ KaraokeDisplay: Audio pas encore prêt');
+      return;
     }
 
-    // Gérer play/pause
-    if (isPlaying && hasLoadedRef.current) {
-      console.log('▶️ KaraokeDisplay: Play audio');
+    if (isPlaying) {
+      console.log('▶️ KaraokeDisplay: Lancement lecture audio');
       audioEngine.play(0).catch(error => {
         console.error('❌ KaraokeDisplay: Erreur play:', error);
       });
-    } else if (!isPlaying && hasLoadedRef.current) {
+    } else {
       console.log('⏸️ KaraokeDisplay: Pause audio');
       audioEngine.pause();
     }
-
-    return () => {
-      if (hasLoadedRef.current) {
-        audioEngine.stop();
-      }
-    };
-  }, [isPlaying, audioUrl]);
+  }, [isPlaying, isAudioReady]);
 
   // Arrêt automatique au stopTime
   useEffect(() => {

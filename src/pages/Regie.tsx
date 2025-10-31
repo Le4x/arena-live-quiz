@@ -600,16 +600,31 @@ const Regie = () => {
 
     // Réinitialiser le chrono et le relancer
     setTimerRemaining(timerDuration);
+    
+    // Préparer les données à mettre à jour
+    const updateData: any = {
+      current_question_id: currentQuestionId,
+      timer_remaining: timerDuration,
+      timer_active: true,
+      timer_started_at: new Date().toISOString(),
+      timer_duration: timerDuration,
+      show_waiting_screen: false,
+      show_answer: false,
+      answer_result: null
+    };
+    
+    // Pour les questions karaoké, lancer automatiquement la lecture
+    if (question.question_type === 'lyrics') {
+      updateData.karaoke_playing = true;
+      updateData.karaoke_revealed = false;
+      console.log('🎤 Question karaoké détectée - lancement automatique de la musique');
+    }
     setTimerActive(true);
 
     // Envoyer la question aux clients et démarrer le chrono avec timestamp
     await supabase.from('game_state').update({
-      current_question_id: currentQuestionId,
-      is_buzzer_active: question.question_type === 'blind_test',
-      timer_active: true,
-      timer_started_at: new Date().toISOString(),
-      timer_duration: timerDuration,
-      timer_remaining: timerDuration // Garder pour compatibilité
+      ...updateData,
+      is_buzzer_active: question.question_type === 'blind_test'
     }).eq('game_session_id', sessionId);
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
