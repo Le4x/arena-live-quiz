@@ -610,6 +610,14 @@ const Regie = () => {
 
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
+    console.log('🎵 VÉRIFICATION LANCEMENT AUDIO:', {
+      isBlindTestOrLyrics: (question.question_type === 'blind_test' || question.question_type === 'lyrics'),
+      questionType: question.question_type,
+      hasCurrentTrack: !!currentTrack,
+      currentTrackDefined: currentTrack !== null && currentTrack !== undefined,
+      currentTrackKeys: currentTrack ? Object.keys(currentTrack) : 'null'
+    });
+    
     // Lancer l'audio automatiquement pour les blind tests ET karaoké AU POINT DE CUE 1 (extrait)
     if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
       console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name, 'currentTrack=', currentTrack);
