@@ -57,50 +57,25 @@ export const BuzzerMonitor = ({
       </div>
       
       <div className="space-y-3">
-        {buzzers.slice(0, 2).map((buzzer, index) => {
+        {buzzers.map((buzzer, index) => {
           const isBlocked = blockedTeams.includes(buzzer.team_id);
-          const isFirst = index === 0;
-          const isSecond = index === 1;
-          const buzzedTime = new Date(buzzer.buzzed_at);
-          const timeDisplay = buzzedTime.toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-          }) + '.' + String(buzzedTime.getMilliseconds()).padStart(3, '0');
-          
           return (
             <div
               key={buzzer.id}
-              className={`flex items-center gap-4 p-4 rounded-lg border-2 ${
-                isSecond 
-                  ? 'bg-muted/20 opacity-75' 
-                  : isBlocked 
-                  ? 'bg-muted/30 opacity-60' 
-                  : 'bg-muted/50'
-              }`}
+              className={`flex items-center gap-4 p-4 rounded-lg border-2 ${isBlocked ? 'bg-muted/30 opacity-60' : 'bg-muted/50'}`}
               style={{ borderColor: buzzer.teams?.color }}
             >
               <div className="text-2xl font-bold text-primary w-8">#{index + 1}</div>
               <div className="flex-1">
                 <div className="font-bold text-lg flex items-center gap-2">
                   {buzzer.teams?.name}
-                  {isFirst && !isBlocked && (
-                    <Badge className="bg-green-500 text-white text-xs">
-                      ✓ Premier
-                    </Badge>
-                  )}
-                  {isSecond && (
-                    <Badge variant="outline" className="text-xs">
-                      Info seulement
-                    </Badge>
-                  )}
                   {isBlocked && <Badge variant="destructive" className="text-xs">Bloqué</Badge>}
                 </div>
-                <div className="font-mono text-sm text-muted-foreground font-bold">
-                  {timeDisplay}
+                <div className="text-xs text-muted-foreground">
+                  {new Date(buzzer.buzzed_at).toLocaleTimeString('fr-FR')}
                 </div>
               </div>
-              {isFirst && !isBlocked && (
+              {!isBlocked && (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -121,11 +96,6 @@ export const BuzzerMonitor = ({
             </div>
           );
         })}
-        {buzzers.length > 2 && (
-          <div className="text-center text-sm text-muted-foreground pt-2">
-            + {buzzers.length - 2} autre(s) buzzer(s)
-          </div>
-        )}
       </div>
     </Card>
   );

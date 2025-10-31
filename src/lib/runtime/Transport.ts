@@ -85,11 +85,7 @@ export class SupabaseTransport implements Transport {
 
   private getOrCreateChannel(name: string): any {
     if (!this.channels.has(name)) {
-      const ch = supabase.channel(name, {
-        config: {
-          broadcast: { self: true, ack: false },
-        },
-      });
+      const ch = supabase.channel(name);
       this.channels.set(name, ch);
     }
     return this.channels.get(name);

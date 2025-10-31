@@ -10,37 +10,25 @@ interface ThanksScreenProps {
 export const ThanksScreen = ({ sessionId }: ThanksScreenProps) => {
   const [teams, setTeams] = useState<any[]>([]);
   const [sponsors, setSponsors] = useState<any[]>([]);
-  const [popupItems, setPopupItems] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showType, setShowType] = useState<'team' | 'sponsor'>('team');
 
   useEffect(() => {
     loadData();
   }, [sessionId]);
 
   useEffect(() => {
-    const allItems = [
-      ...teams.map(t => ({ ...t, type: 'team' })), 
-      ...sponsors.map(s => ({ ...s, type: 'sponsor' }))
-    ];
+    const allItems = [...teams.map(t => ({ ...t, type: 'team' })), ...sponsors.map(s => ({ ...s, type: 'sponsor' }))];
     
     if (allItems.length === 0) return;
 
-    // Créer des pop-ups aléatoires
-    const generatePopups = () => {
-      const newPopups = Array.from({ length: 8 }, (_, i) => {
-        const item = allItems[Math.floor(Math.random() * allItems.length)];
-        return {
-          ...item,
-          id: `${item.id}-${i}-${Date.now()}`,
-          x: Math.random() * 80 + 10, // 10-90%
-          y: Math.random() * 80 + 10, // 10-90%
-          delay: Math.random() * 2
-        };
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => {
+        const next = (prev + 1) % allItems.length;
+        setShowType(allItems[next].type as 'team' | 'sponsor');
+        return next;
       });
-      setPopupItems(newPopups);
-    };
-
-    generatePopups();
-    const interval = setInterval(generatePopups, 4000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [teams, sponsors]);
@@ -54,6 +42,9 @@ export const ThanksScreen = ({ sessionId }: ThanksScreenProps) => {
     if (teamsData.data) setTeams(teamsData.data);
     if (sponsorsData.data) setSponsors(sponsorsData.data);
   };
+
+  const allItems = [...teams.map(t => ({ ...t, type: 'team' })), ...sponsors.map(s => ({ ...s, type: 'sponsor' }))];
+  const currentItem = allItems[currentIndex];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex flex-col items-center justify-center p-12 relative overflow-hidden">
@@ -80,63 +71,53 @@ export const ThanksScreen = ({ sessionId }: ThanksScreenProps) => {
         ))}
       </div>
 
-      {/* Pop-ups d'équipes et sponsors */}
-      <AnimatePresence>
-        {popupItems.map((item) => (
-          <motion.div
-            key={item.id}
-            className="absolute pointer-events-none z-20"
-            style={{
-              left: `${item.x}%`,
-              top: `${item.y}%`,
-            }}
-            initial={{ scale: 0, opacity: 0, rotate: -10 }}
-            animate={{ 
-              scale: [0, 1.2, 1],
-              opacity: [0, 1, 1, 0],
-              rotate: [0, 5, -5, 0],
-              y: [0, -20, 0]
-            }}
-            transition={{ 
-              duration: 3,
-              delay: item.delay,
-              times: [0, 0.2, 0.8, 1]
-            }}
-          >
-            {item.type === 'team' ? (
-              <div className="bg-card/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border-2 border-primary/30 flex items-center gap-3">
-                <div 
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl"
-                  style={{ backgroundColor: item.color }}
-                >
-                  {item.name.charAt(0)}
-                </div>
-                <span className="font-bold text-lg">{item.name}</span>
-              </div>
-            ) : (
-              <div className="bg-card/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border-2 border-secondary/30">
-                <img 
-                  src={item.logo_url} 
-                  alt={item.name}
-                  className="h-16 w-auto object-contain"
-                />
-              </div>
-            )}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
       <motion.div
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1 }}
-        className="text-center z-10"
+        className="text-center mb-16 z-10"
       >
         <h1 className="text-8xl font-black bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent mb-4">
           MERCI À TOUS !
         </h1>
         <p className="text-3xl text-muted-foreground">Un grand merci à nos participants et partenaires</p>
       </motion.div>
+
+      <AnimatePresence mode="wait">
+        {currentItem && (
+          <motion.div
+            key={currentIndex}
+            initial={{ scale: 0, rotate: -10, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            exit={{ scale: 0, rotate: 10, opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="relative z-10"
+          >
+            {showType === 'team' ? (
+              <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-16 shadow-2xl border-4 border-primary/50 min-w-[500px] text-center">
+                <Trophy className="h-24 w-24 mx-auto mb-6 text-primary animate-bounce" />
+                <div 
+                  className="w-32 h-32 rounded-full mx-auto mb-6 shadow-elegant"
+                  style={{ backgroundColor: currentItem.color }}
+                />
+                <h2 className="text-5xl font-black mb-3">{currentItem.name}</h2>
+                <p className="text-4xl font-bold text-primary">{currentItem.score} points</p>
+              </div>
+            ) : (
+              <div className="bg-card/90 backdrop-blur-xl rounded-3xl p-16 shadow-2xl border-4 border-secondary/50 min-w-[500px] text-center">
+                <Sparkles className="h-20 w-20 mx-auto mb-8 text-secondary" />
+                <img 
+                  src={currentItem.logo_url} 
+                  alt={currentItem.name}
+                  className="h-40 w-auto mx-auto mb-6 object-contain drop-shadow-2xl"
+                />
+                <h2 className="text-4xl font-black">{currentItem.name}</h2>
+                <p className="text-2xl text-muted-foreground mt-2">Merci pour votre soutien !</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

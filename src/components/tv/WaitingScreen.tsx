@@ -11,31 +11,12 @@ interface Team {
   color: string;
 }
 
-interface Sponsor {
-  id: string;
-  name: string;
-  logo_url: string;
-}
-
 interface WaitingScreenProps {
   sessionName?: string;
   connectedTeams: Team[];
-  sponsors?: Sponsor[];
 }
 
-export const WaitingScreen = ({ sessionName, connectedTeams, sponsors = [] }: WaitingScreenProps) => {
-  // Générer des positions aléatoires pour les pop-ups
-  const generateRandomPosition = () => ({
-    x: Math.random() * 80 + 10, // Entre 10% et 90%
-    y: Math.random() * 80 + 10,
-  });
-
-  // Créer une liste mixte d'équipes et sponsors
-  const allItems = [
-    ...connectedTeams.map(team => ({ type: 'team' as const, data: team })),
-    ...sponsors.map(sponsor => ({ type: 'sponsor' as const, data: sponsor })),
-  ];
-
+export const WaitingScreen = ({ sessionName, connectedTeams }: WaitingScreenProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
          style={{
@@ -55,26 +36,6 @@ export const WaitingScreen = ({ sessionName, connectedTeams, sponsors = [] }: Wa
         }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
-
-      {/* Sponsors fixes en haut */}
-      {sponsors.length > 0 && (
-        <div className="absolute top-8 left-0 right-0 flex items-center justify-center gap-8 px-12 flex-wrap">
-          {sponsors.map((sponsor) => (
-            <motion.div
-              key={sponsor.id}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card/80 backdrop-blur-md rounded-xl p-4 shadow-lg border border-secondary/30"
-            >
-              <img 
-                src={sponsor.logo_url} 
-                alt={sponsor.name}
-                className="h-16 w-auto object-contain"
-              />
-            </motion.div>
-          ))}
-        </div>
-      )}
 
       {/* Premium light rays */}
       {[...Array(12)].map((_, i) => (
