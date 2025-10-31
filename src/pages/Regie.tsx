@@ -3,7 +3,7 @@
  * Layout optimisé 1366×768 sans scroll vertical
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -128,17 +128,7 @@ const Regie = () => {
     loadBuzzers();
   }, [currentQuestionId, sessionId]);
 
-  // Polling de secours pour les buzzers (1000ms = équilibre entre réactivité et charge serveur)
-  useEffect(() => {
-    if (!currentQuestionId || !sessionId) return;
-    
-    const interval = setInterval(() => {
-      console.log('🔄 Regie: Polling buzzers');
-      loadBuzzers();
-    }, 1000); // Réduit de 500ms à 1000ms pour alléger la charge
-    
-    return () => clearInterval(interval);
-  }, [currentQuestionId, sessionId]);
+  // Polling SUPPRIMÉ - Uniquement realtime pour alléger la charge serveur
 
   useEffect(() => {
     if (!sessionId) return;
@@ -227,7 +217,7 @@ const Regie = () => {
     previousBuzzersCount.current = buzzers.length;
   }, [buzzers]);
 
-  const loadActiveSession = async () => {
+  const loadActiveSession = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
       if (error) {
@@ -251,9 +241,9 @@ const Regie = () => {
         variant: 'destructive'
       });
     }
-  };
+  }, [toast]);
 
-  const loadGameState = async () => {
+  const loadGameState = useCallback(async () => {
     if (!sessionId) return;
     try {
       const { data, error } = await supabase.from('game_state').select('*').eq('game_session_id', sessionId).single();
@@ -265,9 +255,9 @@ const Regie = () => {
     } catch (error) {
       console.error('❌ Exception lors du chargement du game state:', error);
     }
-  };
+  }, [sessionId]);
 
-  const loadRounds = async () => {
+  const loadRounds = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('rounds').select('*').order('created_at');
       if (error) {
@@ -278,9 +268,9 @@ const Regie = () => {
     } catch (error) {
       console.error('❌ Exception lors du chargement des rounds:', error);
     }
-  };
+  }, []);
 
-  const loadQuestions = async () => {
+  const loadQuestions = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('questions').select('*').order('display_order');
       if (error) {
@@ -291,9 +281,9 @@ const Regie = () => {
     } catch (error) {
       console.error('❌ Exception lors du chargement des questions:', error);
     }
-  };
+  }, []);
 
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('teams').select('*').order('score', { ascending: false });
       if (error) {
@@ -307,9 +297,9 @@ const Regie = () => {
     } catch (error) {
       console.error('❌ Exception lors du chargement des équipes:', error);
     }
-  };
+  }, []);
 
-  const loadBuzzers = async () => {
+  const loadBuzzers = useCallback(async () => {
     // Utiliser les refs pour éviter les stale closures
     const qId = currentQuestionId;
     const sId = sessionId;
@@ -344,7 +334,7 @@ const Regie = () => {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  };
+  }, [currentQuestionId, sessionId, buzzers.length]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');

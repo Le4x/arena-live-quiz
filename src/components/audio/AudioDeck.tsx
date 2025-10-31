@@ -3,7 +3,7 @@
  * Waveform avancée avec zones extrait/solution visuelles
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -17,7 +17,7 @@ interface AudioDeckProps {
   onTrackChange?: (track: Track) => void;
 }
 
-export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
+export const AudioDeck = memo(({ tracks, onTrackChange }: AudioDeckProps) => {
   const { toast } = useToast();
   const engine = getAudioEngine();
   const [state, setState] = useState<AudioEngineState>(engine.getState());
@@ -163,7 +163,7 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [state]);
 
-  const handlePlayPause = async () => {
+  const handlePlayPause = useCallback(async () => {
     if (!selectedTrack) return;
 
     try {
@@ -188,32 +188,32 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
         variant: 'destructive' 
       });
     }
-  };
+  }, [selectedTrack, state, onTrackChange, toast, engine]);
 
-  const handleFadeIn = async () => {
+  const handleFadeIn = useCallback(async () => {
     if (selectedTrack) {
       await engine.loadAndPlay(selectedTrack);
       await engine.fadeIn(fadeInDuration);
       toast({ title: `🔊 Fade in ${fadeInDuration}ms` });
     }
-  };
+  }, [selectedTrack, fadeInDuration, engine, toast]);
 
-  const handleFadeOut = async () => {
+  const handleFadeOut = useCallback(async () => {
     if (state.isPlaying) {
       await engine.stopWithFade(fadeOutDuration);
       toast({ title: `🔉 Fade out ${fadeOutDuration}ms` });
     }
-  };
+  }, [state.isPlaying, fadeOutDuration, engine, toast]);
 
-  const handleClip30s = async () => {
+  const handleClip30s = useCallback(async () => {
     if (!selectedTrack) return;
     await engine.loadAndPlay(selectedTrack);
     await engine.playClip30s(fadeOutDuration);
     onTrackChange?.(selectedTrack);
     toast({ title: '🎵 Extrait 30s lancé' });
-  };
+  }, [selectedTrack, fadeOutDuration, engine, onTrackChange, toast]);
 
-  const handlePlaySolution = async () => {
+  const handlePlaySolution = useCallback(async () => {
     if (!selectedTrack) return;
     if (!state.currentTrack || state.currentTrack.id !== selectedTrack.id) {
       await engine.loadAndPlay(selectedTrack);
@@ -228,7 +228,7 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
     }
     await engine.playSolution(solutionDuration, fadeInDuration, fadeOutDuration);
     toast({ title: `🎼 Solution lancée (${solutionDuration}s)` });
-  };
+  }, [selectedTrack, state.currentTrack, fadeInDuration, fadeOutDuration, engine, toast]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -454,4 +454,4 @@ export const AudioDeck = ({ tracks, onTrackChange }: AudioDeckProps) => {
       </div>
     </Card>
   );
-};
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ interface TextAnswersDisplayProps {
   currentQuestion: any | null;
 }
 
-export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuestion }: TextAnswersDisplayProps) => {
+export const TextAnswersDisplay = memo(({ currentQuestionId, gameState, currentQuestion }: TextAnswersDisplayProps) => {
   const { toast } = useToast();
   const [answers, setAnswers] = useState<any[]>([]);
 
@@ -128,7 +128,7 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
   // Afficher le composant même sans réponse pour voir qu'il y a une question active
   if (!currentQuestionId) return null;
 
-  const validatedCount = answers.filter(a => a.is_correct !== null).length;
+  const validatedCount = useMemo(() => answers.filter(a => a.is_correct !== null).length, [answers]);
 
   return (
     <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20 mt-2">
@@ -186,4 +186,4 @@ export const TextAnswersDisplay = ({ currentQuestionId, gameState, currentQuesti
       )}
     </Card>
   );
-};
+});

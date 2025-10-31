@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Users } from "lucide-react";
@@ -8,7 +8,7 @@ interface QCMAnswersDisplayProps {
   gameState: any | null;
 }
 
-export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisplayProps) => {
+export const QCMAnswersDisplay = memo(({ currentQuestion, gameState }: QCMAnswersDisplayProps) => {
   const [answers, setAnswers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
 
@@ -96,9 +96,9 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
 
   if (!currentQuestion || currentQuestion.question_type !== 'qcm') return null;
 
-  const correctAnswers = answers.filter(a => a.is_correct === true);
-  const incorrectAnswers = answers.filter(a => a.is_correct === false);
-  const notAnswered = teams.filter(t => !answers.find(a => a.team_id === t.id));
+  const correctAnswers = useMemo(() => answers.filter(a => a.is_correct === true), [answers]);
+  const incorrectAnswers = useMemo(() => answers.filter(a => a.is_correct === false), [answers]);
+  const notAnswered = useMemo(() => teams.filter(t => !answers.find(a => a.team_id === t.id)), [teams, answers]);
 
   return (
     <Card className="p-3 bg-card/80 backdrop-blur-sm border-accent/20 mb-2">
@@ -168,4 +168,4 @@ export const QCMAnswersDisplay = ({ currentQuestion, gameState }: QCMAnswersDisp
       </div>
     </Card>
   );
-};
+});

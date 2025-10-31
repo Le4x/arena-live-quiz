@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Zap, Check, X, Users } from "lucide-react";
 import { motion } from "framer-motion";
