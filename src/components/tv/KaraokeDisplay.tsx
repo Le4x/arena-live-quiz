@@ -14,20 +14,21 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !audioUrl) return;
 
     const audio = audioRef.current;
     
-    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying, lyricsCount: lyrics.length });
+    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying });
     
     // Réinitialiser l'audio et l'état de pause
+    setCurrentTime(0);
+    setIsPaused(false);
     audio.currentTime = 0;
     audio.load();
-    setIsPaused(false);
     
     const handleCanPlay = () => {
-      console.log('✅ Audio prêt, démarrage lecture...');
-      if (isPlaying) {
+      console.log('✅ Audio prêt');
+      if (isPlaying && audio.paused) {
         audio.play().catch(error => {
           console.error('❌ Erreur lecture:', error);
         });
@@ -35,12 +36,11 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
     };
     
     const handlePlay = () => {
-      console.log('▶️ Audio en lecture');
+      console.log('▶️ Audio démarré');
     };
     
     const handleTimeUpdate = () => {
-      const time = audio.currentTime;
-      setCurrentTime(time);
+      setCurrentTime(audio.currentTime);
     };
     
     const handleError = (e: Event) => {
@@ -51,13 +51,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
     const handleResumeKaraoke = () => {
       console.log('▶️ Événement reprise karaoké reçu');
       setIsPaused(false);
-      const currentLine = lyrics.find(l => 
-        audio.currentTime >= l.startTime && audio.currentTime <= l.endTime
+      const pausedLine = lyrics.find(l => 
+        audio.currentTime >= l.startTime && audio.currentTime <= l.endTime && l.text.includes('___')
       );
-      if (currentLine) {
-        audio.currentTime = currentLine.endTime + 0.1;
-        audio.play();
+      if (pausedLine) {
+        audio.currentTime = pausedLine.endTime + 0.1;
       }
+      audio.play();
     };
     
     audio.addEventListener('canplay', handleCanPlay);
@@ -73,37 +73,36 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
       audio.removeEventListener('error', handleError);
       window.removeEventListener('resumeKaraoke', handleResumeKaraoke);
     };
-  }, [audioUrl, isPlaying, lyrics]);
+  }, [audioUrl]); // Ne dépendre QUE de audioUrl
 
-  // Trouver la ligne actuelle (celle qui est en cours de lecture)
+  // Trouver la ligne actuelle
   const getCurrentLine = () => {
     const line = lyrics.find(l => 
-      currentTime >= l.startTime && currentTime <= l.endTime
+      currentTime >= l.startTime && currentTime < l.endTime
     );
     
-    if (line) {
-      // Vérifier si cette ligne contient des mots manquants et mettre en pause
-      if (line.text.includes('___') && !isPaused && audioRef.current && !audioRef.current.paused) {
-        console.log('⏸️ PAUSE AUTO - ligne avec mots manquants:', line.text);
-        audioRef.current.pause();
-        setIsPaused(true);
-      }
+    // Pause automatique si la ligne contient des blancs
+    if (line && line.text.includes('___') && !isPaused && audioRef.current && !audioRef.current.paused) {
+      console.log('⏸️ PAUSE AUTO - mots manquants:', line.text);
+      audioRef.current.pause();
+      setIsPaused(true);
     }
     
     return line;
   };
 
-  // Trouver la prochaine ligne à afficher en aperçu
+  // Trouver la ligne suivante
   const getNextLine = () => {
-    const currentLine = getCurrentLine();
-    if (!currentLine) {
-      // Si pas de ligne actuelle, trouver la première ligne à venir
-      return lyrics.find(line => line.startTime > currentTime);
+    const currentIndex = lyrics.findIndex(l => 
+      currentTime >= l.startTime && currentTime < l.endTime
+    );
+    
+    if (currentIndex !== -1 && currentIndex + 1 < lyrics.length) {
+      return lyrics[currentIndex + 1];
     }
     
-    // Trouver la ligne qui vient juste après la ligne actuelle
-    const currentIndex = lyrics.indexOf(currentLine);
-    return lyrics[currentIndex + 1];
+    // Si pas de ligne actuelle, chercher la prochaine
+    return lyrics.find(line => line.startTime > currentTime);
   };
 
   const getProgressForLine = (line: LyricLine) => {
@@ -117,25 +116,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
 
   const currentLine = getCurrentLine();
   const nextLine = getNextLine();
-
-  console.log('🎵 Rendu karaoké:', { 
-    currentTime: currentTime.toFixed(1),
-    hasCurrentLine: !!currentLine, 
-    hasNextLine: !!nextLine,
-    isPaused,
-    totalLyrics: lyrics.length 
-  });
-
-  // Fonction pour révéler et continuer
-  const handleReveal = () => {
-    console.log('▶️ Révélation et reprise');
-    setIsPaused(false);
-    if (audioRef.current && currentLine) {
-      // Reprendre juste après la ligne actuelle
-      audioRef.current.currentTime = currentLine.endTime;
-      audioRef.current.play();
-    }
-  };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
@@ -183,7 +163,7 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
           </motion.div>
         )}
 
-        {/* Ligne suivante en aperçu (seulement si pas en pause) */}
+        {/* Ligne suivante en aperçu */}
         {nextLine && !isPaused && (
           <motion.div
             key={`next-${nextLine.id}`}

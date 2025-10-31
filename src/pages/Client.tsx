@@ -1008,7 +1008,7 @@ const Client = () => {
     // Pour les questions lyrics, permettre l'envoi tant que la question est active
     const isLyricsQuestion = currentQuestion?.question_type === 'lyrics';
     
-    // Bloquer l'envoi si le timer est terminé (sauf pour lyrics où on vérifie juste la présence de la question)
+    // Bloquer l'envoi si le timer est terminé (sauf pour lyrics)
     if (!isLyricsQuestion && !isTimerActive) {
       console.log('❌ Réponse bloquée - timer non actif');
       toast({
@@ -1069,7 +1069,7 @@ const Client = () => {
       return;
     }
     
-    if (hasAnswered) {
+    if (hasAnswered && !isLyricsQuestion) {
       console.log('❌ Déjà répondu');
       toast({
         title: "Déjà répondu",
@@ -1083,36 +1083,68 @@ const Client = () => {
     setAnswer(finalAnswer);
 
     console.log('📤 Envoi réponse à la DB...');
-    // Ne PAS calculer is_correct ici, sera fait au reveal
-    const { error } = await supabase
+    
+    // Vérifier si une réponse existe déjà pour cette équipe/question
+    const { data: existing } = await supabase
       .from('team_answers')
-      .insert([
-        { 
-          team_id: team.id, 
-          question_id: currentQuestion.id,
-          question_instance_id: currentQuestionInstanceId,
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_instance_id', currentQuestionInstanceId)
+      .maybeSingle();
+    
+    if (existing) {
+      console.log('⚠️ Une réponse existe déjà, mise à jour...');
+      // Mettre à jour la réponse existante
+      const { error } = await supabase
+        .from('team_answers')
+        .update({ 
           answer: finalAnswer,
-          is_correct: null,
-          points_awarded: 0,
-          game_session_id: gameState.game_session_id
-        }
-      ]);
-
-    if (error) {
-      console.error('❌ Erreur envoi réponse:', error);
-      toast({
-        title: "Erreur",
-        description: `Impossible d'envoyer la réponse: ${error.message}`,
-        variant: "destructive"
-      });
+          answered_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+        
+      if (error) {
+        console.error('❌ Erreur mise à jour réponse:', error);
+        toast({
+          title: "Erreur",
+          description: `Impossible de mettre à jour la réponse: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
     } else {
-      console.log('✅ Réponse envoyée avec succès');
-      setHasAnswered(true);
-      toast({
-        title: "Réponse enregistrée !",
-        description: "En attente de la révélation...",
-      });
+      // Créer une nouvelle réponse
+      const { error } = await supabase
+        .from('team_answers')
+        .insert([
+          { 
+            team_id: team.id, 
+            question_id: currentQuestion.id,
+            question_instance_id: currentQuestionInstanceId,
+            answer: finalAnswer,
+            is_correct: null,
+            points_awarded: 0,
+            game_session_id: gameState.game_session_id
+          }
+        ]);
+
+      if (error) {
+        console.error('❌ Erreur envoi réponse:', error);
+        toast({
+          title: "Erreur",
+          description: `Impossible d'envoyer la réponse: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
+    
+    console.log('✅ Réponse enregistrée avec succès');
+    setHasAnswered(true);
+    toast({
+      title: "Réponse enregistrée !",
+      description: "En attente de la révélation...",
+    });
   };
 
   if (deviceBlocked) {
