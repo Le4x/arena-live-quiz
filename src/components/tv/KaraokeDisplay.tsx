@@ -6,19 +6,23 @@ interface KaraokeDisplayProps {
   lyrics: LyricLine[];
   audioUrl: string;
   isPlaying: boolean;
+  stopTime?: number; // Temps où arrêter la musique
 }
 
-export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayProps) => {
+export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: KaraokeDisplayProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (!audioRef.current || !audioUrl) return;
+    if (!audioRef.current || !audioUrl) {
+      console.log('⚠️ KaraokeDisplay - Pas d\'audio ref ou URL', { hasRef: !!audioRef.current, audioUrl });
+      return;
+    }
 
     const audio = audioRef.current;
     
-    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying });
+    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying, stopTime, lyricsCount: lyrics.length });
     
     // Réinitialiser l'audio et l'état de pause
     setCurrentTime(0);
@@ -27,8 +31,8 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
     audio.load();
     
     const handleCanPlay = () => {
-      console.log('✅ Audio prêt');
-      if (isPlaying && audio.paused) {
+      console.log('✅ Audio prêt, démarrage lecture...', { isPlaying, paused: audio.paused });
+      if (isPlaying) {
         audio.play().catch(error => {
           console.error('❌ Erreur lecture:', error);
         });
@@ -36,28 +40,38 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
     };
     
     const handlePlay = () => {
-      console.log('▶️ Audio démarré');
+      console.log('▶️ Audio en lecture');
     };
     
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
+      const time = audio.currentTime;
+      setCurrentTime(time);
+      
+      // Arrêter la musique au stopTime si défini
+      if (stopTime && time >= stopTime && !isPaused && !audio.paused) {
+        console.log('⏸️ PAUSE AUTO - stopTime atteint:', { currentTime: time, stopTime });
+        audio.pause();
+        setIsPaused(true);
+      }
     };
     
     const handleError = (e: Event) => {
-      console.error('❌ Erreur audio:', e);
+      console.error('❌ Erreur audio:', e, audio.error);
     };
     
     // Écouter l'événement de reprise karaoké
     const handleResumeKaraoke = () => {
       console.log('▶️ Événement reprise karaoké reçu');
       setIsPaused(false);
-      const pausedLine = lyrics.find(l => 
-        audio.currentTime >= l.startTime && audio.currentTime <= l.endTime && l.text.includes('___')
-      );
-      if (pausedLine) {
-        audio.currentTime = pausedLine.endTime + 0.1;
+      
+      // Si on a un stopTime et qu'on est dessus, reprendre après
+      if (stopTime && audio.currentTime >= stopTime) {
+        audio.currentTime = stopTime + 0.1;
       }
-      audio.play();
+      
+      audio.play().catch(error => {
+        console.error('❌ Erreur reprise:', error);
+      });
     };
     
     audio.addEventListener('canplay', handleCanPlay);
@@ -73,22 +87,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
       audio.removeEventListener('error', handleError);
       window.removeEventListener('resumeKaraoke', handleResumeKaraoke);
     };
-  }, [audioUrl]); // Ne dépendre QUE de audioUrl
+  }, [audioUrl, isPlaying, stopTime]);
 
   // Trouver la ligne actuelle
   const getCurrentLine = () => {
-    const line = lyrics.find(l => 
+    return lyrics.find(l => 
       currentTime >= l.startTime && currentTime < l.endTime
     );
-    
-    // Pause automatique si la ligne contient des blancs
-    if (line && line.text.includes('___') && !isPaused && audioRef.current && !audioRef.current.paused) {
-      console.log('⏸️ PAUSE AUTO - mots manquants:', line.text);
-      audioRef.current.pause();
-      setIsPaused(true);
-    }
-    
-    return line;
   };
 
   // Trouver la ligne suivante
@@ -116,6 +121,17 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
 
   const currentLine = getCurrentLine();
   const nextLine = getNextLine();
+
+  // Debug render
+  useEffect(() => {
+    console.log('🎵 Rendu karaoké:', {
+      currentTime: currentTime.toFixed(1),
+      hasCurrentLine: !!currentLine,
+      hasNextLine: !!nextLine,
+      isPaused,
+      totalLyrics: lyrics.length
+    });
+  }, [currentTime, currentLine, nextLine, isPaused, lyrics.length]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
@@ -150,14 +166,21 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying }: KaraokeDisplayPr
               </div>
             </div>
 
-            {/* Barre de progression karaoké (seulement si pas de mots manquants) */}
-            {!currentLine.text.includes('___') && (
+            {/* Barre de progression karaoké (seulement si pas en pause) */}
+            {!isPaused && (
               <div className="relative h-3 bg-white/20 rounded-full overflow-hidden">
                 <motion.div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent"
                   style={{ width: `${getProgressForLine(currentLine)}%` }}
                   transition={{ duration: 0.1 }}
                 />
+              </div>
+            )}
+            
+            {/* Indicateur de pause */}
+            {isPaused && (
+              <div className="text-center text-2xl text-white/80 animate-pulse">
+                ⏸️ En attente de la révélation...
               </div>
             )}
           </motion.div>

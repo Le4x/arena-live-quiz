@@ -50,6 +50,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [stopTime, setStopTime] = useState<number>(0);
 
   useEffect(() => {
     // Charger les sons depuis localStorage
@@ -109,6 +110,9 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       } else {
         setLyrics([]);
       }
+      
+      // Charger le stopTime
+      setStopTime(question.stop_time || 0);
     } else {
       // Reset pour création
       setRoundId("");
@@ -124,6 +128,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       setImagePreview(null);
       setExistingImageUrl(null);
       setLyrics([]);
+      setStopTime(0);
     }
   }, [question, open, availableSounds]);
 
@@ -242,6 +247,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       // Ajouter les paroles si type karaoké
       if (questionType === 'lyrics') {
         questionData.lyrics = JSON.stringify(lyrics);
+        questionData.stop_time = stopTime || null;
       }
 
       if (question) {
@@ -364,6 +370,8 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
               lyrics={lyrics}
               onChange={setLyrics}
               audioUrl={selectedSoundId ? availableSounds.find(s => s.id === selectedSoundId)?.url : audioUrl}
+              stopTime={stopTime}
+              onStopTimeChange={setStopTime}
             />
           )}
 

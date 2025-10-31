@@ -11,15 +11,18 @@ export interface LyricLine {
   startTime: number;
   endTime: number;
   text: string;
+  stopTime?: number; // Temps où la musique doit s'arrêter (avant les paroles manquantes)
 }
 
 interface LyricsEditorProps {
   lyrics: LyricLine[];
   onChange: (lyrics: LyricLine[]) => void;
   audioUrl?: string;
+  stopTime?: number; // Temps d'arrêt global de la musique
+  onStopTimeChange?: (stopTime: number) => void;
 }
 
-export const LyricsEditor = ({ lyrics, onChange, audioUrl }: LyricsEditorProps) => {
+export const LyricsEditor = ({ lyrics, onChange, audioUrl, stopTime, onStopTimeChange }: LyricsEditorProps) => {
   const [currentTime, setCurrentTime] = useState(0);
 
   const addLine = () => {
@@ -74,7 +77,7 @@ export const LyricsEditor = ({ lyrics, onChange, audioUrl }: LyricsEditorProps) 
       </div>
 
       {audioUrl && (
-        <Card className="p-4 bg-muted/50">
+        <Card className="p-4 bg-muted/50 space-y-3">
           <div className="space-y-2">
             <Label>Prévisualisation audio</Label>
             <audio 
@@ -87,6 +90,42 @@ export const LyricsEditor = ({ lyrics, onChange, audioUrl }: LyricsEditorProps) 
               Temps actuel: {currentTime.toFixed(1)}s
             </p>
           </div>
+
+          {onStopTimeChange && (
+            <div className="space-y-2 pt-3 border-t">
+              <Label>⏸️ Arrêt de la musique</Label>
+              <p className="text-xs text-muted-foreground">
+                Définissez le moment où la musique doit s'arrêter (juste avant les paroles manquantes)
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={stopTime || 0}
+                  onChange={(e) => onStopTimeChange(parseFloat(e.target.value))}
+                  placeholder="Temps en secondes"
+                  className="text-sm"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const audio = document.querySelector('audio');
+                    if (!audio) {
+                      toast.error("Lancez d'abord la musique");
+                      return;
+                    }
+                    onStopTimeChange(audio.currentTime);
+                    toast.success(`Arrêt défini à ${audio.currentTime.toFixed(1)}s`);
+                  }}
+                  title="Définir au temps actuel"
+                >
+                  <Play className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
