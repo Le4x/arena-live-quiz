@@ -503,10 +503,13 @@ const Regie = () => {
         toast({ title: '⏳ Chargement audio...', description: track.name });
         
         try {
-          // Précharger ET charger dans l'engine
+          // Précharger dans le cache
           await audioEngine.preloadTrack(track);
-          await audioEngine.loadAndPlay(track);
-          await audioEngine.stop(); // Arrêter immédiatement, on veut juste charger
+          console.log('✅ Audio préchargé dans le cache');
+          
+          // Charger dans l'engine pour être prêt
+          await audioEngine.loadTrack(track);
+          console.log('✅ Audio chargé dans l\'engine');
           
           setCurrentTrack(track);
           toast({ title: '✅ Son prêt', description: track.name });
@@ -598,7 +601,8 @@ const Regie = () => {
     console.log('📤 Question trouvée:', {
       questionType: question.question_type,
       audioUrl: question.audio_url,
-      stopTime: question.stop_time
+      stopTime: question.stop_time,
+      timerDuration
     });
 
     // D'abord arrêter le timer (pour forcer la resynchronisation sur Screen)
@@ -650,32 +654,38 @@ const Regie = () => {
     
     // Lancer l'audio automatiquement pour les blind tests ET karaoké
     if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
-      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name);
+      console.log('🎵 Préparation du lancement audio:', currentTrack.name);
       
-      if (question.question_type === 'blind_test') {
-        // Blind test: lancer extrait de 30s depuis CUE1
-        const cue1Time = currentTrack.cues[0]?.time || 0;
-        setClipStartTime(cue1Time);
-        await audioEngine.playClip30s(300);
-        toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
-      } else if (question.question_type === 'lyrics') {
-        // Karaoké: lancer depuis le début et synchroniser avec le screen
-        const cue1Time = currentTrack.cues[0]?.time || 0;
-        setClipStartTime(cue1Time);
-        console.log('🎤 Lancement karaoké depuis régie');
+      try {
+        // S'assurer que le track est chargé dans l'engine
+        console.log('🎵 Chargement du track dans l\'engine...');
+        await audioEngine.loadTrack(currentTrack);
+        console.log('✅ Track chargé dans l\'engine');
         
-        try {
-          await audioEngine.loadAndPlay(currentTrack, cue1Time);
+        if (question.question_type === 'blind_test') {
+          // Blind test: lancer extrait de 30s depuis CUE1
+          const cue1Time = currentTrack.cues[0]?.time || 0;
+          setClipStartTime(cue1Time);
+          console.log('🎵 Lecture depuis CUE1:', cue1Time);
+          await audioEngine.playClip30s(300);
+          toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé depuis CUE1' });
+        } else if (question.question_type === 'lyrics') {
+          // Karaoké: lancer depuis le début et synchroniser avec le screen
+          const cue1Time = currentTrack.cues[0]?.time || 0;
+          setClipStartTime(cue1Time);
+          console.log('🎤 Lancement karaoké depuis régie');
+          
+          await audioEngine.play(cue1Time);
           console.log('✅ Karaoké lancé en régie');
           toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
-        } catch (error) {
-          console.error('❌ Erreur karaoké:', error);
-          toast({ 
-            title: '❌ Erreur karaoké', 
-            description: 'Impossible de lancer l\'audio',
-            variant: 'destructive'
-          });
         }
+      } catch (error) {
+        console.error('❌ Erreur lancement audio:', error);
+        toast({ 
+          title: '❌ Erreur audio', 
+          description: 'Impossible de lancer l\'audio',
+          variant: 'destructive'
+        });
       }
     } else {
       if ((question.question_type === 'blind_test' || question.question_type === 'lyrics')) {
@@ -685,7 +695,7 @@ const Regie = () => {
           audioUrl: question.audio_url
         });
       }
-      toast({ title: '🚀 Question envoyée !', description: 'Chrono lancé (30s)' });
+      toast({ title: '🚀 Question envoyée !', description: `Chrono lancé (${timerDuration}s)` });
     }
   };
 
@@ -749,9 +759,7 @@ const Regie = () => {
           const s = audioTracks.find(t => t.url === currentQ.audio_url); 
           if (s) {
             // S'assurer que le track est chargé dans l'engine
-            await audioEngine.preloadTrack(s);
-            audioEngine['currentTrack'] = s;
-            audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
+            await audioEngine.loadTrack(s);
             
             // Reprendre EXACTEMENT à la position sauvegardée
             const cue1Time = s.cues[0]?.time || 0;
@@ -766,18 +774,28 @@ const Regie = () => {
         }
         
         // Reprendre avec le timer sauvegardé au moment du buzz
+        // Calculer le nouveau timestamp de départ pour que le timer soit synchronisé
+        const now = new Date();
+        const newStartedAt = new Date(now.getTime() - (timerWhenBuzzed * 1000)).toISOString();
+        
         setTimerRemaining(timerWhenBuzzed);
         setTimerActive(true);
         
-        // Mettre à jour le timer dans la DB avec le temps restant sauvegardé
+        // Récupérer la durée du round
+        const round = rounds.find(r => r.id === currentQ.round_id);
+        const timerDuration = round?.timer_duration || 30;
+        
+        // Mettre à jour le timer dans la DB avec le temps restant sauvegardé ET timestamp synchronisé
         await supabase.from('game_state').update({ 
           is_buzzer_active: true, 
           answer_result: null,
           timer_active: true,
-          timer_remaining: timerWhenBuzzed // Reprendre avec le temps sauvegardé
+          timer_remaining: timerWhenBuzzed,
+          timer_started_at: newStartedAt, // Timestamp recalculé pour synchronisation
+          timer_duration: timerDuration
         }).eq('game_session_id', sessionId);
         
-        console.log('⏱️ Reprise timer à', timerWhenBuzzed);
+        console.log('⏱️ Reprise timer à', timerWhenBuzzed, 'avec timestamp:', newStartedAt);
       } else {
         await supabase.from('game_state').update({ is_buzzer_active: true, answer_result: null }).eq('game_session_id', sessionId);
       }
@@ -832,11 +850,15 @@ const Regie = () => {
       timer_duration: null
     }).eq('game_session_id', sessionId);
     setTimerActive(false);
+    
+    // Jouer la solution (CUE2) pour les blind tests
     const q = questions.find(x => x.id === currentQuestionId);
     if (q?.audio_url && q.question_type === 'blind_test') { 
       const s = audioTracks.find(t => t.url === q.audio_url); 
-      if (s) { 
-        await audioEngine.loadAndPlay(s); 
+      if (s) {
+        console.log('🎵 Bonne réponse - lecture de la solution depuis CUE2');
+        // Charger le track et jouer la solution
+        await audioEngine.loadTrack(s);
         await audioEngine.playSolution(8, 300, 300); 
       } 
     }
