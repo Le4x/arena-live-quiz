@@ -18,7 +18,8 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   console.log('🎵 KaraokeDisplay: Rendu', { 
     lyricsCount: lyrics.length,
-    lyrics: lyrics.map(l => ({ id: l.id, text: l.text, start: l.startTime, end: l.endTime })),
+    firstLyric: lyrics[0],
+    lastLyric: lyrics[lyrics.length - 1],
     audioUrl,
     stopTime 
   });
@@ -78,10 +79,20 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   // Trouver la ligne actuelle
   const currentLine = lyrics.find(l => 
-    currentTime >= l.startTime && currentTime < l.endTime
+    currentTime >= l.startTime && currentTime <= l.endTime
   );
 
-  console.log('⏱️ KaraokeDisplay: currentTime:', currentTime.toFixed(2), 'currentLine:', currentLine?.text);
+  // Log seulement au changement de ligne pour éviter le spam
+  useEffect(() => {
+    if (currentLine) {
+      console.log('🎤 KaraokeDisplay: Ligne actuelle', {
+        time: currentTime.toFixed(2),
+        text: currentLine.text,
+        start: currentLine.startTime,
+        end: currentLine.endTime
+      });
+    }
+  }, [currentLine?.id]);
 
   const getProgressForLine = (line: LyricLine) => {
     if (currentTime < line.startTime) return 0;

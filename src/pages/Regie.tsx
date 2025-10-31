@@ -648,42 +648,22 @@ const Regie = () => {
       currentTrackKeys: currentTrack ? Object.keys(currentTrack) : 'null'
     });
     
-    // Lancer l'audio automatiquement pour les blind tests ET karaoké AU POINT DE CUE 1 (extrait)
-    if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && currentTrack) {
-      console.log('🎵 Lancement automatique de l\'audio:', currentTrack.name, 'currentTrack=', currentTrack);
+    // Lancer l'audio automatiquement pour les blind tests UNIQUEMENT (pas karaoké)
+    // Pour le karaoké, l'audio est géré directement par le screen via useKaraokePlayer
+    if (question.question_type === 'blind_test' && currentTrack) {
+      console.log('🎵 Lancement automatique de l\'audio blind test:', currentTrack.name);
       
-      if (question.question_type === 'blind_test') {
-        // Blind test: lancer extrait de 30s depuis CUE1
-        const cue1Time = currentTrack.cues[0]?.time || 0;
-        setClipStartTime(cue1Time);
-        await audioEngine.playClip30s(300);
-        toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
-      } else if (question.question_type === 'lyrics') {
-        // Karaoké: lancer depuis le début (CUE1 = 0)
-        const cue1Time = currentTrack.cues[0]?.time || 0;
-        setClipStartTime(cue1Time);
-        console.log('🎤 Appel loadAndPlay avec:', { 
-          trackName: currentTrack.name, 
-          trackUrl: currentTrack.url,
-          cue1Time,
-          trackCues: currentTrack.cues 
-        });
-        
-        try {
-          await audioEngine.loadAndPlay(currentTrack, cue1Time);
-          console.log('✅ loadAndPlay réussi, état engine:', audioEngine.getState());
-          toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
-        } catch (error) {
-          console.error('❌ Erreur loadAndPlay:', error);
-          toast({ 
-            title: '❌ Erreur karaoké', 
-            description: 'Impossible de lancer l\'audio',
-            variant: 'destructive'
-          });
-        }
-      }
+      // Blind test: lancer extrait de 30s depuis CUE1
+      const cue1Time = currentTrack.cues[0]?.time || 0;
+      setClipStartTime(cue1Time);
+      await audioEngine.playClip30s(300);
+      toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
+    } else if (question.question_type === 'lyrics') {
+      // Karaoké: l'audio est géré par le screen, on ne lance RIEN en régie
+      console.log('🎤 Question karaoké - audio géré par le screen');
+      toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé sur le screen' });
     } else {
-      if ((question.question_type === 'blind_test' || question.question_type === 'lyrics')) {
+      if (question.question_type === 'blind_test') {
         console.warn('⚠️ Pas de currentTrack défini !', { 
           questionType: question.question_type,
           currentTrack,
