@@ -25,9 +25,15 @@ export const KaraokeDisplay = ({ lyrics, stopTime }: KaraokeDisplayProps) => {
       const state = audioEngine.getState();
       setCurrentTime(state.currentTime);
       
-      // Log occasionnel pour debug
+      // Log occasionnel pour debug AVEC état complet
       if (Math.floor(state.currentTime * 2) % 10 === 0) {
-        console.log('🎵 KaraokeDisplay - currentTime:', state.currentTime.toFixed(2));
+        console.log('🎵 KaraokeDisplay - État AudioEngine:', {
+          currentTime: state.currentTime.toFixed(2),
+          isPlaying: state.isPlaying,
+          duration: state.duration,
+          volume: state.volume,
+          currentTrack: state.currentTrack
+        });
       }
     }, 50); // Update toutes les 50ms pour fluidité
     
