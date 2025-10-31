@@ -94,7 +94,19 @@ export const useKaraokePlayer = ({
   // Gérer play/pause depuis game_state
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !isReady || hasError) return;
+    console.log('▶️ useKaraokePlayer: useEffect PLAY/PAUSE', { 
+      hasAudio: !!audio, 
+      isReady, 
+      hasError, 
+      isPlaying,
+      audioPaused: audio?.paused,
+      audioCurrentTime: audio?.currentTime
+    });
+    
+    if (!audio || !isReady || hasError) {
+      console.log('⚠️ useKaraokePlayer: Conditions non remplies pour play');
+      return;
+    }
 
     console.log('▶️ useKaraokePlayer: Changement isPlaying:', isPlaying);
 
@@ -105,9 +117,13 @@ export const useKaraokePlayer = ({
         return;
       }
       
+      console.log('🎵 useKaraokePlayer: APPEL audio.play()');
       audio.play()
-        .then(() => console.log('✅ useKaraokePlayer: Lecture démarrée'))
-        .catch(e => console.error('❌ useKaraokePlayer: Erreur play:', e));
+        .then(() => console.log('✅ useKaraokePlayer: Lecture démarrée avec succès'))
+        .catch(e => {
+          console.error('❌ useKaraokePlayer: Erreur play:', e);
+          setHasError(true);
+        });
     } else {
       audio.pause();
       console.log('⏸️ useKaraokePlayer: Lecture mise en pause');
