@@ -610,7 +610,7 @@ const Regie = () => {
         // Karaoké: lancer depuis le début (CUE1 = 0)
         const cue1Time = currentTrack.cues[0]?.time || 0;
         setClipStartTime(cue1Time);
-        await audioEngine.play(cue1Time);
+        await audioEngine.loadAndPlay(currentTrack, cue1Time);
         toast({ title: '🚀 Question envoyée !', description: '🎤 Karaoké lancé' });
       }
     } else {
