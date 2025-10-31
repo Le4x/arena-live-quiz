@@ -883,13 +883,36 @@ const Screen = () => {
         {currentQuestion && !gameState?.show_leaderboard && !gameState?.show_round_intro && (
           <>
             {/* Affichage karaoké pour les questions lyrics */}
-            {currentQuestion.question_type === 'lyrics' && currentQuestion.lyrics && currentQuestion.audio_url && (
-              <KaraokeDisplay
-                lyrics={typeof currentQuestion.lyrics === 'string' ? JSON.parse(currentQuestion.lyrics) : currentQuestion.lyrics}
-                audioUrl={currentQuestion.audio_url}
-                isPlaying={true}
-              />
-            )}
+            {(() => {
+              console.log('🎵 Screen: Vérification karaoké', {
+                questionType: currentQuestion.question_type,
+                hasLyrics: !!currentQuestion.lyrics,
+                lyricsType: typeof currentQuestion.lyrics,
+                hasAudioUrl: !!currentQuestion.audio_url,
+                audioUrl: currentQuestion.audio_url
+              });
+              
+              if (currentQuestion.question_type === 'lyrics' && currentQuestion.lyrics && currentQuestion.audio_url) {
+                const parsedLyrics = typeof currentQuestion.lyrics === 'string' 
+                  ? JSON.parse(currentQuestion.lyrics) 
+                  : currentQuestion.lyrics;
+                
+                console.log('✅ Screen: Affichage karaoké', { 
+                  lyricsCount: parsedLyrics.length,
+                  lyrics: parsedLyrics 
+                });
+                
+                return (
+                  <KaraokeDisplay
+                    lyrics={parsedLyrics}
+                    audioUrl={currentQuestion.audio_url}
+                    isPlaying={true}
+                  />
+                );
+              }
+              
+              return null;
+            })()}
 
             {/* Affichage normal pour les autres types de questions */}
             {currentQuestion.question_type !== 'lyrics' && (

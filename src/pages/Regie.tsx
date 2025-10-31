@@ -1355,8 +1355,8 @@ const Regie = () => {
                   );
                 }
 
-                // Texte libre = Réponses texte
-                if (questionType === 'free_text') {
+                // Texte libre ou karaoké = Réponses texte
+                if (questionType === 'free_text' || questionType === 'lyrics') {
                   return (
                     <TextAnswersDisplay 
                       currentQuestionId={currentQuestionId} 
