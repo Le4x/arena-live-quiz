@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { useKaraokePlayer } from "@/hooks/useKaraokePlayer";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
@@ -13,39 +12,38 @@ interface KaraokeDisplayProps {
 }
 
 export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: KaraokeDisplayProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
 
-  console.log('🎵 KaraokeDisplay: Rendu DEBUT', { 
+  console.log('🎵 KaraokeDisplay: Rendu', { 
     lyricsCount: lyrics.length,
-    audioUrl,
+    audioCurrentTime,
     stopTime,
-    sessionId,
-    isPlaying,
     isRevealed
   });
 
-  // Écouter les commandes depuis game_state
+  // Écouter le temps audio depuis game_state (synchronisé avec la régie)
   useEffect(() => {
     if (!sessionId) return;
 
     const channel = supabase
-      .channel('karaoke-control')
+      .channel('karaoke-sync')
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'game_state',
         filter: `game_session_id=eq.${sessionId}`
       }, (payload: any) => {
-        console.log('🎮 KaraokeDisplay: game_state update', payload.new);
+        console.log('🎮 KaraokeDisplay: game_state update', {
+          audio_current_time: payload.new.audio_current_time,
+          karaoke_revealed: payload.new.karaoke_revealed
+        });
         
-        if (payload.new.karaoke_playing !== undefined) {
-          console.log('▶️ isPlaying:', payload.new.karaoke_playing);
-          setIsPlaying(payload.new.karaoke_playing);
+        if (payload.new.audio_current_time !== undefined) {
+          setAudioCurrentTime(payload.new.audio_current_time);
         }
         
         if (payload.new.karaoke_revealed !== undefined) {
-          console.log('🎉 isRevealed:', payload.new.karaoke_revealed);
           setIsRevealed(payload.new.karaoke_revealed);
         }
       })
@@ -54,13 +52,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     // Charger l'état initial
     supabase
       .from('game_state')
-      .select('karaoke_playing, karaoke_revealed')
+      .select('audio_current_time, karaoke_revealed')
       .eq('game_session_id', sessionId)
       .single()
       .then(({ data }) => {
         if (data) {
           console.log('📊 KaraokeDisplay: État initial', data);
-          setIsPlaying(data.karaoke_playing || false);
+          setAudioCurrentTime(data.audio_current_time || 0);
           setIsRevealed(data.karaoke_revealed || false);
         }
       });
@@ -70,28 +68,19 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     };
   }, [sessionId]);
 
-  // Hook pour gérer l'audio
-  console.log('🎵 KaraokeDisplay: AVANT useKaraokePlayer', { audioUrl, stopTime, isPlaying, isRevealed });
-  
-  const { currentTime, isReady, isPaused } = useKaraokePlayer({
-    audioUrl,
-    stopTime,
-    isPlaying,
-    isRevealed
-  });
-  
-  console.log('🎵 KaraokeDisplay: APRES useKaraokePlayer', { currentTime, isReady, isPaused });
-
-  // Trouver la ligne actuelle
+  // Trouver la ligne actuelle basée sur audioCurrentTime (temps de la régie)
   const currentLine = lyrics.find(l => 
-    currentTime >= l.startTime && currentTime <= l.endTime
+    audioCurrentTime >= l.startTime && audioCurrentTime <= l.endTime
   );
 
-  // Log seulement au changement de ligne pour éviter le spam
+  // Déterminer si on est en pause (avant révélation au stopTime)
+  const isPaused = stopTime ? audioCurrentTime >= stopTime && !isRevealed : false;
+
+  // Log seulement au changement de ligne
   useEffect(() => {
     if (currentLine) {
       console.log('🎤 KaraokeDisplay: Ligne actuelle', {
-        time: currentTime.toFixed(2),
+        time: audioCurrentTime.toFixed(2),
         text: currentLine.text,
         start: currentLine.startTime,
         end: currentLine.endTime
@@ -100,11 +89,11 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   }, [currentLine?.id]);
 
   const getProgressForLine = (line: LyricLine) => {
-    if (currentTime < line.startTime) return 0;
-    if (currentTime > line.endTime) return 100;
+    if (audioCurrentTime < line.startTime) return 0;
+    if (audioCurrentTime > line.endTime) return 100;
     
     const duration = line.endTime - line.startTime;
-    const elapsed = currentTime - line.startTime;
+    const elapsed = audioCurrentTime - line.startTime;
     return (elapsed / duration) * 100;
   };
 
