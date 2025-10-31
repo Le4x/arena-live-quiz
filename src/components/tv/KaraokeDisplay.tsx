@@ -74,13 +74,10 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
     };
 
     // Charger le track dans l'AudioEngine (sans jouer)
-    audioEngine.preloadTrack(track).then(() => {
-      // Assigner le buffer à l'AudioEngine
-      audioEngine['currentTrack'] = track;
-      audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(track.url) || null;
+    audioEngine.loadTrack(track).then(() => {
       setIsAudioReady(true);
     }).catch(error => {
-      console.error('❌ KaraokeDisplay: Erreur chargement:', error);
+      console.error('❌ Erreur chargement audio:', error);
     });
 
     return () => {
@@ -187,27 +184,10 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-blue-950/90 via-purple-900/80 to-blue-950/90">
-      {/* Effet d'étoiles en arrière-plan (optimisé) */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-white rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              opacity: [0.2, 1, 0.2],
-              scale: [1, 1.5, 1],
-            }}
-            transition={{
-              duration: 2 + Math.random() * 2,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
+      {/* Fond simplifié */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/30 rounded-full blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-6xl px-8 space-y-8">

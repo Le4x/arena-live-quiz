@@ -78,30 +78,32 @@ export class AudioEngine {
   }
 
   /**
-   * Charger et lire une track
+   * Charger une track sans la jouer
    */
-  async loadAndPlay(track: Track, startAt: number = 0): Promise<void> {
-    console.log('🎵 AudioEngine: loadAndPlay appelé pour', track.name);
-    await this.stop();
+  async loadTrack(track: Track): Promise<void> {
     this.currentTrack = track;
 
     // Précharger si pas en cache
     if (!this.bufferCache.has(track.url)) {
-      console.log('📥 AudioEngine: Buffer pas en cache, préchargement...');
       await this.preloadTrack(track);
-    } else {
-      console.log('✅ AudioEngine: Buffer déjà en cache');
     }
 
-    // Vérifier que le buffer est bien chargé
+    // Assigner le buffer
     const buffer = this.bufferCache.get(track.url);
     if (!buffer) {
-      console.error('❌ AudioEngine: Buffer introuvable après préchargement!');
       throw new Error('Impossible de charger le fichier audio');
     }
 
     this.currentBuffer = buffer;
-    console.log('✅ AudioEngine: Buffer assigné, durée:', buffer.duration);
+    this.notifyListeners();
+  }
+
+  /**
+   * Charger et lire une track
+   */
+  async loadAndPlay(track: Track, startAt: number = 0): Promise<void> {
+    await this.stop();
+    await this.loadTrack(track);
     await this.play(startAt);
   }
 

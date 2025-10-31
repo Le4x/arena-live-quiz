@@ -1149,6 +1149,63 @@ const Regie = () => {
     toast({ title: `${delta > 0 ? '+' : ''}${delta} pts pour ${team.name}` });
   };
 
+  const emergencyReset = async () => {
+    if (!confirm('⚠️ RESET D\'URGENCE ⚠️\n\nCela va arrêter toute l\'activité en cours :\n- Arrêt audio\n- Arrêt timer\n- Fermeture buzzers\n- Réinitialisation écran\n\nConfirmer ?')) return;
+
+    try {
+      // Arrêter l'audio
+      audioEngine.stop();
+      
+      // Arrêter tous les timers
+      setTimerActive(false);
+      
+      // Fermer les buzzers
+      setBuzzerLocked(false);
+      setBlockedTeams([]);
+      
+      if (!sessionId) return;
+
+      // Réinitialiser game_state complètement
+      await supabase.from('game_state').update({
+        is_buzzer_active: false,
+        timer_active: false,
+        timer_remaining: null,
+        timer_started_at: null,
+        timer_duration: null,
+        audio_is_playing: false,
+        audio_current_time: 0,
+        karaoke_playing: false,
+        karaoke_revealed: false,
+        show_leaderboard: false,
+        show_ambient_screen: true,
+        show_round_intro: false,
+        show_pause_screen: false,
+        show_waiting_screen: false,
+        show_answer: false,
+        show_welcome_screen: false,
+        show_team_connection_screen: false,
+        show_sponsors_screen: false,
+        show_thanks_screen: false,
+        answer_result: null,
+        announcement_text: null,
+        excluded_teams: []
+      }).eq('game_session_id', sessionId);
+
+      toast({
+        title: '🛑 Reset d\'urgence effectué',
+        description: 'Tout est à l\'arrêt et réinitialisé',
+        variant: 'default'
+      });
+    } catch (error) {
+      console.error('Erreur reset urgence:', error);
+      toast({
+        title: '❌ Erreur',
+        description: 'Erreur lors du reset',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const resetAllScores = async () => {
     if (!confirm('Réinitialiser tous les scores des équipes ?')) return;
     await supabase.from('teams').update({ score: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
@@ -1208,6 +1265,14 @@ const Regie = () => {
             </h2>
           </div>
           <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="destructive"
+              onClick={emergencyReset}
+              className="animate-pulse"
+            >
+              🛑 RESET
+            </Button>
             <Button size="sm" variant="outline" onClick={() => window.location.href = '/'}>
               <Home className="h-3 w-3 mr-1" />
               Menu
