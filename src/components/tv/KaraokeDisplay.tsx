@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
   lyrics: LyricLine[];
   audioUrl: string;
   isPlaying: boolean;
-  stopTime?: number; // Temps où arrêter la musique
+  stopTime?: number;
 }
 
 export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: KaraokeDisplayProps) => {
@@ -15,18 +15,25 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (!audioRef.current || !audioUrl) {
-      console.log('⚠️ KaraokeDisplay - Pas d\'audio ref ou URL', { hasRef: !!audioRef.current, audioUrl });
+    const audio = audioRef.current;
+    if (!audio) {
+      console.log('⚠️ KaraokeDisplay - Pas d\'audio ref');
       return;
     }
 
-    const audio = audioRef.current;
+    if (!audioUrl) {
+      console.log('⚠️ KaraokeDisplay - Pas d\'URL audio');
+      return;
+    }
     
     console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying, stopTime, lyricsCount: lyrics.length });
     
-    // Réinitialiser l'audio et l'état de pause
+    // Réinitialiser l'état
     setCurrentTime(0);
     setIsPaused(false);
+    
+    // Charger le nouvel audio
+    audio.src = audioUrl;
     audio.currentTime = 0;
     audio.load();
     
@@ -96,20 +103,6 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
     );
   };
 
-  // Trouver la ligne suivante
-  const getNextLine = () => {
-    const currentIndex = lyrics.findIndex(l => 
-      currentTime >= l.startTime && currentTime < l.endTime
-    );
-    
-    if (currentIndex !== -1 && currentIndex + 1 < lyrics.length) {
-      return lyrics[currentIndex + 1];
-    }
-    
-    // Si pas de ligne actuelle, chercher la prochaine
-    return lyrics.find(line => line.startTime > currentTime);
-  };
-
   const getProgressForLine = (line: LyricLine) => {
     if (currentTime < line.startTime) return 0;
     if (currentTime > line.endTime) return 100;
@@ -120,90 +113,90 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
   };
 
   const currentLine = getCurrentLine();
-  const nextLine = getNextLine();
 
   // Debug render
   useEffect(() => {
     console.log('🎵 Rendu karaoké:', {
       currentTime: currentTime.toFixed(1),
       hasCurrentLine: !!currentLine,
-      hasNextLine: !!nextLine,
+      currentLineText: currentLine?.text,
       isPaused,
       totalLyrics: lyrics.length
     });
-  }, [currentTime, currentLine, nextLine, isPaused, lyrics.length]);
+  }, [currentTime, currentLine, isPaused, lyrics.length]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
       <audio
         ref={audioRef}
-        src={audioUrl}
         preload="auto"
         loop={false}
       />
 
-      <div className="w-full max-w-4xl px-8 space-y-8">
-        {/* Ligne actuelle avec barre de progression */}
-        {currentLine && (
-          <motion.div
-            key={currentLine.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-4"
-          >
-            <div className="relative">
-              <div className="text-5xl font-bold text-center text-white drop-shadow-lg">
-                {currentLine.text.split(' ').map((word, i) => (
-                  <span key={i} className="inline-block mx-2">
-                    {word === '___' ? (
-                      <span className="inline-block px-8 py-2 bg-primary/30 backdrop-blur-sm rounded-lg border-2 border-primary animate-pulse">
-                        ___
-                      </span>
-                    ) : word}
-                  </span>
-                ))}
+      <div className="w-full max-w-5xl px-8">
+        <AnimatePresence mode="wait">
+          {/* Ligne actuelle avec barre de progression */}
+          {currentLine && (
+            <motion.div
+              key={currentLine.id}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="space-y-6"
+            >
+              {/* Texte des paroles */}
+              <div className="relative">
+                <div className="text-6xl font-bold text-center text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] leading-tight">
+                  {currentLine.text.split(' ').map((word, i) => (
+                    <span key={i} className="inline-block mx-2 my-1">
+                      {word === '___' ? (
+                        <span className="inline-block px-10 py-3 bg-primary/40 backdrop-blur-sm rounded-xl border-2 border-primary/60 animate-pulse shadow-lg">
+                          ___
+                        </span>
+                      ) : word}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Barre de progression karaoké (seulement si pas en pause) */}
-            {!isPaused && (
-              <div className="relative h-3 bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent"
-                  style={{ width: `${getProgressForLine(currentLine)}%` }}
-                  transition={{ duration: 0.1 }}
-                />
-              </div>
-            )}
-            
-            {/* Indicateur de pause */}
-            {isPaused && (
-              <div className="text-center text-2xl text-white/80 animate-pulse">
-                ⏸️ En attente de la révélation...
-              </div>
-            )}
-          </motion.div>
-        )}
+              {/* Barre de progression karaoké */}
+              {!isPaused && (
+                <div className="relative h-5 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm shadow-lg">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-accent to-primary rounded-full shadow-[0_0_20px_rgba(var(--primary),0.5)]"
+                    style={{ width: `${getProgressForLine(currentLine)}%` }}
+                    transition={{ duration: 0.1, ease: "linear" }}
+                  />
+                </div>
+              )}
+              
+              {/* Indicateur de pause */}
+              {isPaused && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center text-3xl text-white font-bold bg-black/50 backdrop-blur-md py-6 px-10 rounded-xl shadow-2xl animate-pulse"
+                >
+                  ⏸️ En attente de la révélation...
+                </motion.div>
+              )}
+            </motion.div>
+          )}
 
-        {/* Ligne suivante en aperçu */}
-        {nextLine && !isPaused && (
-          <motion.div
-            key={`next-${nextLine.id}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
-            className="text-3xl text-center text-white/60 mt-12"
-          >
-            {nextLine.text.replace(/___/g, '______')}
-          </motion.div>
-        )}
-
-        {/* État d'attente */}
-        {!currentLine && !nextLine && (
-          <div className="text-4xl text-center text-white/40">
-            🎵 En attente...
-          </div>
-        )}
+          {/* État d'attente */}
+          {!currentLine && (
+            <motion.div 
+              key="waiting"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-5xl text-center text-white/60 font-bold"
+            >
+              🎵 En attente du démarrage...
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

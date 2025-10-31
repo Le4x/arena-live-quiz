@@ -1237,7 +1237,16 @@ const Regie = () => {
             {audioTracks.length > 0 && (
               <div className="mt-2">
                 <AudioDeck 
-                  tracks={currentTrack ? [currentTrack] : audioTracks}
+                  tracks={(() => {
+                    // Si on a une question actuelle avec un audio_url, ne montrer que ce track
+                    const currentQ = questions.find(q => q.id === currentQuestionId);
+                    if (currentQ?.audio_url) {
+                      const questionTrack = audioTracks.find(t => t.url === currentQ.audio_url);
+                      if (questionTrack) return [questionTrack];
+                    }
+                    // Sinon, montrer tous les tracks disponibles
+                    return audioTracks;
+                  })()}
                   onTrackChange={(track) => {
                     console.log('📻 Track changed:', track.name);
                     setCurrentTrack(track);
