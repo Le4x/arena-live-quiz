@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Users, Plus, RotateCcw, ArrowLeft, QrCode, Download, Cpu } from "lucide-react";
+import { Users, Plus, RotateCcw, ArrowLeft, QrCode, Download, Cpu, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { TeamCard } from "@/components/admin/TeamCard";
@@ -174,6 +174,28 @@ const AdminTeams = () => {
     }
   };
 
+  const exitSimulationMode = async () => {
+    if (!confirm('Quitter le mode simulation et supprimer toutes les équipes SIM- ?')) return;
+
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .ilike('name', 'SIM-%');
+
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les équipes de simulation",
+        variant: "destructive"
+      });
+    } else {
+      toast({ title: "✅ Mode simulation désactivé", description: "Équipes de simulation supprimées" });
+      loadTeams();
+    }
+  };
+
+  const hasSimulationTeams = teams.some(t => t.name?.startsWith('SIM-'));
+
   return (
     <div className="min-h-screen bg-gradient-glow p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -201,10 +223,17 @@ const AdminTeams = () => {
               <RotateCcw className="h-5 w-5 mr-2" />
               Réinitialiser les scores
             </Button>
-            <Button onClick={() => setShowSimulationDialog(true)} variant="outline" size="lg" className="border-primary/50">
-              <Cpu className="h-5 w-5 mr-2" />
-              Mode Simulation
-            </Button>
+            {hasSimulationTeams ? (
+              <Button onClick={exitSimulationMode} variant="outline" size="lg" className="border-destructive/50 text-destructive hover:bg-destructive/10">
+                <XCircle className="h-5 w-5 mr-2" />
+                Quitter Simulation
+              </Button>
+            ) : (
+              <Button onClick={() => setShowSimulationDialog(true)} variant="outline" size="lg" className="border-primary/50">
+                <Cpu className="h-5 w-5 mr-2" />
+                Mode Simulation
+              </Button>
+            )}
             <Button onClick={handleCreate} size="lg">
               <Plus className="h-5 w-5 mr-2" />
               Nouvelle équipe
