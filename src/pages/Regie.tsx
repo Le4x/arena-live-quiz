@@ -88,7 +88,13 @@ const Regie = () => {
         console.log('🔄 Regie: Teams changed realtime', payload);
         loadTeams();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Teams channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Teams channel error - reconnecting...');
+          setTimeout(() => loadTeams(), 2000);
+        }
+      });
 
     // Abonnement buzzers GLOBAL
     const buzzersChannel = supabase.channel('regie-buzzers-global')
@@ -100,7 +106,13 @@ const Regie = () => {
         console.log('🔔 Regie: Buzzer INSERT détecté', payload);
         loadBuzzers();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Buzzers channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Buzzers channel error - reconnecting...');
+          setTimeout(() => loadBuzzers(), 2000);
+        }
+      });
 
     // Canal de présence GLOBAL - écoute toutes les équipes connectées
     const presenceChannel = supabase.channel('team_presence')
@@ -123,7 +135,19 @@ const Regie = () => {
           }))
         );
       })
-      .subscribe();
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('✅ Regie: Équipe rejointe', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('👋 Regie: Équipe partie', key, leftPresences);
+      })
+      .subscribe((status) => {
+        console.log('📡 Presence channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Presence channel error - reconnecting...');
+          setTimeout(() => loadTeams(), 2000);
+        }
+      });
 
     return () => {
       supabase.removeChannel(teamsChannel);
@@ -1231,9 +1255,9 @@ const Regie = () => {
           </div>
         </div>
 
-      {/* Main content - Layout optimisé en 3 colonnes */}
+      {/* Main content - Layout réorganisé en 3 colonnes */}
       <div className="flex-1 overflow-hidden grid grid-cols-12 gap-2 p-2">
-        {/* Colonne gauche - Questions (3 cols) */}
+        {/* Colonne gauche - Questions + Contrôles TV (3 cols) */}
         <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
           {/* Sélection de manche - Dropdown compact */}
           <Card className="flex-shrink-0 p-2">
@@ -1300,14 +1324,290 @@ const Regie = () => {
               </table>
             </div>
           </Card>
+
+          {/* Contrôles de diffusion - Déplacés ici */}
+          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-purple-500/5 border-purple-500/20 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">Contrôles TV</h3>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {[
+                  gameState?.show_welcome_screen,
+                  gameState?.show_team_connection_screen,
+                  gameState?.show_sponsors_screen,
+                  gameState?.show_thanks_screen,
+                  gameState?.show_waiting_screen,
+                  gameState?.is_buzzer_active,
+                  gameState?.show_answer,
+                  gameState?.show_leaderboard
+                ].filter(Boolean).length} actifs
+              </Badge>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-1.5">
+              {/* Ligne 1: Écran TV + Accueil */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => window.open('/screen', '_blank')}
+                    className="h-8 text-xs hover:bg-accent"
+                  >
+                    <Monitor className="h-3 w-3 mr-1" />
+                    Écran
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Ouvrir l'écran TV</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_welcome_screen}
+                    onPressedChange={toggleWelcomeScreen}
+                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <Home className="h-3 w-3 mr-1" />
+                    Accueil
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Écran d'accueil</TooltipContent>
+              </Tooltip>
+              
+              {/* Ligne 2: Équipes + Sponsors */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_team_connection_screen}
+                    onPressedChange={toggleTeamConnectionScreen}
+                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Équipes
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Connexion équipes</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_sponsors_screen}
+                    onPressedChange={toggleSponsorsScreen}
+                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <Award className="h-3 w-3 mr-1" />
+                    Sponsors
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Écran sponsors</TooltipContent>
+              </Tooltip>
+              
+              {/* Ligne 3: Merci + Attente */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_thanks_screen}
+                    onPressedChange={toggleThanksScreen}
+                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <Heart className="h-3 w-3 mr-1" />
+                    Merci
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Remerciements</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_waiting_screen}
+                    onPressedChange={toggleWaitingScreen}
+                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    ⏸️ Attente
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Écran d'attente</TooltipContent>
+              </Tooltip>
+              
+              {/* Ligne 4: Buzzer + Intro */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.is_buzzer_active}
+                    onPressedChange={toggleBuzzer}
+                    className="h-8 text-xs data-[state=on]:bg-green-600 data-[state=on]:text-white"
+                  >
+                    <Radio className="h-3 w-3 mr-1" />
+                    Buzzer
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Activer buzzer</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 text-xs hover:bg-accent" 
+                    onClick={showRoundIntro}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Intro
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Intro manche</TooltipContent>
+              </Tooltip>
+              
+              {/* Ligne 5: Scores + Transition */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_leaderboard}
+                    onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
+                    className="h-8 text-xs data-[state=on]:bg-yellow-600 data-[state=on]:text-white"
+                  >
+                    <Trophy className="h-3 w-3 mr-1" />
+                    Scores
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Classement</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={activateTransition}
+                    className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
+                  >
+                    ✨ Transition
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Transition</TooltipContent>
+              </Tooltip>
+            </div>
+          </Card>
         </div>
 
-        {/* Colonne centrale - Contrôles et réponses (6 cols) */}
+        {/* Colonne centrale - Réponses/Buzzers + Timer/Audio (6 cols) */}
         <div className="col-span-6 flex flex-col gap-2 overflow-hidden">
-          {/* Question en cours */}
+          {/* Réponses et buzzers - REMONTÉ EN PREMIER */}
+          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="p-2 border-b flex-shrink-0 bg-muted/30 flex items-center justify-between">
+              <h3 className="text-xs font-bold">
+                {(() => {
+                  const currentQ = questions.find(q => q.id === currentQuestionId);
+                  if (!currentQ) return 'Réponses';
+                  const typeNames: Record<string, string> = {
+                    'blind_test': 'Buzzers',
+                    'qcm': 'Réponses QCM',
+                    'free_text': 'Réponses libres'
+                  };
+                  return typeNames[currentQ.question_type] || 'Réponses';
+                })()}
+              </h3>
+              
+              {/* Bouton Reveal */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_answer}
+                    onPressedChange={() => gameState?.show_answer ? hideReveal() : showReveal()}
+                    className="h-7 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
+                  >
+                    👁️ Révéler
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Afficher/masquer la réponse</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {(() => {
+                const currentQ = questions.find(q => q.id === currentQuestionId);
+                const questionType = currentQ?.question_type;
+
+                if (questionType === 'blind_test') {
+                  return (
+                    <>
+                      <BuzzerMonitor 
+                        currentQuestionId={currentQuestionId} 
+                        gameState={gameState} 
+                        buzzers={buzzers}
+                        questionPoints={currentQ?.points || 10}
+                        onCorrectAnswer={handleCorrectAnswer}
+                        onWrongAnswer={handleWrongAnswer}
+                        blockedTeams={blockedTeams}
+                      />
+                      {blockedTeams.length > 0 && (
+                        <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
+                          <h4 className="text-xs font-bold text-destructive flex items-center gap-1 mb-1">
+                            <X className="h-3 w-3" />
+                            Bloqués ({blockedTeams.length})
+                          </h4>
+                          <div className="space-y-1">
+                            {blockedTeams.map(teamId => {
+                              const team = connectedTeams.find(t => t.id === teamId);
+                              return team ? (
+                                <div 
+                                  key={teamId}
+                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20"
+                                >
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
+                                  <span className="font-medium text-xs">{team.name}</span>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+
+                if (questionType === 'qcm') {
+                  return (
+                    <QCMAnswersDisplay 
+                      currentQuestion={currentQ} 
+                      gameState={gameState} 
+                    />
+                  );
+                }
+
+                if (questionType === 'free_text') {
+                  return (
+                    <TextAnswersDisplay 
+                      currentQuestionId={currentQuestionId} 
+                      gameState={gameState}
+                      currentQuestion={currentQ}
+                    />
+                  );
+                }
+
+                return (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
+                    Sélectionnez et lancez une question
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
+
+          {/* Question en cours + Timer + Audio */}
           {currentQuestionId && (
             <Card className="flex-shrink-0 p-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex-1">
                   {questions.find(q => q.id === currentQuestionId)?.question_type === 'blind_test' && (
                     audioPreloading ? (
@@ -1419,316 +1719,6 @@ const Regie = () => {
                 />
               </div>
             )}
-          </Card>
-
-          {/* Contrôles de diffusion - Interface améliorée */}
-          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-purple-500/5 border-purple-500/20 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">Contrôles de diffusion</h3>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                {[
-                  gameState?.show_welcome_screen,
-                  gameState?.show_team_connection_screen,
-                  gameState?.show_sponsors_screen,
-                  gameState?.show_thanks_screen,
-                  gameState?.show_waiting_screen,
-                  gameState?.is_buzzer_active,
-                  gameState?.show_answer,
-                  gameState?.show_leaderboard
-                ].filter(Boolean).length} actifs
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-1.5">
-              {/* Ligne 1: Écrans TV */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => window.open('/screen', '_blank')}
-                    className="h-8 text-xs hover:bg-accent"
-                  >
-                    <Monitor className="h-3 w-3 mr-1" />
-                    Écran
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Ouvrir l'écran TV dans un nouvel onglet</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_welcome_screen}
-                    onPressedChange={toggleWelcomeScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Home className="h-3 w-3 mr-1" />
-                    Accueil
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'écran d'accueil</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_team_connection_screen}
-                    onPressedChange={toggleTeamConnectionScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Wifi className="h-3 w-3 mr-1" />
-                    Équipes
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'écran de connexion des équipes</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 2: Plus d'écrans */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_sponsors_screen}
-                    onPressedChange={toggleSponsorsScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Award className="h-3 w-3 mr-1" />
-                    Sponsors
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'écran des sponsors</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_thanks_screen}
-                    onPressedChange={toggleThanksScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Heart className="h-3 w-3 mr-1" />
-                    Merci
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'écran de remerciements</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_waiting_screen}
-                    onPressedChange={toggleWaitingScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
-                  >
-                    ⏸️ Attente
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'écran d'attente</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 3: Buzzer, Intro */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.is_buzzer_active}
-                    onPressedChange={toggleBuzzer}
-                    className="h-8 text-xs data-[state=on]:bg-green-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Radio className="h-3 w-3 mr-1" />
-                    Buzzer
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Activer/désactiver le buzzer</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 text-xs hover:bg-accent" 
-                    onClick={showRoundIntro}
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Intro
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Afficher l'introduction de la manche</TooltipContent>
-              </Tooltip>
-              
-              <div /> {/* Placeholder pour garder le grid équilibré */}
-              
-              {/* Ligne 4: Classement, Transition, Reset Buzzer */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_leaderboard}
-                    onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
-                    className="h-8 text-xs data-[state=on]:bg-yellow-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
-                  >
-                    <Trophy className="h-3 w-3 mr-1" />
-                    Scores
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher/masquer le classement</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={activateTransition}
-                    className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 transition-colors"
-                  >
-                    ✨ Transition
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Activer l'écran de transition</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="h-8 text-xs hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
-                    onClick={async () => {
-                      if (!currentQuestionInstanceId) {
-                        toast({ title: '❌ Aucune question', variant: 'destructive' });
-                        return;
-                      }
-                      if (sessionId) {
-                        await supabase.from('buzzer_attempts')
-                          .delete()
-                          .eq('question_instance_id', currentQuestionInstanceId)
-                          .eq('game_session_id', sessionId);
-                      }
-                      await gameEvents.resetBuzzer(currentQuestionInstanceId);
-                      setBuzzerLocked(false);
-                      setBuzzers([]);
-                      setBlockedTeams([]);
-                      previousBuzzersCount.current = 0;
-                      await supabase.from('game_state').update({ 
-                        excluded_teams: [],
-                        is_buzzer_active: true
-                      }).eq('game_session_id', sessionId);
-                      toast({ title: '🔄 Reset buzzer' });
-                    }}>
-                    🔄 Reset
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Réinitialiser les buzzers de la question</TooltipContent>
-              </Tooltip>
-            </div>
-          </Card>
-
-          {/* Réponses et buzzers */}
-          <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="p-2 border-b flex-shrink-0 bg-muted/30 flex items-center justify-between">
-              <h3 className="text-xs font-bold">
-                {(() => {
-                  const currentQ = questions.find(q => q.id === currentQuestionId);
-                  if (!currentQ) return 'Réponses';
-                  const typeNames: Record<string, string> = {
-                    'blind_test': 'Buzzers',
-                    'qcm': 'Réponses QCM',
-                    'free_text': 'Réponses libres'
-                  };
-                  return typeNames[currentQ.question_type] || 'Réponses';
-                })()}
-              </h3>
-              
-              {/* Bouton Reveal déplacé ici */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_answer}
-                    onPressedChange={() => gameState?.show_answer ? hideReveal() : showReveal()}
-                    className="h-7 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
-                  >
-                    👁️ Révéler
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher/masquer la réponse à l'écran</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              {(() => {
-                const currentQ = questions.find(q => q.id === currentQuestionId);
-                const questionType = currentQ?.question_type;
-
-                if (questionType === 'blind_test') {
-                  return (
-                    <>
-                      <BuzzerMonitor 
-                        currentQuestionId={currentQuestionId} 
-                        gameState={gameState} 
-                        buzzers={buzzers}
-                        questionPoints={currentQ?.points || 10}
-                        onCorrectAnswer={handleCorrectAnswer}
-                        onWrongAnswer={handleWrongAnswer}
-                        blockedTeams={blockedTeams}
-                      />
-                      {blockedTeams.length > 0 && (
-                        <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
-                          <h4 className="text-xs font-bold text-destructive flex items-center gap-1 mb-1">
-                            <X className="h-3 w-3" />
-                            Bloqués ({blockedTeams.length})
-                          </h4>
-                          <div className="space-y-1">
-                            {blockedTeams.map(teamId => {
-                              const team = connectedTeams.find(t => t.id === teamId);
-                              return team ? (
-                                <div 
-                                  key={teamId}
-                                  className="flex items-center gap-2 p-1 rounded bg-destructive/20"
-                                >
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
-                                  <span className="font-medium text-xs">{team.name}</span>
-                                </div>
-                              ) : null;
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                }
-
-                if (questionType === 'qcm') {
-                  return (
-                    <QCMAnswersDisplay 
-                      currentQuestion={currentQ} 
-                      gameState={gameState} 
-                    />
-                  );
-                }
-
-                if (questionType === 'free_text') {
-                  return (
-                    <TextAnswersDisplay 
-                      currentQuestionId={currentQuestionId} 
-                      gameState={gameState}
-                      currentQuestion={currentQ}
-                    />
-                  );
-                }
-
-                return (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
-                    Sélectionnez et lancez une question
-                  </div>
-                );
-              })()}
-            </div>
           </Card>
         </div>
 
