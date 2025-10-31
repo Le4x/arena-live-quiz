@@ -38,11 +38,22 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
     audio.load();
     
     const handleCanPlay = () => {
-      console.log('✅ Audio prêt, démarrage lecture...', { isPlaying, paused: audio.paused });
-      if (isPlaying) {
-        audio.play().catch(error => {
-          console.error('❌ Erreur lecture:', error);
-        });
+      console.log('✅ Audio prêt, démarrage lecture...', { isPlaying, paused: audio.paused, currentSrc: audio.src });
+      if (isPlaying && audio.paused) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('✅ Audio démarré avec succès');
+            })
+            .catch(error => {
+              console.error('❌ Erreur lecture:', error);
+              // Retry après une courte pause
+              setTimeout(() => {
+                audio.play().catch(e => console.error('❌ Retry échoué:', e));
+              }, 100);
+            });
+        }
       }
     };
     

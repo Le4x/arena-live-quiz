@@ -443,9 +443,22 @@ const Regie = () => {
     setClipStartTime(0);
     console.log('✅ États locaux réinitialisés');
     
-    // Précharger le son pour les blind tests - avec chargement complet
-    if (question.question_type === 'blind_test' && question.audio_url) {
-      const track = audioTracks.find(t => t.url === question.audio_url);
+    // Précharger le son pour les blind tests ET les karaoké
+    if ((question.question_type === 'blind_test' || question.question_type === 'lyrics') && question.audio_url) {
+      // Pour les blind test, chercher dans les tracks configurées
+      let track = audioTracks.find(t => t.url === question.audio_url);
+      
+      // Pour les karaoké, créer un track dynamique si pas trouvé
+      if (!track && question.question_type === 'lyrics') {
+        track = {
+          id: `karaoke-${question.id}`,
+          name: question.question_text || 'Karaoké',
+          url: question.audio_url,
+          cues: []
+        };
+        console.log('🎤 Track karaoké créé dynamiquement:', track);
+      }
+      
       if (track) {
         console.log('🎵 Préchargement du son:', track.name);
         toast({ title: '⏳ Chargement audio...', description: track.name });
