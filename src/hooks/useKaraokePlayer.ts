@@ -35,10 +35,25 @@ export const useKaraokePlayer = ({
     audio.preload = 'auto';
     audio.crossOrigin = 'anonymous';
     
+    // ASTUCE: démarrer muet pour contourner l'autoplay
+    audio.muted = true;
+    audio.volume = 1.0;
+    
     const handleLoadedMetadata = () => {
       console.log('✅ useKaraokePlayer: Métadonnées chargées', { duration: audio.duration });
       setDuration(audio.duration);
       setIsReady(true);
+      
+      // Essayer de jouer muet pour déverrouiller l'audio
+      audio.play()
+        .then(() => {
+          console.log('✅ useKaraokePlayer: Audio déverrouillé (muted)');
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = false; // Remettre le son
+          console.log('🔊 useKaraokePlayer: Son activé');
+        })
+        .catch(e => console.warn('⚠️ Impossible de déverrouiller:', e));
     };
 
     const handleCanPlay = () => {
