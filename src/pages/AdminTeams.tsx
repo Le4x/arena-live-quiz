@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Users, Plus, RotateCcw, ArrowLeft, QrCode, Download } from "lucide-react";
+import { Users, Plus, RotateCcw, ArrowLeft, QrCode, Download, Cpu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { TeamCard } from "@/components/admin/TeamCard";
 import { TeamDialog } from "@/components/admin/TeamDialog";
+import { SimulationDialog } from "@/components/admin/SimulationDialog";
 import QRCode from "qrcode";
 import {
   Dialog,
@@ -22,6 +23,7 @@ const AdminTeams = () => {
   const [loading, setLoading] = useState(true);
   const [editingTeam, setEditingTeam] = useState<any | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [showSimulationDialog, setShowSimulationDialog] = useState(false);
   const [selectedTeamQR, setSelectedTeamQR] = useState<any>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
 
@@ -199,6 +201,10 @@ const AdminTeams = () => {
               <RotateCcw className="h-5 w-5 mr-2" />
               Réinitialiser les scores
             </Button>
+            <Button onClick={() => setShowSimulationDialog(true)} variant="outline" size="lg" className="border-primary/50">
+              <Cpu className="h-5 w-5 mr-2" />
+              Mode Simulation
+            </Button>
             <Button onClick={handleCreate} size="lg">
               <Plus className="h-5 w-5 mr-2" />
               Nouvelle équipe
@@ -298,6 +304,13 @@ const AdminTeams = () => {
         }}
         team={editingTeam}
         onSave={handleSave}
+      />
+
+      {/* Dialog Mode Simulation */}
+      <SimulationDialog
+        open={showSimulationDialog}
+        onOpenChange={setShowSimulationDialog}
+        onSuccess={loadTeams}
       />
 
       {/* Dialog QR Code */}
