@@ -759,6 +759,13 @@ const Regie = () => {
     
     // Attribution automatique des points
     const currentQ = questions.find(q => q.id === currentQuestionId);
+    
+    // Pour les questions karaoké, déclencher la reprise de la musique
+    if (currentQ?.question_type === 'lyrics') {
+      console.log('🎵 Déclenchement reprise karaoké');
+      window.dispatchEvent(new Event('resumeKaraoke'));
+    }
+    
     if (!currentQ || !sessionId) {
       toast({ title: '👁️ Réponse révélée' });
       return;
@@ -799,8 +806,8 @@ const Regie = () => {
         }
         toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
       }
-    } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text') {
-      // Pour les textes libres : utiliser les validations de la régie
+    } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text' || currentQ.question_type === 'lyrics') {
+      // Pour les textes libres et karaoké : utiliser les validations de la régie
       const { data: answers } = await supabase
         .from('team_answers')
         .select('*, teams(score)')
