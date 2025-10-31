@@ -1400,7 +1400,7 @@ const Regie = () => {
                 <TooltipContent>Afficher l'écran d'attente</TooltipContent>
               </Tooltip>
               
-              {/* Ligne 3: Buzzer, Reveal, Intro */}
+              {/* Ligne 3: Buzzer, Intro */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Toggle 
@@ -1418,20 +1418,6 @@ const Regie = () => {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_answer}
-                    onPressedChange={() => gameState?.show_answer ? hideReveal() : showReveal()}
-                    className="h-8 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
-                  >
-                    👁️ Révéler
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Afficher/masquer la réponse à l'écran</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
                   <Button 
                     size="sm" 
                     variant="outline" 
@@ -1444,6 +1430,8 @@ const Regie = () => {
                 </TooltipTrigger>
                 <TooltipContent>Afficher l'introduction de la manche</TooltipContent>
               </Tooltip>
+              
+              <div /> {/* Placeholder pour garder le grid équilibré */}
               
               {/* Ligne 4: Classement, Transition, Reset Buzzer */}
               <Tooltip>
@@ -1512,7 +1500,7 @@ const Regie = () => {
 
           {/* Réponses et buzzers */}
           <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="p-2 border-b flex-shrink-0 bg-muted/30">
+            <div className="p-2 border-b flex-shrink-0 bg-muted/30 flex items-center justify-between">
               <h3 className="text-xs font-bold">
                 {(() => {
                   const currentQ = questions.find(q => q.id === currentQuestionId);
@@ -1525,6 +1513,21 @@ const Regie = () => {
                   return typeNames[currentQ.question_type] || 'Réponses';
                 })()}
               </h3>
+              
+              {/* Bouton Reveal déplacé ici */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle 
+                    size="sm"
+                    pressed={gameState?.show_answer}
+                    onPressedChange={() => gameState?.show_answer ? hideReveal() : showReveal()}
+                    className="h-7 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white data-[state=on]:shadow-sm transition-all"
+                  >
+                    👁️ Révéler
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>Afficher/masquer la réponse à l'écran</TooltipContent>
+              </Tooltip>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               {(() => {
