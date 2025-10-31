@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { getAudioEngine } from "@/lib/audio/AudioEngine";
+import { supabase } from "@/integrations/supabase/client";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
@@ -9,33 +9,45 @@ interface KaraokeDisplayProps {
   audioUrl: string;
   isPlaying: boolean;
   stopTime?: number;
+  sessionId?: string;
 }
 
-export const KaraokeDisplay = ({ lyrics, stopTime }: KaraokeDisplayProps) => {
+export const KaraokeDisplay = ({ lyrics, stopTime, sessionId }: KaraokeDisplayProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
-  const audioEngine = getAudioEngine();
 
-  // Synchroniser avec l'AudioEngine
+  // Synchroniser le temps depuis game_state (broadcast par la Régie)
   useEffect(() => {
-    console.log('🎵 KaraokeDisplay - Initialisation, stopTime:', stopTime);
+    if (!sessionId) {
+      console.log('⚠️ KaraokeDisplay - Pas de sessionId');
+      return;
+    }
     
-    // Polling du temps depuis l'AudioEngine
-    const interval = setInterval(() => {
-      const state = audioEngine.getState();
-      setCurrentTime(state.currentTime);
-      
-      // Log occasionnel pour debug AVEC état complet
-      if (Math.floor(state.currentTime * 2) % 10 === 0) {
-        console.log('🎵 KaraokeDisplay - État AudioEngine:', {
-          currentTime: state.currentTime.toFixed(2),
-          isPlaying: state.isPlaying,
-          duration: state.duration,
-          volume: state.volume,
-          currentTrack: state.currentTrack
-        });
-      }
-    }, 50); // Update toutes les 50ms pour fluidité
+    console.log('🎵 KaraokeDisplay - Écoute audio_current_time pour session:', sessionId);
+    
+    // Channel pour écouter les changements de game_state en temps réel
+    const channel = supabase
+      .channel(`karaoke-sync-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_state',
+          filter: `game_session_id=eq.${sessionId}`
+        },
+        (payload: any) => {
+          if (payload.new.audio_current_time !== undefined) {
+            setCurrentTime(payload.new.audio_current_time);
+            
+            // Log occasionnel
+            if (Math.floor(payload.new.audio_current_time) % 5 === 0) {
+              console.log('🎵 KaraokeDisplay - Temps reçu:', payload.new.audio_current_time.toFixed(2));
+            }
+          }
+        }
+      )
+      .subscribe();
     
     // Écouter l'événement de reprise karaoké
     const handleResumeKaraoke = () => {
@@ -46,10 +58,10 @@ export const KaraokeDisplay = ({ lyrics, stopTime }: KaraokeDisplayProps) => {
     window.addEventListener('resumeKaraoke', handleResumeKaraoke);
     
     return () => {
-      clearInterval(interval);
+      supabase.removeChannel(channel);
       window.removeEventListener('resumeKaraoke', handleResumeKaraoke);
     };
-  }, [stopTime]);
+  }, [sessionId]);
 
   // Trouver la ligne actuelle
   const getCurrentLine = () => {

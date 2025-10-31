@@ -908,6 +908,7 @@ const Screen = () => {
                     audioUrl={currentQuestion.audio_url}
                     isPlaying={true}
                     stopTime={currentQuestion.stop_time || undefined}
+                    sessionId={currentSession?.id}
                   />
                 );
               }

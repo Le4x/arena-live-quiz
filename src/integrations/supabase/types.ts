@@ -206,6 +206,8 @@ export type Database = {
         Row: {
           announcement_text: string | null
           answer_result: string | null
+          audio_current_time: number | null
+          audio_is_playing: boolean | null
           current_question_id: string | null
           current_question_instance_id: string | null
           current_round_id: string | null
@@ -236,6 +238,8 @@ export type Database = {
         Insert: {
           announcement_text?: string | null
           answer_result?: string | null
+          audio_current_time?: number | null
+          audio_is_playing?: boolean | null
           current_question_id?: string | null
           current_question_instance_id?: string | null
           current_round_id?: string | null
@@ -266,6 +270,8 @@ export type Database = {
         Update: {
           announcement_text?: string | null
           answer_result?: string | null
+          audio_current_time?: number | null
+          audio_is_playing?: boolean | null
           current_question_id?: string | null
           current_question_instance_id?: string | null
           current_round_id?: string | null
