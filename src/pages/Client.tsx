@@ -1495,10 +1495,10 @@ const Client = () => {
               </div>
             )}
 
-            {currentQuestion.question_type === 'free_text' && (
+            {(currentQuestion.question_type === 'free_text' || currentQuestion.question_type === 'lyrics') && (
               <div className="space-y-3 sm:space-y-4">
                 <Input
-                  placeholder="Votre réponse..."
+                  placeholder={currentQuestion.question_type === 'lyrics' ? "Paroles manquantes..." : "Votre réponse..."}
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => {

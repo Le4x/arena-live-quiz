@@ -513,6 +513,7 @@ export type Database = {
           display_order: number | null
           id: string
           image_url: string | null
+          lyrics: Json | null
           options: Json | null
           penalty_points: number | null
           points: number | null
@@ -528,6 +529,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          lyrics?: Json | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null
@@ -543,6 +545,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          lyrics?: Json | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null
