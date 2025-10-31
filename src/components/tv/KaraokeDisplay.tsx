@@ -1,5 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Progress } from "@/components/ui/progress";
+import { getAudioEngine } from "@/lib/audio/AudioEngine";
 import type { LyricLine } from "@/components/admin/LyricsEditor";
 
 interface KaraokeDisplayProps {
@@ -9,103 +11,39 @@ interface KaraokeDisplayProps {
   stopTime?: number;
 }
 
-export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: KaraokeDisplayProps) => {
+export const KaraokeDisplay = ({ lyrics, stopTime }: KaraokeDisplayProps) => {
   const [currentTime, setCurrentTime] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const audioEngine = getAudioEngine();
 
+  // Synchroniser avec l'AudioEngine
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) {
-      console.log('⚠️ KaraokeDisplay - Pas d\'audio ref');
-      return;
-    }
-
-    if (!audioUrl) {
-      console.log('⚠️ KaraokeDisplay - Pas d\'URL audio');
-      return;
-    }
+    console.log('🎵 KaraokeDisplay - Initialisation, stopTime:', stopTime);
     
-    console.log('🎵 KaraokeDisplay - Init audio:', { audioUrl, isPlaying, stopTime, lyricsCount: lyrics.length });
-    
-    // Réinitialiser l'état
-    setCurrentTime(0);
-    setIsPaused(false);
-    
-    // Charger le nouvel audio
-    audio.src = audioUrl;
-    audio.currentTime = 0;
-    audio.load();
-    
-    const handleCanPlay = () => {
-      console.log('✅ Audio prêt, démarrage lecture...', { isPlaying, paused: audio.paused, currentSrc: audio.src });
-      if (isPlaying && audio.paused) {
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('✅ Audio démarré avec succès');
-            })
-            .catch(error => {
-              console.error('❌ Erreur lecture:', error);
-              // Retry après une courte pause
-              setTimeout(() => {
-                audio.play().catch(e => console.error('❌ Retry échoué:', e));
-              }, 100);
-            });
-        }
-      }
-    };
-    
-    const handlePlay = () => {
-      console.log('▶️ Audio en lecture');
-    };
-    
-    const handleTimeUpdate = () => {
-      const time = audio.currentTime;
-      setCurrentTime(time);
+    // Polling du temps depuis l'AudioEngine
+    const interval = setInterval(() => {
+      const state = audioEngine.getState();
+      setCurrentTime(state.currentTime);
       
-      // Arrêter la musique au stopTime si défini ET valide (> 0)
-      if (stopTime && stopTime > 0 && time >= stopTime && !isPaused && !audio.paused) {
-        console.log('⏸️ PAUSE AUTO - stopTime atteint:', { currentTime: time, stopTime });
-        audio.pause();
-        setIsPaused(true);
+      // Log occasionnel pour debug
+      if (Math.floor(state.currentTime * 2) % 10 === 0) {
+        console.log('🎵 KaraokeDisplay - currentTime:', state.currentTime.toFixed(2));
       }
-    };
-    
-    const handleError = (e: Event) => {
-      console.error('❌ Erreur audio:', e, audio.error);
-    };
+    }, 50); // Update toutes les 50ms pour fluidité
     
     // Écouter l'événement de reprise karaoké
     const handleResumeKaraoke = () => {
-      console.log('▶️ Événement reprise karaoké reçu');
-      setIsPaused(false);
-      
-      // Si on a un stopTime valide et qu'on est dessus, reprendre après
-      if (stopTime && stopTime > 0 && audio.currentTime >= stopTime) {
-        audio.currentTime = stopTime + 0.1;
-      }
-      
-      audio.play().catch(error => {
-        console.error('❌ Erreur reprise:', error);
-      });
+      console.log('▶️ KaraokeDisplay - Révélation reçue');
+      setIsRevealed(true);
     };
     
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('error', handleError);
     window.addEventListener('resumeKaraoke', handleResumeKaraoke);
     
     return () => {
-      audio.removeEventListener('canplay', handleCanPlay);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('error', handleError);
+      clearInterval(interval);
       window.removeEventListener('resumeKaraoke', handleResumeKaraoke);
     };
-  }, [audioUrl, isPlaying, stopTime]);
+  }, [stopTime]);
 
   // Trouver la ligne actuelle
   const getCurrentLine = () => {
@@ -124,65 +62,103 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
   };
 
   const currentLine = getCurrentLine();
+  const isPaused = stopTime ? currentTime >= stopTime && !isRevealed : false;
 
-  // Debug render - Log toutes les 0.5s pour éviter le spam
-  useEffect(() => {
-    const shouldLog = Math.floor(currentTime * 2) % 10 === 0; // Log toutes les 5 secondes
-    if (shouldLog) {
-      console.log('🎵 Rendu karaoké:', {
-        currentTime: currentTime.toFixed(1),
-        hasCurrentLine: !!currentLine,
-        currentLineText: currentLine?.text,
-        currentLineStart: currentLine?.startTime,
-        currentLineEnd: currentLine?.endTime,
-        isPaused,
-        totalLyrics: lyrics.length
-      });
-    }
-  }, [currentTime, currentLine, isPaused, lyrics.length]);
+  // Préparer le texte avec coloration des mots révélés
+  const renderLyricText = (text: string) => {
+    return text.split(' ').map((word, i) => {
+      const isMissingWord = word === '___';
+      
+      if (isMissingWord && !isRevealed) {
+        // Mot manquant avant révélation : tirets jaunes
+        return (
+          <span key={i} className="inline-block mx-2">
+            <span className="text-yellow-400 font-bold tracking-widest">
+              _ _ _ _ _
+            </span>
+          </span>
+        );
+      } else if (isMissingWord && isRevealed) {
+        // Mot révélé : afficher "___" en vert (le vrai mot sera dans les paroles complètes)
+        return (
+          <span key={i} className="inline-block mx-2">
+            <span className="text-green-400 font-bold">
+              _ _ _ _ _
+            </span>
+          </span>
+        );
+      } else {
+        // Mot normal
+        return (
+          <span key={i} className="inline-block mx-2">
+            {word}
+          </span>
+        );
+      }
+    });
+  };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-      <audio
-        ref={audioRef}
-        preload="auto"
-        loop={false}
-      />
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-blue-950/90 via-purple-900/80 to-blue-950/90">
+      {/* Effet d'étoiles en arrière-plan */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(50)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-white rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              opacity: [0.2, 1, 0.2],
+              scale: [1, 1.5, 1],
+            }}
+            transition={{
+              duration: 2 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
+      </div>
 
-      <div className="w-full max-w-5xl px-8">
+      <div className="relative z-10 w-full max-w-6xl px-8 space-y-8">
         <AnimatePresence mode="wait">
-          {/* Ligne actuelle avec barre de progression */}
           {currentLine && (
             <motion.div
               key={currentLine.id}
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-              {/* Texte des paroles */}
+              {/* Texte dans une barre style Music Arena */}
               <div className="relative">
-                <div className="text-6xl font-bold text-center text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] leading-tight">
-                  {currentLine.text.split(' ').map((word, i) => (
-                    <span key={i} className="inline-block mx-2 my-1">
-                      {word === '___' ? (
-                        <span className="inline-block px-10 py-3 bg-primary/40 backdrop-blur-sm rounded-xl border-2 border-primary/60 animate-pulse shadow-lg">
-                          ___
-                        </span>
-                      ) : word}
-                    </span>
-                  ))}
+                {/* Barre de fond avec bordure néon */}
+                <div 
+                  className="relative px-12 py-8 rounded-3xl border-4 overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(88, 28, 135, 0.95))',
+                    borderColor: 'hsl(var(--primary))',
+                    boxShadow: '0 0 40px hsl(var(--primary) / 0.6), inset 0 0 60px rgba(0, 0, 0, 0.3)',
+                  }}
+                >
+                  {/* Texte des paroles */}
+                  <div className="text-center text-5xl md:text-6xl font-black text-white uppercase tracking-wide leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                    {renderLyricText(currentLine.text)}
+                  </div>
                 </div>
               </div>
 
-              {/* Barre de progression karaoké */}
+              {/* Barre de progression sous le texte */}
               {!isPaused && (
-                <div className="relative h-5 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm shadow-lg">
-                  <motion.div
-                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-accent to-primary rounded-full shadow-[0_0_20px_rgba(var(--primary),0.5)]"
-                    style={{ width: `${getProgressForLine(currentLine)}%` }}
-                    transition={{ duration: 0.1, ease: "linear" }}
+                <div className="relative">
+                  <Progress 
+                    value={getProgressForLine(currentLine)} 
+                    className="h-6 bg-white/20 border-2 border-primary/50 rounded-full shadow-lg"
+                    indicatorClassName="bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 transition-all duration-100 ease-linear rounded-full shadow-[0_0_20px_rgba(250,204,21,0.8)]"
                   />
                 </div>
               )}
@@ -190,11 +166,15 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
               {/* Indicateur de pause */}
               {isPaused && (
                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center text-3xl text-white font-bold bg-black/50 backdrop-blur-md py-6 px-10 rounded-xl shadow-2xl animate-pulse"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center"
                 >
-                  ⏸️ En attente de la révélation...
+                  <div className="inline-block px-12 py-6 rounded-2xl border-4 border-yellow-400/60 bg-black/70 backdrop-blur-md shadow-2xl">
+                    <p className="text-3xl md:text-4xl text-yellow-300 font-black uppercase animate-pulse">
+                      ⏸️ En attente de la révélation...
+                    </p>
+                  </div>
                 </motion.div>
               )}
             </motion.div>
@@ -207,9 +187,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, isPlaying, stopTime }: Karaok
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="text-5xl text-center text-white/60 font-bold"
+              className="text-center"
             >
-              🎵 En attente du démarrage...
+              <div className="inline-block px-12 py-8 rounded-3xl border-4 border-primary bg-black/50 backdrop-blur-md">
+                <p className="text-5xl text-primary font-black uppercase">
+                  🎵 Prêt à chanter...
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

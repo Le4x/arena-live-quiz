@@ -176,6 +176,33 @@ const Regie = () => {
     return () => clearInterval(interval);
   }, [timerActive, timerRemaining, sessionId]);
 
+  // Surveillance du stopTime pour les questions karaoké
+  useEffect(() => {
+    const currentQ = questions.find(q => q.id === currentQuestionId);
+    
+    if (!currentQ || currentQ.question_type !== 'lyrics' || !currentQ.stop_time || currentQ.stop_time <= 0) {
+      return; // Pas de karaoké ou pas de stopTime
+    }
+    
+    console.log('🎵 Surveillance karaoké stopTime:', currentQ.stop_time);
+    
+    const checkInterval = setInterval(() => {
+      const state = audioEngine.getState();
+      
+      if (state.isPlaying && state.currentTime >= currentQ.stop_time) {
+        console.log('⏸️ stopTime atteint, pause de l\'audio', {
+          currentTime: state.currentTime,
+          stopTime: currentQ.stop_time
+        });
+        
+        audioEngine.pause();
+        clearInterval(checkInterval);
+      }
+    }, 100); // Vérifier toutes les 100ms
+    
+    return () => clearInterval(checkInterval);
+  }, [currentQuestionId, questions]);
+
   // Auto-lock buzzer quand premier arrive + notification pour nouveaux buzzers uniquement
   useEffect(() => {
     if (buzzers.length > previousBuzzersCount.current) {
