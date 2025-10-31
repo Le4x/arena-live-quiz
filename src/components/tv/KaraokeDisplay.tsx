@@ -16,12 +16,13 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
 
-  console.log('🎵 KaraokeDisplay: Rendu', { 
+  console.log('🎵 KaraokeDisplay: Rendu DEBUT', { 
     lyricsCount: lyrics.length,
-    firstLyric: lyrics[0],
-    lastLyric: lyrics[lyrics.length - 1],
     audioUrl,
-    stopTime 
+    stopTime,
+    sessionId,
+    isPlaying,
+    isRevealed
   });
 
   // Écouter les commandes depuis game_state
@@ -70,12 +71,16 @@ export const KaraokeDisplay = ({ lyrics, audioUrl, stopTime, sessionId }: Karaok
   }, [sessionId]);
 
   // Hook pour gérer l'audio
+  console.log('🎵 KaraokeDisplay: AVANT useKaraokePlayer', { audioUrl, stopTime, isPlaying, isRevealed });
+  
   const { currentTime, isReady, isPaused } = useKaraokePlayer({
     audioUrl,
     stopTime,
     isPlaying,
     isRevealed
   });
+  
+  console.log('🎵 KaraokeDisplay: APRES useKaraokePlayer', { currentTime, isReady, isPaused });
 
   // Trouver la ligne actuelle
   const currentLine = lyrics.find(l => 

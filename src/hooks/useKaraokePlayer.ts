@@ -13,6 +13,8 @@ export const useKaraokePlayer = ({
   isPlaying,
   isRevealed 
 }: UseKaraokePlayerProps) => {
+  console.log('🎵 useKaraokePlayer: HOOK APPELE', { audioUrl, stopTime, isPlaying, isRevealed });
+  
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isReady, setIsReady] = useState(false);
@@ -20,9 +22,11 @@ export const useKaraokePlayer = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number>();
 
+  console.log('🎵 useKaraokePlayer: État actuel', { currentTime, duration, isReady, hasError });
+
   // Créer et charger l'audio
   useEffect(() => {
-    console.log('🎵 useKaraokePlayer: Initialisation', { audioUrl, stopTime });
+    console.log('🎵 useKaraokePlayer: useEffect INIT DEBUT', { audioUrl, stopTime });
     setHasError(false);
     setIsReady(false);
     setCurrentTime(0);
