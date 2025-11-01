@@ -131,7 +131,12 @@ const AdminSounds = () => {
         }
 
         // Upload vers Supabase Storage
-        const fileName = `${Date.now()}-${file.name}`;
+        // Nettoyer le nom de fichier : remplacer les caractères spéciaux par des tirets
+        const cleanName = file.name
+          .replace(/[^a-zA-Z0-9.-]/g, '-') // Remplacer tous les caractères spéciaux par des tirets
+          .replace(/-+/g, '-') // Remplacer plusieurs tirets consécutifs par un seul
+          .toLowerCase();
+        const fileName = `${Date.now()}-${cleanName}`;
         const { data, error } = await supabase.storage
           .from('audio-files')
           .upload(fileName, file, {
