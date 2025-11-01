@@ -118,6 +118,8 @@ const AdminSounds = () => {
     setUploading(true);
     
     try {
+      const newSounds: SoundWithCues[] = [];
+      
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('audio/')) {
           toast({ 
@@ -154,7 +156,7 @@ const AdminSounds = () => {
 
         // Créer l'entrée dans la banque de sons
         const newSound: SoundWithCues = {
-          id: Date.now().toString(),
+          id: `${Date.now()}-${Math.random()}`,
           name: file.name.replace(/\.[^/.]+$/, ""), // Nom sans extension
           url: publicUrl,
           cue1_time: 0,
@@ -162,11 +164,16 @@ const AdminSounds = () => {
           solution_duration: 8,
         };
 
-        saveSounds([...sounds, newSound]);
+        newSounds.push(newSound);
         toast({ 
           title: "✅ Fichier uploadé", 
           description: file.name 
         });
+      }
+      
+      // Sauvegarder tous les nouveaux sons en une seule fois
+      if (newSounds.length > 0) {
+        saveSounds([...sounds, ...newSounds]);
       }
     } catch (error) {
       console.error('Erreur:', error);
