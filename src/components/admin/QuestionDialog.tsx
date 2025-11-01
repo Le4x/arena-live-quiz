@@ -376,31 +376,39 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
               <Music className="h-4 w-4" />
               Son (optionnel)
             </Label>
-            {availableSounds.length > 0 && (
-              <Select value={selectedSoundId} onValueChange={(id) => {
-                setSelectedSoundId(id);
-                const sound = availableSounds.find(s => s.id === id);
-                if (sound) setAudioUrl(sound.url);
-              }} disabled={saving}>
-                <SelectTrigger>
-                  <SelectValue placeholder="🎵 Choisir un son..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSounds.map((sound) => (
-                    <SelectItem key={sound.id} value={sound.id}>
-                      <div className="flex items-center gap-2">
-                        <Music className="h-4 w-4" />
-                        {sound.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {questionType === 'blind_test' && selectedSoundId && (
-              <p className="text-xs text-muted-foreground">
-                💡 Les CUE points seront automatiquement appliqués
-              </p>
+            {availableSounds.length > 0 ? (
+              <>
+                <Select value={selectedSoundId} onValueChange={(id) => {
+                  setSelectedSoundId(id);
+                  const sound = availableSounds.find(s => s.id === id);
+                  if (sound) setAudioUrl(sound.url);
+                }} disabled={saving}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="🎵 Choisir un son..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSounds.map((sound) => (
+                      <SelectItem key={sound.id} value={sound.id}>
+                        <div className="flex items-center gap-2">
+                          <Music className="h-4 w-4" />
+                          {sound.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {questionType === 'blind_test' && selectedSoundId && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Les CUE points seront automatiquement appliqués
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="p-3 bg-muted rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground">
+                  ⚠️ Aucun son disponible. Veuillez d'abord ajouter des sons dans la section "Sons" de l'administration.
+                </p>
+              </div>
             )}
           </div>
 

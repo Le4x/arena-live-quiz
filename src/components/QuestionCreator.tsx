@@ -274,7 +274,7 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
             <Music className="h-4 w-4" />
             Son (optionnel)
           </Label>
-          {availableSounds.length > 0 && (
+          {availableSounds.length > 0 ? (
             <>
               <Select value={selectedSoundId} onValueChange={(id) => {
                 setSelectedSoundId(id);
@@ -309,6 +309,12 @@ export const QuestionCreator = ({ rounds, onQuestionCreated }: QuestionCreatorPr
                 </p>
               )}
             </>
+          ) : (
+            <div className="mt-2 p-3 bg-muted rounded-lg border border-border">
+              <p className="text-sm text-muted-foreground">
+                ⚠️ Aucun son disponible. Veuillez d'abord ajouter des sons dans la section "Sons" de l'administration.
+              </p>
+            </div>
           )}
 
           <div className="mt-4">
