@@ -100,10 +100,52 @@ const Regie = () => {
   // Recharger les buzzers quand la question change
   useEffect(() => {
     console.log('📌 Regie: Question changed, reloading buzzers', { currentQuestionId, sessionId });
-    loadBuzzers();
+    if (currentQuestionId && sessionId) {
+      loadBuzzers();
+    }
   }, [currentQuestionId, sessionId]);
 
-  // Polling SUPPRIMÉ - Uniquement realtime pour alléger la charge serveur
+  // POLLING DE SECOURS pour les buzzers - uniquement si une question est active
+  useEffect(() => {
+    if (!currentQuestionId || !sessionId) return;
+    
+    console.log('⏰ Démarrage polling de secours pour les buzzers');
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling buzzers (secours)');
+      if (currentQuestionId && sessionId) {
+        // Faire un appel direct pour éviter les problèmes de dépendances
+        supabase.from('buzzer_attempts')
+          .select('*, teams(*)')
+          .eq('question_id', currentQuestionId)
+          .eq('game_session_id', sessionId)
+          .order('buzzed_at', { ascending: true })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              // Arrêter audio si premier buzzer détecté
+              if (data.length > 0 && buzzers.length === 0) {
+                const currentQ = questions.find(q => q.id === currentQuestionId);
+                if (currentQ?.question_type === 'blind_test') {
+                  console.log('🛑 POLLING: Premier buzzer détecté - arrêt audio');
+                  const currentPos = audioEngine.getPosition();
+                  const relativePos = currentPos - clipStartTime;
+                  audioEngine.stopWithFade(30);
+                  setTimerWhenBuzzed(timerRemaining);
+                  setAudioPositionWhenBuzzed(relativePos);
+                  setBuzzerLocked(true);
+                  setTimerActive(false);
+                }
+              }
+              setBuzzers(data);
+            }
+          });
+      }
+    }, 2000);
+    
+    return () => {
+      console.log('⏰ Arrêt polling de secours');
+      clearInterval(pollInterval);
+    };
+  }, [currentQuestionId, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -153,39 +195,7 @@ const Regie = () => {
         });
       }
       
-      // PREMIER BUZZER = ARRÊT IMMÉDIAT pour blind test
-      const currentQ = questions.find(q => q.id === currentQuestionId);
-      if (previousBuzzersCount.current === 0 && buzzers.length >= 1 && currentQ?.question_type === 'blind_test') {
-        console.log('🛑 PREMIER BUZZER - Arrêt timer et musique immédiat');
-        console.log('🎵 Timer restant:', timerRemaining, '| Buzzer locked:', buzzerLocked);
-        
-        // CAPTURER LA POSITION IMMÉDIATEMENT avant tout arrêt
-        const currentPos = audioEngine.getPosition();
-        const relativePos = currentPos - clipStartTime;
-        
-        // ARRÊT INSTANTANÉ de la musique
-        console.log('🎵 STOP audio à position:', currentPos);
-        audioEngine.stopWithFade(30);
-        
-        // Sauvegarder les positions
-        setTimerWhenBuzzed(timerRemaining);
-        setAudioPositionWhenBuzzed(relativePos);
-        console.log('💾 Sauvegardé - position absolue:', currentPos, '| relative:', relativePos);
-        
-        setBuzzerLocked(true);
-        setTimerActive(false);
-        
-        // Mettre à jour la DB
-        if (sessionId) {
-          supabase.from('game_state').update({ 
-            timer_active: false,
-            timer_remaining: timerRemaining,
-            is_buzzer_active: false
-          }).eq('game_session_id', sessionId).then(() => {
-            console.log('✅ DB mise à jour - buzzer désactivé');
-          });
-        }
-      }
+      // PREMIER BUZZER = ARRÊT IMMÉDIAT pour blind test (déplacé dans loadBuzzers pour plus de fiabilité)
     }
     
     // Mettre à jour le compteur
@@ -302,7 +312,7 @@ const Regie = () => {
     const qId = currentQuestionId;
     const sId = sessionId;
     
-    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId });
+    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId, timestamp: new Date().toISOString() });
     
     if (!qId || !sId) {
       console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
@@ -325,6 +335,21 @@ const Regie = () => {
       
       console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
       if (data) {
+        // Arrêter immédiatement l'audio si c'est le premier buzzer pour un blind test
+        if (data.length > 0 && buzzers.length === 0) {
+          const currentQ = questions.find(q => q.id === qId);
+          if (currentQ?.question_type === 'blind_test') {
+            console.log('🛑 PREMIER BUZZER DÉTECTÉ - Arrêt audio immédiat');
+            const currentPos = audioEngine.getPosition();
+            const relativePos = currentPos - clipStartTime;
+            audioEngine.stopWithFade(30);
+            setTimerWhenBuzzed(timerRemaining);
+            setAudioPositionWhenBuzzed(relativePos);
+            setBuzzerLocked(true);
+            setTimerActive(false);
+            console.log('💾 Audio stoppé à position:', currentPos, '| relative:', relativePos);
+          }
+        }
         setBuzzers(data);
         console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
       }
@@ -332,7 +357,7 @@ const Regie = () => {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  }, [currentQuestionId, sessionId]);
+  }, [currentQuestionId, sessionId, buzzers.length, questions, timerRemaining, clipStartTime]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');
@@ -374,14 +399,15 @@ const Regie = () => {
         }
       });
 
-    // Abonnement buzzers GLOBAL avec timestamp unique
-    const buzzersChannel = supabase.channel('regie-buzzers-' + Date.now())
+    // Abonnement buzzers GLOBAL - NOM STABLE pour reconnexion fiable
+    const buzzersChannel = supabase.channel('regie-buzzers-realtime')
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
         table: 'buzzer_attempts' 
       }, (payload) => {
-        console.log('🔔 Regie: Buzzer INSERT détecté', payload);
+        console.log('🔔 Regie: Buzzer INSERT détecté (realtime)', payload);
+        // Appeler loadBuzzers immédiatement pour refresh
         loadBuzzers();
       })
       .on('postgres_changes', { 
@@ -389,14 +415,24 @@ const Regie = () => {
         schema: 'public', 
         table: 'buzzer_attempts' 
       }, (payload) => {
-        console.log('🗑️ Regie: Buzzer DELETE détecté', payload);
+        console.log('🗑️ Regie: Buzzer DELETE détecté (realtime)', payload);
+        loadBuzzers();
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'buzzer_attempts' 
+      }, (payload) => {
+        console.log('🔄 Regie: Buzzer UPDATE détecté (realtime)', payload);
         loadBuzzers();
       })
       .subscribe((status) => {
         console.log('📡 Buzzers channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Buzzers channel subscribed successfully');
+        } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Buzzers channel error - reconnecting...');
-          setTimeout(() => loadBuzzers(), 2000);
+          setTimeout(() => loadBuzzers(), 1000);
         }
       });
 
