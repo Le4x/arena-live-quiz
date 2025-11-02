@@ -399,10 +399,10 @@ const Client = () => {
     
     // Vérifier si l'équipe est bloquée
     if (team && gameState?.excluded_teams) {
-      const excludedTeams = (gameState.excluded_teams || []) as any[];
-      const isBlocked = excludedTeams.some(
-        (t: any) => (t.team_id || t.id) === team.id
-      );
+      const excludedTeams = (gameState.excluded_teams || []) as string[];
+      // excluded_teams est un array d'UUID strings
+      const isBlocked = excludedTeams.includes(team.id);
+      console.log('🚫 Check blocked status:', { teamId: team.id, excludedTeams, isBlocked });
       setIsTeamBlocked(isBlocked);
     } else {
       setIsTeamBlocked(false);
@@ -1018,11 +1018,11 @@ const Client = () => {
       return;
     }
 
-    // Vérifier si l'équipe est exclue
-    const excludedTeams = (gameState.excluded_teams || []) as any[];
-    const isBlocked = excludedTeams.some(
-      (t: any) => (t.team_id || t.id || t.teamId) === team.id
-    );
+    // Vérifier si l'équipe est exclue - excluded_teams est un array d'UUID strings
+    const excludedTeams = (gameState.excluded_teams || []) as string[];
+    const isBlocked = excludedTeams.includes(team.id);
+    
+    console.log('🚫 Check exclusion in buzzer:', { teamId: team.id, excludedTeams, isBlocked });
     
     if (isBlocked) {
       console.log('❌ Buzzer bloqué - équipe exclue');
