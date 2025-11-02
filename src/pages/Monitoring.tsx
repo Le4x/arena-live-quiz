@@ -34,13 +34,17 @@ export const Monitoring = () => {
     currentQuestion: string | null;
     buzzersCount: number;
     answersCount: number;
+    activeTeams?: number;
+    connectedTeams?: number;
   }>({
     teams: 0,
     simulationTeams: 0,
     activeSession: null,
     currentQuestion: null,
     buzzersCount: 0,
-    answersCount: 0
+    answersCount: 0,
+    activeTeams: 0,
+    connectedTeams: 0
   });
   const [logs, setLogs] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -55,15 +59,19 @@ export const Monitoring = () => {
       const { error: dbError } = await supabase.from('game_sessions').select('id').limit(1);
       const dbLatency = Date.now() - dbStart;
       
-      // Test connexion realtime
-      const channels = supabase.getChannels();
-      const activeChannels = channels.filter(c => c.state === 'joined');
-      const totalChannels = channels.length;
+      // Test connexion realtime - TOUS les channels Supabase (pas seulement RealtimeManager)
+      const allSupabaseChannels = supabase.getChannels();
+      const joinedChannels = allSupabaseChannels.filter(c => c.state === 'joined');
+      const activeChannels = joinedChannels;
+      const totalChannels = allSupabaseChannels.length;
       
-      logger.info(`📊 Monitoring update - Channels: ${activeChannels.length}/${totalChannels}`);
+      logger.info(`📊 Monitoring - Channels Supabase: ${activeChannels.length}/${totalChannels} (RealtimeManager: ${stats.channelCount})`);
       
       // Game metrics
       const { data: teams } = await supabase.from('teams').select('*');
+      const activeTeams = teams?.filter(t => t.is_active) || [];
+      const connectedTeams = teams?.filter(t => t.connected_device_id) || [];
+      
       const { data: activeSession } = await supabase
         .from('game_sessions')
         .select('*')
@@ -94,8 +102,10 @@ export const Monitoring = () => {
         activeSession: activeSession?.name || null,
         currentQuestion: gameState?.current_question_id || null,
         buzzersCount: buzzers?.length || 0,
-        answersCount: answers?.length || 0
-      });
+        answersCount: answers?.length || 0,
+        activeTeams: activeTeams.length,
+        connectedTeams: connectedTeams.length
+      } as any);
       
       const newMetrics: MetricCard[] = [
         {
@@ -106,13 +116,20 @@ export const Monitoring = () => {
           description: dbError ? dbError.message : 'Connexion stable'
         },
         {
-          title: 'Channels Realtime',
+          title: 'Channels Realtime (Supabase)',
           value: `${activeChannels.length}/${totalChannels}`,
-          status: activeChannels.length === totalChannels && activeChannels.length > 0 ? 'ok' : 'warning',
+          status: activeChannels.length > 0 ? 'ok' : 'warning',
           icon: <Wifi className="w-5 h-5" />,
-          description: activeChannels.length > 0 
-            ? `${activeChannels.length} channels connectés` 
-            : '⚠️ Aucun channel actif'
+          description: `${joinedChannels.length} joined | Manager: ${stats.channelCount}`
+        },
+        {
+          title: 'Équipes Connectées',
+          value: `${(gameMetrics as any).connectedTeams || 0}/${(gameMetrics as any).activeTeams || 0}`,
+          status: (gameMetrics as any).activeTeams > 0 ? 'ok' : 'warning',
+          icon: <Users className="w-5 h-5" />,
+          description: (gameMetrics as any).activeTeams > 0 
+            ? `${(gameMetrics as any).activeTeams} équipes actives` 
+            : 'Aucune équipe active'
         },
         {
           title: 'Reconnexions',
@@ -122,7 +139,7 @@ export const Monitoring = () => {
           description: stats.isReconnecting ? 'Reconnexion en cours...' : 'Stable'
         },
         {
-          title: 'Performance',
+          title: 'Performance JS',
           value: `${Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || 'N/A'}MB`,
           status: 'ok',
           icon: <Activity className="w-5 h-5" />,
@@ -134,10 +151,19 @@ export const Monitoring = () => {
       setLastUpdate(new Date());
       
       // Log
-      const logEntry = `[${new Date().toISOString()}] DB: ${dbLatency}ms | Channels: ${activeChannels.length}/${channels.length} | Reconnects: ${stats.reconnectAttempts}`;
+      const logEntry = `[${new Date().toISOString()}] DB: ${dbLatency}ms | Channels: ${activeChannels.length}/${totalChannels} (${joinedChannels.length}j) | Teams: ${(gameMetrics as any).connectedTeams}/${(gameMetrics as any).activeTeams} | Reconnects: ${stats.reconnectAttempts}`;
       setLogs(prev => [logEntry, ...prev.slice(0, 49)]);
       
-      logger.info('Monitoring update', { metrics: newMetrics, stats, gameMetrics });
+      logger.info('Monitoring update', { 
+        metrics: newMetrics, 
+        stats, 
+        gameMetrics,
+        supabaseChannels: {
+          total: totalChannels,
+          joined: joinedChannels.length,
+          topics: allSupabaseChannels.map(c => ({ topic: c.topic, state: c.state }))
+        }
+      });
     };
 
     // Mise à jour immédiate
@@ -200,7 +226,7 @@ export const Monitoring = () => {
         {/* Infrastructure Metrics */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Infrastructure</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {metrics.map((metric, idx) => (
               <MetricCardComponent key={idx} {...metric} />
             ))}
@@ -260,18 +286,59 @@ export const Monitoring = () => {
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Wifi className="w-5 h-5" />
-            <h2 className="text-xl font-semibold">Canaux Realtime</h2>
+            <h2 className="text-xl font-semibold">Canaux Realtime Supabase</h2>
+            <Badge variant="outline">
+              {supabase.getChannels().length} total
+            </Badge>
           </div>
-          <div className="space-y-2">
-            {supabase.getChannels().map((channel, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <span className="font-mono text-sm">{channel.topic}</span>
-                <Badge variant={channel.state === 'joined' ? 'default' : 'secondary'}>
-                  {channel.state}
-                </Badge>
-              </div>
-            ))}
-          </div>
+          {supabase.getChannels().length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Wifi className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>Aucun canal Realtime actif</p>
+              <p className="text-sm mt-1">Les canaux apparaîtront quand des pages Client/Régie/Screen seront ouvertes</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {supabase.getChannels().map((channel, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex-1">
+                    <span className="font-mono text-sm">{channel.topic}</span>
+                    <div className="flex gap-2 mt-1">
+                      {channel.state === 'joined' && (
+                        <Badge variant="default" className="text-xs">
+                          ✓ Joined
+                        </Badge>
+                      )}
+                      {channel.state === 'joining' && (
+                        <Badge variant="secondary" className="text-xs">
+                          → Joining
+                        </Badge>
+                      )}
+                      {channel.state === 'closed' && (
+                        <Badge variant="destructive" className="text-xs">
+                          ✗ Closed
+                        </Badge>
+                      )}
+                      {channel.state === 'errored' && (
+                        <Badge variant="destructive" className="text-xs">
+                          ⚠ Error
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant={
+                    channel.state === 'joined' 
+                      ? 'default' 
+                      : channel.state === 'closed' || channel.state === 'errored'
+                      ? 'destructive'
+                      : 'secondary'
+                  }>
+                    {channel.state}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Logs */}
