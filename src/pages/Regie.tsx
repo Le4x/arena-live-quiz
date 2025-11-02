@@ -25,7 +25,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
 import { FinalManager } from "@/components/regie/FinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
-import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
+import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 
 const Regie = () => {
   const { toast } = useToast();

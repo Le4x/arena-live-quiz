@@ -15,7 +15,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
 import { motion } from "framer-motion";
-import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
+import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 
 const Client = () => {

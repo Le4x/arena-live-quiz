@@ -16,7 +16,7 @@ import { FinalIntroScreen } from "@/components/tv/FinalIntroScreen";
 import { PublicVoteResults } from "@/components/tv/PublicVoteResults";
 import { SponsorsScreen } from "@/components/tv/SponsorsScreen";
 import { ThanksScreen } from "@/components/tv/ThanksScreen";
-import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
+import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 
 const Screen = () => {
   const gameEvents = getGameEvents();
