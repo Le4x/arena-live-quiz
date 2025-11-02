@@ -1447,6 +1447,7 @@ const Client = () => {
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
+              {/* Désactiver COMPLÈTEMENT le buzzer si équipe bloquée */}
               {isTeamBlocked ? (
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
@@ -1482,7 +1483,8 @@ const Client = () => {
                     <Button
                       ref={buzzerButtonRef}
                       onClick={handleBuzzer}
-                      className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95 animate-pulse"
+                      disabled={isTeamBlocked}
+                      className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95 animate-pulse disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{
                         boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)',
                         animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
@@ -1492,7 +1494,9 @@ const Client = () => {
                       ⚡ BUZZER
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Appuyez pour buzzer et donner votre réponse !</TooltipContent>
+                  <TooltipContent>
+                    {isTeamBlocked ? '🚫 Votre équipe est bloquée' : 'Appuyez pour buzzer et donner votre réponse !'}
+                  </TooltipContent>
                 </Tooltip>
               ) : (
                 <motion.div

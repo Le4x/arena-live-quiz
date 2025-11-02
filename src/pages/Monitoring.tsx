@@ -62,14 +62,26 @@ export const Monitoring = () => {
       // Test connexion realtime - TOUS les channels Supabase (pas seulement RealtimeManager)
       const allSupabaseChannels = supabase.getChannels();
       const joinedChannels = allSupabaseChannels.filter(c => c.state === 'joined');
-      const activeChannels = joinedChannels;
+      const joiningChannels = allSupabaseChannels.filter(c => c.state === 'joining');
+      const closedChannels = allSupabaseChannels.filter(c => c.state === 'closed');
+      const erroredChannels = allSupabaseChannels.filter(c => c.state === 'errored');
+      const activeChannels = [...joinedChannels, ...joiningChannels];
       const totalChannels = allSupabaseChannels.length;
       
-      logger.info(`📊 Monitoring - Channels Supabase: ${activeChannels.length}/${totalChannels} (RealtimeManager: ${stats.channelCount})`);
+      logger.info(`📊 Monitoring - Channels Supabase: ${activeChannels.length}/${totalChannels} (joined: ${joinedChannels.length}, joining: ${joiningChannels.length}, closed: ${closedChannels.length}, errored: ${erroredChannels.length})`);
       
-      // Game metrics
+      // Game metrics - Vérifier last_seen_at pour équipes réellement connectées
       const { data: teams } = await supabase.from('teams').select('*');
-      const activeTeams = teams?.filter(t => t.is_active) || [];
+      const now = Date.now();
+      const twoMinutesAgo = now - 120000;
+      
+      // Équipe active = last_seen_at récent (moins de 2 minutes)
+      const activeTeams = teams?.filter(t => {
+        if (!t.last_seen_at) return false;
+        const lastSeen = new Date(t.last_seen_at).getTime();
+        return lastSeen > twoMinutesAgo;
+      }) || [];
+      
       const connectedTeams = teams?.filter(t => t.connected_device_id) || [];
       
       const { data: activeSession } = await supabase
@@ -120,15 +132,15 @@ export const Monitoring = () => {
           value: `${activeChannels.length}/${totalChannels}`,
           status: activeChannels.length > 0 ? 'ok' : 'warning',
           icon: <Wifi className="w-5 h-5" />,
-          description: `${joinedChannels.length} joined | Manager: ${stats.channelCount}`
+          description: `✓ ${joinedChannels.length} joined | ⏳ ${joiningChannels.length} joining | ✗ ${closedChannels.length} closed | ⚠ ${erroredChannels.length} errored`
         },
         {
           title: 'Équipes Connectées',
-          value: `${(gameMetrics as any).connectedTeams || 0}/${(gameMetrics as any).activeTeams || 0}`,
-          status: (gameMetrics as any).activeTeams > 0 ? 'ok' : 'warning',
+          value: `${activeTeams.length}/${gameMetrics.teams}`,
+          status: activeTeams.length > 0 ? 'ok' : 'warning',
           icon: <Users className="w-5 h-5" />,
-          description: (gameMetrics as any).activeTeams > 0 
-            ? `${(gameMetrics as any).activeTeams} équipes actives` 
+          description: activeTeams.length > 0 
+            ? `${activeTeams.length} équipes actives (vues <2min) | ${connectedTeams.length} avec device_id` 
             : 'Aucune équipe active'
         },
         {
@@ -151,17 +163,21 @@ export const Monitoring = () => {
       setLastUpdate(new Date());
       
       // Log
-      const logEntry = `[${new Date().toISOString()}] DB: ${dbLatency}ms | Channels: ${activeChannels.length}/${totalChannels} (${joinedChannels.length}j) | Teams: ${(gameMetrics as any).connectedTeams}/${(gameMetrics as any).activeTeams} | Reconnects: ${stats.reconnectAttempts}`;
+      const logEntry = `[${new Date().toISOString()}] DB: ${dbLatency}ms | Channels: ${activeChannels.length}/${totalChannels} (${joinedChannels.length}✓ ${joiningChannels.length}⏳ ${closedChannels.length}✗) | Teams: ${activeTeams.length}/${gameMetrics.teams} | Reconnects: ${stats.reconnectAttempts}`;
       setLogs(prev => [logEntry, ...prev.slice(0, 49)]);
       
       logger.info('Monitoring update', { 
         metrics: newMetrics, 
         stats, 
         gameMetrics,
+        activeTeamsDetails: activeTeams.map(t => ({ name: t.name, lastSeen: t.last_seen_at })),
         supabaseChannels: {
           total: totalChannels,
           joined: joinedChannels.length,
-          topics: allSupabaseChannels.map(c => ({ topic: c.topic, state: c.state }))
+          joining: joiningChannels.length,
+          closed: closedChannels.length,
+          errored: erroredChannels.length,
+          details: allSupabaseChannels.map(c => ({ topic: c.topic, state: c.state }))
         }
       });
     };
