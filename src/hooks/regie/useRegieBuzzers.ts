@@ -10,9 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/utils/logger';
 import { toast } from 'sonner';
 
-export const useRegieBuzzers = (questionId?: string, sessionId?: string) => {
+export const useRegieBuzzers = (questionInstanceId?: string, sessionId?: string) => {
   const audioEngine = getAudioEngine();
-  const { data: buzzersData } = useBuzzers(questionId, sessionId);
+  const { data: buzzersData } = useBuzzers(questionInstanceId, sessionId);
   const { data: gameState } = useGameState(sessionId);
   
   const {
@@ -83,21 +83,21 @@ export const useRegieBuzzers = (questionId?: string, sessionId?: string) => {
   }, [buzzersData, gameState, buzzerLocked, setBuzzers, lockBuzzer]);
 
   const resetBuzzers = useCallback(async () => {
-    if (!questionId || !sessionId) return;
+    if (!questionInstanceId || !sessionId) return;
 
     try {
       await supabase
         .from('buzzer_attempts')
         .delete()
-        .eq('question_id', questionId)
+        .eq('question_instance_id', questionInstanceId)
         .eq('game_session_id', sessionId);
 
       clearBuzzers();
-      logger.buzzer('Buzzers reset', { questionId, sessionId });
+      logger.buzzer('Buzzers reset', { questionInstanceId, sessionId });
     } catch (error) {
       logger.error('Failed to reset buzzers', error as Error);
     }
-  }, [questionId, sessionId, clearBuzzers]);
+  }, [questionInstanceId, sessionId, clearBuzzers]);
 
   return {
     buzzers,

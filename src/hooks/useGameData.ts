@@ -183,23 +183,23 @@ export const useGameState = (sessionId?: string) => {
 
 // ==================== BUZZER HOOKS ====================
 
-export const useBuzzers = (questionId?: string, sessionId?: string) => {
+export const useBuzzers = (questionInstanceId?: string, sessionId?: string) => {
   return useQuery({
-    queryKey: queryKeys.buzzers(questionId, sessionId),
+    queryKey: queryKeys.buzzers(questionInstanceId, sessionId),
     queryFn: async (): Promise<BuzzerAttempt[]> => {
-      if (!questionId || !sessionId) return [];
+      if (!questionInstanceId || !sessionId) return [];
 
       const { data, error } = await supabase
         .from('buzzer_attempts')
         .select('*, teams(*)')
-        .eq('question_id', questionId)
+        .eq('question_instance_id', questionInstanceId)
         .eq('game_session_id', sessionId)
         .order('buzzed_at', { ascending: true });
 
       if (error) throw error;
       return (data as BuzzerAttempt[]) || [];
     },
-    enabled: !!questionId && !!sessionId,
+    enabled: !!questionInstanceId && !!sessionId,
     staleTime: 3000, // 3 secondes
   });
 };
