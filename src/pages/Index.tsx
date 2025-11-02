@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Settings, PlaySquare, Monitor, Users } from "lucide-react";
+import { Settings, PlaySquare, Monitor, Users, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -87,6 +87,23 @@ const Index = () => {
             </div>
           </Card>
         </div>
+
+        <Card 
+          className="p-6 bg-card/80 backdrop-blur-sm border-blue-500/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105 max-w-sm mx-auto"
+          onClick={() => navigate('/monitoring')}
+        >
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <Activity className="h-8 w-8 text-blue-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Monitoring</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Surveillance système en temps réel
+              </p>
+            </div>
+          </div>
+        </Card>
 
         <div className="text-center mt-8">
           <p className="text-sm text-muted-foreground">
