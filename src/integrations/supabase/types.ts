@@ -206,6 +206,8 @@ export type Database = {
         Row: {
           announcement_text: string | null
           answer_result: string | null
+          audio_current_time: number | null
+          audio_is_playing: boolean | null
           current_question_id: string | null
           current_question_instance_id: string | null
           current_round_id: string | null
@@ -216,6 +218,8 @@ export type Database = {
           game_session_id: string | null
           id: string
           is_buzzer_active: boolean | null
+          karaoke_playing: boolean | null
+          karaoke_revealed: boolean | null
           leaderboard_page: number | null
           show_ambient_screen: boolean | null
           show_answer: boolean | null
@@ -236,6 +240,8 @@ export type Database = {
         Insert: {
           announcement_text?: string | null
           answer_result?: string | null
+          audio_current_time?: number | null
+          audio_is_playing?: boolean | null
           current_question_id?: string | null
           current_question_instance_id?: string | null
           current_round_id?: string | null
@@ -246,6 +252,8 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
+          karaoke_playing?: boolean | null
+          karaoke_revealed?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
           show_answer?: boolean | null
@@ -266,6 +274,8 @@ export type Database = {
         Update: {
           announcement_text?: string | null
           answer_result?: string | null
+          audio_current_time?: number | null
+          audio_is_playing?: boolean | null
           current_question_id?: string | null
           current_question_instance_id?: string | null
           current_round_id?: string | null
@@ -276,6 +286,8 @@ export type Database = {
           game_session_id?: string | null
           id?: string
           is_buzzer_active?: boolean | null
+          karaoke_playing?: boolean | null
+          karaoke_revealed?: boolean | null
           leaderboard_page?: number | null
           show_ambient_screen?: boolean | null
           show_answer?: boolean | null
@@ -513,12 +525,14 @@ export type Database = {
           display_order: number | null
           id: string
           image_url: string | null
+          lyrics: Json | null
           options: Json | null
           penalty_points: number | null
           points: number | null
           question_text: string
           question_type: string
           round_id: string | null
+          stop_time: number | null
         }
         Insert: {
           audio_url?: string | null
@@ -528,12 +542,14 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          lyrics?: Json | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null
           question_text: string
           question_type: string
           round_id?: string | null
+          stop_time?: number | null
         }
         Update: {
           audio_url?: string | null
@@ -543,12 +559,14 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          lyrics?: Json | null
           options?: Json | null
           penalty_points?: number | null
           points?: number | null
           question_text?: string
           question_type?: string
           round_id?: string | null
+          stop_time?: number | null
         }
         Relationships: [
           {
@@ -821,6 +839,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_team_buzz: {
+        Args: { p_session_id: string; p_team_id: string }
+        Returns: boolean
+      }
       generate_team_pin: { Args: never; Returns: string }
       is_admin: { Args: { check_user_id: string }; Returns: boolean }
       reset_game_session: { Args: { session_id: string }; Returns: undefined }

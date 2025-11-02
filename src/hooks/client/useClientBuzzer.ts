@@ -22,6 +22,24 @@ export const useClientBuzzer = (
     }
 
     try {
+      // Vérifier si l'équipe est bloquée
+      const { data: gameState } = await supabase
+        .from('game_state')
+        .select('excluded_teams')
+        .eq('game_session_id', sessionId)
+        .maybeSingle();
+      
+      const excludedTeams = (gameState?.excluded_teams as any[]) || [];
+      const isBlocked = excludedTeams.some(
+        (t: any) => (t.team_id || t.id) === teamId
+      );
+      
+      if (isBlocked) {
+        logger.warn('Team is blocked', { teamId });
+        toast.error('🚫 Votre équipe est bloquée et ne peut plus buzzer');
+        return;
+      }
+
       // Vérifier si déjà buzzé
       const { data: existing } = await supabase
         .from('buzzer_attempts')
@@ -46,7 +64,15 @@ export const useClientBuzzer = (
           buzzed_at: new Date().toISOString(),
         });
 
-      if (error) throw error;
+      if (error) {
+        // Si l'erreur vient de la policy de blocage, message explicite
+        if (error.message?.includes('can_team_buzz') || error.message?.includes('policy')) {
+          toast.error('🚫 Votre équipe est bloquée et ne peut plus buzzer');
+        } else {
+          toast.error('Erreur lors du buzzer');
+        }
+        throw error;
+      }
 
       setHasBuzzed(true);
       playSound('buzz');
@@ -55,7 +81,6 @@ export const useClientBuzzer = (
       logger.buzzer('Buzzed', { teamId, questionId });
     } catch (error) {
       logger.error('Buzz failed', error as Error);
-      toast.error('Erreur lors du buzzer');
     }
   }, [teamId, questionId, questionInstanceId, sessionId, hasBuzzed]);
 
