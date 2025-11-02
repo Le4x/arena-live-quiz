@@ -270,11 +270,24 @@ export const useGameSimulation = () => {
     });
 
     try {
+      // Check game state for blocked teams
+      const { data: gameState } = await supabase
+        .from('game_state')
+        .select('excluded_teams')
+        .eq('game_session_id', sessionId)
+        .maybeSingle();
+      
+      const blockedTeamIds = new Set(
+        (gameState?.excluded_teams as any[])?.map(t => t.team_id || t.id) || []
+      );
+      
+      console.log(`🚫 Équipes bloquées: ${blockedTeamIds.size}`, Array.from(blockedTeamIds));
+
       // Check if already buzzed for this question instance
       console.log('🔍 Vérification des buzzers existants...');
       const { data: existingBuzzers, error: buzzerError } = await supabase
         .from('buzzer_attempts')
-        .select('team_id, teams(name)')
+        .select('team_id, teams(name), is_blocked:teams(is_excluded)')
         .eq('question_instance_id', questionInstanceId);
 
       if (buzzerError) {
@@ -284,31 +297,41 @@ export const useGameSimulation = () => {
 
       const buzzedTeamIds = new Set(existingBuzzers?.map(b => b.team_id) || []);
       console.log(`📊 Buzzers existants: ${buzzedTeamIds.size} équipes ont déjà buzzé`);
-      if (existingBuzzers && existingBuzzers.length > 0) {
-        console.log('📋 Équipes ayant déjà buzzé:', existingBuzzers);
-      }
 
-      // IMPORTANT: Ne pas re-buzzer si l'équipe a déjà buzzé pour cette instance
-      const teamsWhoCanBuzz = simulatedTeams.filter(t => !buzzedTeamIds.has(t.id));
+      // IMPORTANT: Filter out teams that:
+      // 1. Already buzzed for this instance
+      // 2. Are blocked/excluded
+      const teamsWhoCanBuzz = simulatedTeams.filter(t => 
+        !buzzedTeamIds.has(t.id) && !blockedTeamIds.has(t.id)
+      );
       
-      console.log(`✅ ${teamsWhoCanBuzz.length} équipes peuvent buzzer (pas encore buzzé)`);
+      console.log(`✅ ${teamsWhoCanBuzz.length} équipes peuvent buzzer (pas buzzé + pas bloqué)`);
+      console.log('📋 Équipes autorisées:', teamsWhoCanBuzz.map(t => t.name));
+      
+      // Cancel any pending buzzers for blocked teams
+      blockedTeamIds.forEach(teamId => {
+        const timeout = buzzerTimeoutsRef.current.get(teamId);
+        if (timeout) {
+          console.log(`🚫 Annulation du buzzer programmé pour équipe bloquée: ${teamId}`);
+          clearTimeout(timeout);
+          buzzerTimeoutsRef.current.delete(teamId);
+        }
+      });
       
       if (teamsWhoCanBuzz.length === 0) {
-        console.log('⚠️ Toutes les équipes ont déjà buzzé pour cette instance');
-        logger.warn('All teams already buzzed for this instance');
+        console.log('⚠️ Aucune équipe disponible pour buzzer (déjà buzzé ou bloqué)');
+        logger.warn('No teams available to buzz');
         return;
       }
 
-      // Select 30-70% of teams who haven't buzzed yet to buzz
+      // Select 30-70% of available teams to buzz
       const teamsWhoWillBuzz = teamsWhoCanBuzz
         .filter(() => Math.random() < 0.5);
 
       console.log(`🎯 ${teamsWhoWillBuzz.length} équipes vont buzzer:`, teamsWhoWillBuzz.map(t => t.name));
-      logger.info(`🎯 ${teamsWhoWillBuzz.length} teams will buzz`);
 
       if (teamsWhoWillBuzz.length === 0) {
         console.log('⚠️ Aucune équipe sélectionnée pour buzzer (aléatoire)');
-        logger.warn('No teams selected to buzz (random)');
         return;
       }
 
@@ -322,7 +345,9 @@ export const useGameSimulation = () => {
 
         const timeout = setTimeout(async () => {
           try {
-            // Double-check avant d'insérer
+            // Triple check before inserting:
+            // 1. Not already buzzed
+            // 2. Not blocked
             const { data: recheck } = await supabase
               .from('buzzer_attempts')
               .select('id')
@@ -332,6 +357,22 @@ export const useGameSimulation = () => {
             
             if (recheck) {
               console.log(`⚠️ ${team.name} a déjà buzzé pendant le délai, annulation`);
+              return;
+            }
+            
+            // Check if team is now blocked
+            const { data: currentGameState } = await supabase
+              .from('game_state')
+              .select('excluded_teams')
+              .eq('game_session_id', sessionId)
+              .maybeSingle();
+            
+            const currentBlockedIds = new Set(
+              (currentGameState?.excluded_teams as any[])?.map(t => t.team_id || t.id) || []
+            );
+            
+            if (currentBlockedIds.has(team.id)) {
+              console.log(`🚫 ${team.name} est maintenant bloqué, annulation du buzzer`);
               return;
             }
 

@@ -211,13 +211,20 @@ export class RealtimeManager {
       console.log(`💓 RealtimeManager: Heartbeat - ${channelCount} channels locaux, ${allChannels.length} channels Supabase`);
 
       // Vérifier si des channels sont déconnectés
+      let hasClosedChannels = false;
       this.channels.forEach((channel, name) => {
         if (channel.state === 'closed') {
-          console.warn(`⚠️ RealtimeManager: Channel ${name} fermé, reconnexion...`);
-          this.reconnectAll();
+          console.warn(`⚠️ RealtimeManager: Channel ${name} fermé (state: ${channel.state})`);
+          hasClosedChannels = true;
         }
       });
-    }, 30000); // Toutes les 30 secondes
+      
+      // Seulement reconnect si vraiment nécessaire
+      if (hasClosedChannels && !this.isReconnecting) {
+        console.warn('⚠️ RealtimeManager: Channels fermés détectés, reconnexion...');
+        this.reconnectAll();
+      }
+    }, 60000); // Toutes les 60 secondes (réduit pour éviter spam)
   }
 
   /**
