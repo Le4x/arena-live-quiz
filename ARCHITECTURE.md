@@ -114,6 +114,24 @@ L'application ARENA a été refactorisée pour suivre les meilleures pratiques d
 - ✅ Logs clairs avec emojis
 - ✅ Architecture facile à étendre
 
+## 🤖 Système de Simulation (Testing)
+
+### Hook: `useGameSimulation`
+Simule des équipes automatiques pour tester l'application.
+
+**Capacités** :
+- Création d'équipes virtuelles (préfixe `SIM-`)
+- Réponse automatique aux buzzers (délais configurables)
+- Soumission de réponses QCM et texte libre
+- Configuration de la probabilité de bonnes réponses
+- Contrôle en temps réel (start/stop)
+
+**Composant** : `SimulationControlPanel`
+
+Voir [README-SIMULATION.md](./README-SIMULATION.md) pour plus de détails.
+
+---
+
 ## 🔧 Prochaines optimisations possibles
 
 ### Phase 5 - Performance (À venir)

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TeamCard } from "@/components/admin/TeamCard";
 import { TeamDialog } from "@/components/admin/TeamDialog";
 import { SimulationDialog } from "@/components/admin/SimulationDialog";
+import { SimulationControlPanel } from "@/components/admin/SimulationControlPanel";
 import QRCode from "qrcode";
 import {
   Dialog,
@@ -240,6 +241,11 @@ const AdminTeams = () => {
             </Button>
           </div>
         </header>
+
+        {/* Simulation Control Panel */}
+        {hasSimulationTeams && (
+          <SimulationControlPanel />
+        )}
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-6">

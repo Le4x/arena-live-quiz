@@ -92,7 +92,8 @@ export const SimulationDialog = ({ open, onOpenChange, onSuccess }: SimulationDi
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Les équipes existantes préfixées par "SIM-" seront supprimées
+              Les équipes existantes préfixées par "SIM-" seront supprimées.
+              Après création, utilisez le panneau de contrôle pour démarrer la simulation automatique.
             </AlertDescription>
           </Alert>
 
