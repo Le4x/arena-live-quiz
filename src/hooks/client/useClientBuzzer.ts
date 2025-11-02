@@ -65,13 +65,17 @@ export const useClientBuzzer = (
         });
 
       if (error) {
-        // Si l'erreur vient de la policy de blocage, message explicite
-        if (error.message?.includes('can_team_buzz') || error.message?.includes('policy')) {
+        // Si l'erreur vient du trigger ou de la policy de blocage
+        if (error.message?.includes('bloquée') || 
+            error.message?.includes('can_team_buzz') || 
+            error.message?.includes('policy') ||
+            error.code === 'P0001') {
           toast.error('🚫 Votre équipe est bloquée et ne peut plus buzzer');
         } else {
           toast.error('Erreur lors du buzzer');
         }
-        throw error;
+        logger.error('Buzz failed', error as Error);
+        return;
       }
 
       setHasBuzzed(true);

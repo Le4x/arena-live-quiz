@@ -1,0 +1,37 @@
+-- Fonction pour vérifier si une équipe est bloquée avant d'insérer un buzzer
+CREATE OR REPLACE FUNCTION check_team_not_blocked()
+RETURNS TRIGGER AS $$
+DECLARE
+  excluded_teams_data jsonb;
+  is_blocked boolean;
+BEGIN
+  -- Récupérer la liste des équipes bloquées
+  SELECT excluded_teams INTO excluded_teams_data
+  FROM game_state
+  WHERE game_session_id = NEW.game_session_id;
+  
+  -- Vérifier si l'équipe est dans la liste des bloquées
+  is_blocked := EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(COALESCE(excluded_teams_data, '[]'::jsonb)) AS elem
+    WHERE (elem->>'team_id')::uuid = NEW.team_id
+       OR (elem->>'id')::uuid = NEW.team_id
+       OR elem::text::uuid = NEW.team_id
+  );
+  
+  -- Si bloquée, empêcher l'insertion
+  IF is_blocked THEN
+    RAISE EXCEPTION 'Équipe bloquée pour cette question'
+      USING ERRCODE = 'P0001';
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Appliquer le trigger sur buzzer_attempts
+DROP TRIGGER IF EXISTS prevent_blocked_team_buzzer ON buzzer_attempts;
+CREATE TRIGGER prevent_blocked_team_buzzer
+  BEFORE INSERT ON buzzer_attempts
+  FOR EACH ROW
+  EXECUTE FUNCTION check_team_not_blocked();
