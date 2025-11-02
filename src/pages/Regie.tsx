@@ -373,9 +373,9 @@ const Regie = () => {
         console.log(`🔔 Buzzers filtrés: ${data.length} total, ${validBuzzers.length} valides`);
         
         // Arrêter immédiatement l'audio si c'est le premier buzzer VALIDE pour un blind test
-        if (validBuzzers.length > 0 && buzzers.length === 0) {
+        if (validBuzzers.length > 0) {
           const currentQ = questions.find(q => q.id === currentGameState?.current_question_id);
-          if (currentQ?.question_type === 'blind_test') {
+          if (currentQ?.question_type === 'blind_test' && !buzzerLocked) {
             console.log('🛑 PREMIER BUZZER VALIDE DÉTECTÉ - Arrêt audio immédiat');
             const currentPos = audioEngine.getPosition();
             const relativePos = currentPos - clipStartTime;
@@ -395,7 +395,7 @@ const Regie = () => {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  }, [currentQuestionInstanceId, sessionId, buzzers.length, questions, timerRemaining, clipStartTime]);
+  }, [currentQuestionInstanceId, sessionId, questions, timerRemaining, clipStartTime]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');
