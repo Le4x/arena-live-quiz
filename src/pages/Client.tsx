@@ -103,6 +103,7 @@ const Client = () => {
       loadAllTeams();
       loadActiveSession();
       loadFinal();
+      checkIfTeamBuzzed(); // Vérifier dès le chargement
     }
 
     const gameStateChannel = supabase
@@ -144,11 +145,13 @@ const Client = () => {
       })
       .subscribe();
 
-    // Écouter les buzzers pour savoir qui a buzzé
+    // Écouter les buzzers pour savoir qui a buzzé ET synchroniser hasBuzzed
     const buzzersChannel = supabase
       .channel('client-buzzers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buzzer_attempts' }, (payload) => {
+        console.log('🔔 Buzzer realtime update:', payload);
         loadFirstBuzzer();
+        checkIfTeamBuzzed(); // Vérifier si notre équipe a buzzé
       })
       .subscribe();
 
@@ -278,6 +281,9 @@ const Client = () => {
       setEliminatedOptions([]);
       setFirstBuzzerTeam(null); // Réinitialiser le premier buzzer
       hasShownTimeoutToast.current = false;
+      
+      // Vérifier immédiatement après 100ms si l'équipe a déjà buzzé (au cas où)
+      setTimeout(() => checkIfTeamBuzzed(), 100);
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
@@ -768,6 +774,24 @@ const Client = () => {
     setFirstBuzzerTeam(data?.teams || null);
   };
 
+  const checkIfTeamBuzzed = async () => {
+    if (!team?.id || !currentQuestionInstanceId || !sessionId) {
+      return;
+    }
+
+    const { data } = await supabase
+      .from('buzzer_attempts')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_instance_id', currentQuestionInstanceId)
+      .eq('game_session_id', sessionId)
+      .maybeSingle();
+
+    const teamHasBuzzed = !!data;
+    console.log('🔔 Vérification buzzer équipe:', { teamHasBuzzed, data });
+    setHasBuzzed(teamHasBuzzed);
+  };
+
   const eliminateTwoWrongAnswers = (timestamp: number, questionOptions?: any, correctAnswer?: string) => {
     console.log('🎯 [Client] eliminateTwoWrongAnswers appelé, timestamp:', timestamp);
     console.log('🎯 [Client] questionOptions:', questionOptions, 'correctAnswer:', correctAnswer);
@@ -986,13 +1010,18 @@ const Client = () => {
 
     if (hasBuzzed) {
       console.log('❌ Buzzer bloqué - déjà buzzé');
+      toast({
+        title: "⚠️ Déjà buzzé",
+        description: "Vous avez déjà buzzé pour cette question",
+        variant: "destructive"
+      });
       return;
     }
 
     // Vérifier si l'équipe est exclue
     const excludedTeams = (gameState.excluded_teams || []) as any[];
     const isBlocked = excludedTeams.some(
-      (t: any) => (t.team_id || t.id) === team.id
+      (t: any) => (t.team_id || t.id || t.teamId) === team.id
     );
     
     if (isBlocked) {
@@ -1000,6 +1029,26 @@ const Client = () => {
       toast({
         title: "🚫 Buzzer désactivé",
         description: "Vous êtes bloqué et ne pouvez plus buzzer pour cette question",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Double vérification dans la DB avant d'insérer
+    const { data: existingBuzz } = await supabase
+      .from('buzzer_attempts')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('question_instance_id', currentQuestionInstanceId)
+      .eq('game_session_id', gameState.game_session_id)
+      .maybeSingle();
+
+    if (existingBuzz) {
+      console.log('❌ Buzzer bloqué - déjà buzzé dans la DB');
+      setHasBuzzed(true);
+      toast({
+        title: "⚠️ Déjà buzzé",
+        description: "Vous avez déjà buzzé pour cette question",
         variant: "destructive"
       });
       return;
@@ -1021,14 +1070,21 @@ const Client = () => {
     if (error) {
       console.error('❌ Erreur buzzer:', error);
       if (error.code === '23505') {
+        setHasBuzzed(true);
         toast({
-          title: "Déjà buzzé",
+          title: "⚠️ Déjà buzzé",
           description: "Vous avez déjà buzzé pour cette question",
+          variant: "destructive"
+        });
+      } else if (error.message?.includes('can_team_buzz') || error.message?.includes('policy')) {
+        toast({
+          title: "🚫 Buzzer refusé",
+          description: "Votre équipe est bloquée",
           variant: "destructive"
         });
       } else {
         toast({
-          title: "Erreur",
+          title: "❌ Erreur",
           description: error.message,
           variant: "destructive"
         });
@@ -1038,8 +1094,8 @@ const Client = () => {
       setHasBuzzed(true);
       playSound('buzz');
       toast({
-        title: "Buzzé !",
-        description: "Votre buzzer a été enregistré",
+        title: "✅ Buzzé !",
+        description: "Votre buzzer a été enregistré avec succès",
       });
     }
   };
