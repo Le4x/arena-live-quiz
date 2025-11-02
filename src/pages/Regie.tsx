@@ -326,7 +326,7 @@ const Regie = () => {
         .select('*, teams(*)')
         .eq('question_instance_id', qInstanceId)
         .eq('game_session_id', sId)
-        .order('buzzed_at', { ascending: true });
+        .order('buzzed_at', { ascending: true});
       
       if (error) {
         console.error('❌ Regie: Erreur chargement buzzers', error);
@@ -340,7 +340,7 @@ const Regie = () => {
         // Filtrer les buzzers d'équipes bloquées IMMÉDIATEMENT
         const { data: currentGameState } = await supabase
           .from('game_state')
-          .select('excluded_teams')
+          .select('excluded_teams, current_question_id')
           .eq('game_session_id', sId)
           .maybeSingle();
         
@@ -374,7 +374,7 @@ const Regie = () => {
         
         // Arrêter immédiatement l'audio si c'est le premier buzzer VALIDE pour un blind test
         if (validBuzzers.length > 0 && buzzers.length === 0) {
-          const currentQ = questions.find(q => q.id === gameState?.current_question_id);
+          const currentQ = questions.find(q => q.id === currentGameState?.current_question_id);
           if (currentQ?.question_type === 'blind_test') {
             console.log('🛑 PREMIER BUZZER VALIDE DÉTECTÉ - Arrêt audio immédiat');
             const currentPos = audioEngine.getPosition();
@@ -395,7 +395,7 @@ const Regie = () => {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  }, [currentQuestionInstanceId, sessionId, buzzers.length, questions, gameState?.current_question_id, timerRemaining, clipStartTime]);
+  }, [currentQuestionInstanceId, sessionId, buzzers.length, questions, timerRemaining, clipStartTime]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');
