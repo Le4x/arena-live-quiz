@@ -26,42 +26,61 @@ export const useRegieBuzzers = (questionId?: string, sessionId?: string) => {
     setAudioPositionWhenBuzzed,
   } = useBuzzerStore();
 
-  // Sync avec React Query - FILTRER les équipes bloquées
+  // Sync avec React Query - FILTRER IMMÉDIATEMENT les équipes bloquées
   useEffect(() => {
-    if (buzzersData && gameState) {
-      // Parse excluded_teams
-      const excludedTeams = (gameState.excluded_teams as any) || [];
-      const blockedTeamIds = new Set<string>();
-      
-      if (Array.isArray(excludedTeams)) {
-        excludedTeams.forEach((item: any) => {
-          if (typeof item === 'string') {
-            blockedTeamIds.add(item);
-          } else if (item && typeof item === 'object') {
-            const teamId = item.team_id || item.id || item.teamId;
-            if (teamId) blockedTeamIds.add(teamId);
-          }
-        });
-      }
-      
-      // FILTRER les buzzers pour exclure les équipes bloquées
-      const validBuzzers = buzzersData.filter(buzzer => 
-        !blockedTeamIds.has(buzzer.team_id || '')
-      );
-      
-      setBuzzers(validBuzzers);
-      
-      // Auto-lock UNIQUEMENT sur les buzzers valides
-      if (validBuzzers.length > 0 && !buzzerLocked) {
-        const firstBuzzer = validBuzzers[0];
-        lockBuzzer();
-        audioEngine.stopWithFade(30);
-        
-        toast.success(`🔔 ${firstBuzzer.teams?.name} a buzzé !`);
-        logger.buzzer('First valid buzzer locked', { team: firstBuzzer.teams?.name });
-      }
+    if (!buzzersData || !gameState) {
+      return;
     }
-  }, [buzzersData, gameState, buzzerLocked]);
+    
+    // 1. FILTRER D'ABORD avant toute autre opération
+    const excludedTeams = (gameState.excluded_teams as any) || [];
+    const blockedTeamIds = new Set<string>();
+    
+    if (Array.isArray(excludedTeams)) {
+      excludedTeams.forEach((item: any) => {
+        if (typeof item === 'string') {
+          blockedTeamIds.add(item);
+        } else if (item && typeof item === 'object') {
+          const teamId = item.team_id || item.id || item.teamId;
+          if (teamId) blockedTeamIds.add(teamId);
+        }
+      });
+    }
+    
+    // 2. Ne garder QUE les buzzers valides (non bloqués)
+    const validBuzzers = buzzersData.filter(buzzer => {
+      const buzzTeamId = buzzer.team_id || '';
+      const isBlocked = blockedTeamIds.has(buzzTeamId);
+      
+      if (isBlocked) {
+        console.log(`🚫 Buzzer IGNORÉ de ${buzzer.teams?.name} (équipe bloquée)`);
+      }
+      
+      return !isBlocked;
+    });
+    
+    console.log(`🔔 Buzzers reçus: ${buzzersData.length}, valides: ${validBuzzers.length}`, {
+      blocked: Array.from(blockedTeamIds),
+      validTeams: validBuzzers.map(b => b.teams?.name)
+    });
+    
+    // 3. Mettre à jour UNIQUEMENT avec les buzzers valides
+    setBuzzers(validBuzzers);
+    
+    // 4. Lock et arrêt audio UNIQUEMENT si buzzers valides > 0
+    if (validBuzzers.length > 0 && !buzzerLocked) {
+      const firstBuzzer = validBuzzers[0];
+      lockBuzzer();
+      audioEngine.stopWithFade(30);
+      
+      toast.success(`🔔 ${firstBuzzer.teams?.name} a buzzé !`);
+      logger.buzzer('First valid buzzer locked', { 
+        team: firstBuzzer.teams?.name,
+        totalBuzzers: buzzersData.length,
+        validBuzzers: validBuzzers.length
+      });
+    }
+  }, [buzzersData, gameState, buzzerLocked, setBuzzers, lockBuzzer]);
 
   const resetBuzzers = useCallback(async () => {
     if (!questionId || !sessionId) return;
