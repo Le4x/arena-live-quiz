@@ -6,10 +6,13 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Wifi, Database, Zap, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Activity, Wifi, Database, Zap, AlertCircle, CheckCircle2, Clock, Users, PlayCircle, Target, Home } from 'lucide-react';
 import { getRealtimeManager } from '@/lib/realtime/RealtimeManager';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/utils/logger';
+import { useNavigate } from 'react-router-dom';
+import { MetricCard as MetricCardComponent } from '@/components/monitoring/MetricCard';
 
 interface MetricCard {
   title: string;
@@ -20,7 +23,23 @@ interface MetricCard {
 }
 
 export const Monitoring = () => {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<MetricCard[]>([]);
+  const [gameMetrics, setGameMetrics] = useState<{
+    teams: number;
+    simulationTeams: number;
+    activeSession: string | null;
+    currentQuestion: string | null;
+    buzzersCount: number;
+    answersCount: number;
+  }>({
+    teams: 0,
+    simulationTeams: 0,
+    activeSession: null,
+    currentQuestion: null,
+    buzzersCount: 0,
+    answersCount: 0
+  });
   const [logs, setLogs] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
@@ -38,18 +57,53 @@ export const Monitoring = () => {
       const channels = supabase.getChannels();
       const activeChannels = channels.filter(c => c.state === 'joined' || c.state === 'joining');
       
+      // Game metrics
+      const { data: teams } = await supabase.from('teams').select('*');
+      const { data: activeSession } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      const { data: gameState } = await supabase
+        .from('game_state')
+        .select('*')
+        .eq('game_session_id', activeSession?.id)
+        .maybeSingle();
+      
+      const { data: buzzers } = await supabase
+        .from('buzzer_attempts')
+        .select('*')
+        .eq('question_instance_id', gameState?.current_question_instance_id || '');
+      
+      const { data: answers } = await supabase
+        .from('team_answers')
+        .select('*')
+        .eq('question_instance_id', gameState?.current_question_instance_id || '');
+      
+      const simulationTeams = teams?.filter(t => t.name?.startsWith('SIM-')) || [];
+      
+      setGameMetrics({
+        teams: teams?.length || 0,
+        simulationTeams: simulationTeams.length,
+        activeSession: activeSession?.name || null,
+        currentQuestion: gameState?.current_question_id || null,
+        buzzersCount: buzzers?.length || 0,
+        answersCount: answers?.length || 0
+      });
+      
       const newMetrics: MetricCard[] = [
         {
           title: 'Base de données',
           value: dbError ? 'Erreur' : `${dbLatency}ms`,
-          status: dbError ? 'error' : dbLatency > 1000 ? 'warning' : 'ok',
+          status: dbError ? 'error' : dbLatency > 500 ? 'warning' : 'ok',
           icon: <Database className="w-5 h-5" />,
           description: dbError ? dbError.message : 'Connexion stable'
         },
         {
           title: 'Channels Realtime',
           value: `${activeChannels.length}/${channels.length}`,
-          status: activeChannels.length === channels.length ? 'ok' : 'warning',
+          status: activeChannels.length === channels.length && activeChannels.length > 0 ? 'ok' : 'warning',
           icon: <Wifi className="w-5 h-5" />,
           description: `${stats.channelCount} channels gérés par RealtimeManager`
         },
@@ -62,7 +116,7 @@ export const Monitoring = () => {
         },
         {
           title: 'Performance',
-          value: `${Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || 'N/A'}`,
+          value: `${Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || 'N/A'}MB`,
           status: 'ok',
           icon: <Activity className="w-5 h-5" />,
           description: 'Mémoire JavaScript utilisée'
@@ -76,7 +130,7 @@ export const Monitoring = () => {
       const logEntry = `[${new Date().toISOString()}] DB: ${dbLatency}ms | Channels: ${activeChannels.length}/${channels.length} | Reconnects: ${stats.reconnectAttempts}`;
       setLogs(prev => [logEntry, ...prev.slice(0, 49)]);
       
-      logger.info('Monitoring update', { metrics: newMetrics, stats });
+      logger.info('Monitoring update', { metrics: newMetrics, stats, gameMetrics });
     };
 
     // Mise à jour immédiate
@@ -114,6 +168,15 @@ export const Monitoring = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/')}
+              className="mb-2"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Retour
+            </Button>
             <h1 className="text-3xl font-bold">Monitoring Système</h1>
             <p className="text-muted-foreground mt-1">
               Surveillance en temps réel de l'application
@@ -127,26 +190,64 @@ export const Monitoring = () => {
           </Badge>
         </div>
 
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric, idx) => (
-            <Card key={idx} className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className={getStatusColor(metric.status)}>
-                  {metric.icon}
+        {/* Infrastructure Metrics */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Infrastructure</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {metrics.map((metric, idx) => (
+              <MetricCardComponent key={idx} {...metric} />
+            ))}
+          </div>
+        </div>
+
+        {/* Game State Metrics */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">État du Jeu</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricCardComponent
+              title="Équipes"
+              value={gameMetrics.teams}
+              status="ok"
+              icon={<Users className="w-5 h-5" />}
+              description={gameMetrics.simulationTeams > 0 
+                ? `${gameMetrics.simulationTeams} équipes de simulation` 
+                : 'Aucune équipe de simulation'}
+            />
+            <MetricCardComponent
+              title="Session active"
+              value={gameMetrics.activeSession || 'Aucune'}
+              status={gameMetrics.activeSession ? 'ok' : 'warning'}
+              icon={<PlayCircle className="w-5 h-5" />}
+              description={gameMetrics.activeSession ? 'Partie en cours' : 'Aucune session active'}
+            />
+            <MetricCardComponent
+              title="Question en cours"
+              value={gameMetrics.currentQuestion ? 'Oui' : 'Non'}
+              status={gameMetrics.currentQuestion ? 'ok' : 'warning'}
+              icon={<Target className="w-5 h-5" />}
+              description={`Buzzers: ${gameMetrics.buzzersCount} | Réponses: ${gameMetrics.answersCount}`}
+            />
+          </div>
+        </div>
+
+        {/* Warning if no simulation activity */}
+        {gameMetrics.simulationTeams > 0 && gameMetrics.currentQuestion && (
+          gameMetrics.buzzersCount === 0 && gameMetrics.answersCount === 0 ? (
+            <Card className="p-6 border-yellow-500/50 bg-yellow-500/10">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-yellow-500">Simulation inactive</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {gameMetrics.simulationTeams} équipes de simulation détectées mais aucune activité (buzzers/réponses).
+                    <br />
+                    <strong>Raison probable :</strong> Le panneau de contrôle de simulation n'a pas été démarré dans Admin → Équipes.
+                  </p>
                 </div>
-                {getStatusIcon(metric.status)}
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">{metric.title}</p>
-                <p className="text-2xl font-bold">{metric.value}</p>
-                {metric.description && (
-                  <p className="text-xs text-muted-foreground">{metric.description}</p>
-                )}
               </div>
             </Card>
-          ))}
-        </div>
+          ) : null
+        )}
 
         {/* Realtime Channels Details */}
         <Card className="p-6">
