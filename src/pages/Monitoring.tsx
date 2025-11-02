@@ -49,6 +49,23 @@ export const Monitoring = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
+  // S'abonner aux changements de teams pour détecter connexions en temps réel
+  useEffect(() => {
+    const teamsChannel = supabase.channel('monitoring-teams')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'teams' 
+      }, () => {
+        logger.info('📡 Monitoring: Teams changed, updating metrics');
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(teamsChannel);
+    };
+  }, []);
+
   useEffect(() => {
     const updateMetrics = async () => {
       const realtimeManager = getRealtimeManager();
@@ -142,12 +159,12 @@ export const Monitoring = () => {
         },
         {
           title: 'Équipes Connectées',
-          value: `${activeTeams.length}/${gameMetrics.teams}`,
-          status: activeTeams.length > 0 ? 'ok' : 'warning',
+          value: `${connectedTeams.length}/${gameMetrics.teams}`,
+          status: connectedTeams.length > 0 ? 'ok' : 'warning',
           icon: <Users className="w-5 h-5" />,
-          description: activeTeams.length > 0 
-            ? `${activeTeams.length} équipes actives (vues <2min) | ${connectedTeams.length} avec device_id` 
-            : 'Aucune équipe active'
+          description: connectedTeams.length > 0 
+            ? `${activeTeams.length} actives (<2min) | ${connectedTeams.length} avec device` 
+            : 'Aucune équipe connectée'
         },
         {
           title: 'Reconnexions',

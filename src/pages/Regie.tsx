@@ -762,16 +762,31 @@ const Regie = () => {
         console.log('🔄 Relance de la musique après mauvaise réponse');
         
         // Le track est déjà chargé (currentTrack), on peut directement reprendre
-        if (currentTrack) {
-          // Reprendre EXACTEMENT à la position sauvegardée
+        if (currentTrack && audioPositionWhenBuzzed > 0) {
+          // Reprendre EXACTEMENT à la position sauvegardée dans l'EXTRAIT
           const cue1Time = currentTrack.cues[0]?.time || 0;
           const resumePosition = cue1Time + audioPositionWhenBuzzed;
           const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
           
-          console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ')');
+          console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ') jusqu\'à', endPosition, 's');
+          console.log('📊 Durée restante:', endPosition - resumePosition, 's');
           
-          // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
-          await audioEngine.playFromTo(resumePosition, endPosition, 300);
+          // Vérifier que la position de reprise est valide (pas déjà à la fin)
+          if (resumePosition < endPosition - 1) {
+            // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
+            await audioEngine.playFromTo(resumePosition, endPosition, 300);
+          } else {
+            console.warn('⚠️ Position de reprise trop proche de la fin, ne reprend pas l\'audio');
+            // Ne pas relancer le timer si pas d'audio
+            await supabase.from('game_state').update({ 
+              is_buzzer_active: true, 
+              answer_result: null,
+              timer_active: false
+            }).eq('game_session_id', sessionId);
+            return;
+          }
+        } else {
+          console.warn('⚠️ Pas de track ou position audio invalide, ne peut pas reprendre');
         }
         
         // Reprendre avec le timer sauvegardé au moment du buzz
