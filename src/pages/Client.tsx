@@ -16,6 +16,7 @@ import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
 import { motion } from "framer-motion";
 import { useRealtimeReconnect } from "@/hooks/use-realtime-reconnect";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -87,6 +88,9 @@ const Client = () => {
       });
     }
   });
+
+  // Empêcher la mise en veille de l'écran
+  useWakeLock();
 
   useEffect(() => {
     if (teamId) {
