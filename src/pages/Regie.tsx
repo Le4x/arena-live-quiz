@@ -309,21 +309,22 @@ const Regie = () => {
 
   const loadBuzzers = useCallback(async () => {
     // Utiliser les refs pour éviter les stale closures
-    const qId = currentQuestionId;
+    const qInstanceId = currentQuestionInstanceId;
     const sId = sessionId;
     
-    console.log('🔍 Regie: loadBuzzers appelé', { qId, sId, timestamp: new Date().toISOString() });
+    console.log('🔍 Regie: loadBuzzers appelé', { qInstanceId, sId, timestamp: new Date().toISOString() });
     
-    if (!qId || !sId) {
-      console.log('⚠️ Regie: Pas de question ou session, buzzers vidés');
+    if (!qInstanceId || !sId) {
+      console.log('⚠️ Regie: Pas de question instance ou session, buzzers vidés');
       setBuzzers([]);
       return;
     }
     
     try {
+      // CRITIQUE: Filtrer par question_instance_id pour éviter les buzzers historiques
       const { data, error } = await supabase.from('buzzer_attempts')
         .select('*, teams(*)')
-        .eq('question_id', qId)
+        .eq('question_instance_id', qInstanceId)
         .eq('game_session_id', sId)
         .order('buzzed_at', { ascending: true });
       
@@ -334,12 +335,48 @@ const Regie = () => {
       }
       
       console.log('📥 Regie: Buzzers chargés depuis DB:', data?.length || 0, 'buzzers:', data);
+      
       if (data) {
-        // Arrêter immédiatement l'audio si c'est le premier buzzer pour un blind test
-        if (data.length > 0 && buzzers.length === 0) {
-          const currentQ = questions.find(q => q.id === qId);
+        // Filtrer les buzzers d'équipes bloquées IMMÉDIATEMENT
+        const { data: currentGameState } = await supabase
+          .from('game_state')
+          .select('excluded_teams')
+          .eq('game_session_id', sId)
+          .maybeSingle();
+        
+        const excludedTeams = (currentGameState?.excluded_teams as any) || [];
+        const blockedTeamIds = new Set<string>();
+        
+        if (Array.isArray(excludedTeams)) {
+          excludedTeams.forEach((item: any) => {
+            if (typeof item === 'string') {
+              blockedTeamIds.add(item);
+            } else if (item && typeof item === 'object') {
+              const teamId = item.team_id || item.id || item.teamId;
+              if (teamId) blockedTeamIds.add(teamId);
+            }
+          });
+        }
+        
+        // FILTRER les buzzers bloqués AVANT de les traiter
+        const validBuzzers = data.filter(buzzer => {
+          const buzzTeamId = buzzer.team_id || '';
+          const isBlocked = blockedTeamIds.has(buzzTeamId);
+          
+          if (isBlocked) {
+            console.log(`🚫 Buzzer IGNORÉ de ${buzzer.teams?.name} (équipe bloquée)`);
+          }
+          
+          return !isBlocked;
+        });
+        
+        console.log(`🔔 Buzzers filtrés: ${data.length} total, ${validBuzzers.length} valides`);
+        
+        // Arrêter immédiatement l'audio si c'est le premier buzzer VALIDE pour un blind test
+        if (validBuzzers.length > 0 && buzzers.length === 0) {
+          const currentQ = questions.find(q => q.id === gameState?.current_question_id);
           if (currentQ?.question_type === 'blind_test') {
-            console.log('🛑 PREMIER BUZZER DÉTECTÉ - Arrêt audio immédiat');
+            console.log('🛑 PREMIER BUZZER VALIDE DÉTECTÉ - Arrêt audio immédiat');
             const currentPos = audioEngine.getPosition();
             const relativePos = currentPos - clipStartTime;
             audioEngine.stopWithFade(30);
@@ -350,14 +387,15 @@ const Regie = () => {
             console.log('💾 Audio stoppé à position:', currentPos, '| relative:', relativePos);
           }
         }
-        setBuzzers(data);
-        console.log('✅ Regie: State buzzers mis à jour avec', data.length, 'buzzers');
+        
+        setBuzzers(validBuzzers);
+        console.log('✅ Regie: State buzzers mis à jour avec', validBuzzers.length, 'buzzers valides');
       }
     } catch (error) {
       console.error('❌ Regie: Exception lors du chargement des buzzers', error);
       // En cas d'erreur critique, on garde les buzzers existants
     }
-  }, [currentQuestionId, sessionId, buzzers.length, questions, timerRemaining, clipStartTime]);
+  }, [currentQuestionInstanceId, sessionId, buzzers.length, questions, gameState?.current_question_id, timerRemaining, clipStartTime]);
 
   const loadAudioTracks = () => {
     const stored = localStorage.getItem('arena_sounds');
