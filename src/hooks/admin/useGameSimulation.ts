@@ -277,9 +277,21 @@ export const useGameSimulation = () => {
         .eq('game_session_id', sessionId)
         .maybeSingle();
       
-      const blockedTeamIds = new Set(
-        (gameState?.excluded_teams as any[])?.map(t => t.team_id || t.id) || []
-      );
+      // Parse excluded_teams - peut être un array d'objets ou de strings
+      const excludedTeams = (gameState?.excluded_teams as any) || [];
+      const blockedTeamIds = new Set<string>();
+      
+      if (Array.isArray(excludedTeams)) {
+        excludedTeams.forEach((item: any) => {
+          if (typeof item === 'string') {
+            blockedTeamIds.add(item);
+          } else if (item && typeof item === 'object') {
+            // Peut être {team_id: "..."}, {id: "..."}, ou autre structure
+            const teamId = item.team_id || item.id || item.teamId;
+            if (teamId) blockedTeamIds.add(teamId);
+          }
+        });
+      }
       
       console.log(`🚫 Équipes bloquées: ${blockedTeamIds.size}`, Array.from(blockedTeamIds));
 
@@ -367,12 +379,23 @@ export const useGameSimulation = () => {
               .eq('game_session_id', sessionId)
               .maybeSingle();
             
-            const currentBlockedIds = new Set(
-              (currentGameState?.excluded_teams as any[])?.map(t => t.team_id || t.id) || []
-            );
+            const currentExcluded = (currentGameState?.excluded_teams as any) || [];
+            const currentBlockedIds = new Set<string>();
+            
+            if (Array.isArray(currentExcluded)) {
+              currentExcluded.forEach((item: any) => {
+                if (typeof item === 'string') {
+                  currentBlockedIds.add(item);
+                } else if (item && typeof item === 'object') {
+                  const teamId = item.team_id || item.id || item.teamId;
+                  if (teamId) currentBlockedIds.add(teamId);
+                }
+              });
+            }
             
             if (currentBlockedIds.has(team.id)) {
               console.log(`🚫 ${team.name} est maintenant bloqué, annulation du buzzer`);
+              logger.warn(`Team ${team.name} blocked, cancelling buzz`);
               return;
             }
 
