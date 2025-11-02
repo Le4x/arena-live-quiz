@@ -125,7 +125,7 @@ const Regie = () => {
               if (data.length > 0 && buzzers.length === 0) {
                 const currentQ = questions.find(q => q.id === currentQuestionId);
                 if (currentQ?.question_type === 'blind_test') {
-                  console.log('🛑 POLLING: Premier buzzer détecté - arrêt audio');
+                  console.log('🛑 POLLING: Premier buzzer détecté - arrêt audio ET timer');
                   const currentPos = audioEngine.getPosition();
                   const relativePos = currentPos - clipStartTime;
                   audioEngine.stopWithFade(30);
@@ -133,6 +133,14 @@ const Regie = () => {
                   setAudioPositionWhenBuzzed(relativePos);
                   setBuzzerLocked(true);
                   setTimerActive(false);
+                  
+                  // CRITIQUE: Arrêter le timer dans la DB aussi
+                  supabase.from('game_state').update({
+                    timer_active: false,
+                    is_buzzer_active: false
+                  }).eq('game_session_id', sessionId);
+                  
+                  console.log('⏱️ Timer arrêté (polling)', { timerRemaining, relativePos });
                 }
               }
               setBuzzers(data);
@@ -255,9 +263,14 @@ const Regie = () => {
         if (data.excluded_teams && Array.isArray(data.excluded_teams)) {
           setBlockedTeams(data.excluded_teams as string[]);
         }
+        
+        // Synchroniser le timer avec la DB
         if (data.timer_active) {
           setTimerActive(true);
           setTimerRemaining(data.timer_remaining || 0);
+        } else {
+          // Si timer inactif dans la DB, s'assurer qu'il est arrêté localement aussi
+          setTimerActive(false);
         }
       }
     } catch (error) {
@@ -776,20 +789,30 @@ const Regie = () => {
             // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
             await audioEngine.playFromTo(resumePosition, endPosition, 300);
           } else {
-            console.warn('⚠️ Position de reprise trop proche de la fin, ne reprend pas l\'audio');
-            // Ne pas relancer le timer si pas d'audio
+            console.warn('⚠️ Position de reprise trop proche de la fin, pas de reprise');
+            // Pas de reprise audio = pas de timer non plus
             await supabase.from('game_state').update({ 
               is_buzzer_active: true, 
               answer_result: null,
               timer_active: false
             }).eq('game_session_id', sessionId);
+            toast({ 
+              title: '⏱️ Fin de l\'extrait', 
+              description: 'Plus de temps pour buzzer' 
+            });
             return;
           }
         } else {
-          console.warn('⚠️ Pas de track ou position audio invalide, ne peut pas reprendre');
+          console.warn('⚠️ Pas de track ou position audio invalide, pas de reprise');
+          await supabase.from('game_state').update({ 
+            is_buzzer_active: true, 
+            answer_result: null,
+            timer_active: false
+          }).eq('game_session_id', sessionId);
+          return;
         }
         
-        // Reprendre avec le timer sauvegardé au moment du buzz
+        // Reprendre avec le timer sauvegardé au moment du buzz (PAS tout le timer)
         setTimerRemaining(timerWhenBuzzed);
         setTimerActive(true);
         

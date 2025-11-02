@@ -67,11 +67,20 @@ export const useRegieBuzzers = (questionInstanceId?: string, sessionId?: string)
     // 3. Mettre à jour UNIQUEMENT avec les buzzers valides
     setBuzzers(validBuzzers);
     
-    // 4. Lock et arrêt audio UNIQUEMENT si buzzers valides > 0
+    // 4. Lock et arrêt audio + timer UNIQUEMENT si buzzers valides > 0
     if (validBuzzers.length > 0 && !buzzerLocked) {
       const firstBuzzer = validBuzzers[0];
       lockBuzzer();
       audioEngine.stopWithFade(30);
+      
+      // CRITIQUE: Arrêter le timer dans la DB
+      if (sessionId) {
+        supabase.from('game_state').update({
+          timer_active: false,
+          is_buzzer_active: false
+        }).eq('game_session_id', sessionId);
+        console.log('⏱️ Timer arrêté par useRegieBuzzers');
+      }
       
       toast.success(`🔔 ${firstBuzzer.teams?.name} a buzzé !`);
       logger.buzzer('First valid buzzer locked', { 

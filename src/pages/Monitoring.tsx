@@ -48,6 +48,7 @@ export const Monitoring = () => {
   });
   const [logs, setLogs] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [jsHeapSize, setJsHeapSize] = useState<{ used: number; total: number } | null>(null);
 
   // S'abonner aux changements de teams pour détecter connexions en temps réel
   useEffect(() => {
@@ -58,12 +59,31 @@ export const Monitoring = () => {
         table: 'teams' 
       }, () => {
         logger.info('📡 Monitoring: Teams changed, updating metrics');
+        setLastUpdate(new Date()); // Forcer mise à jour
       })
       .subscribe();
     
     return () => {
       supabase.removeChannel(teamsChannel);
     };
+  }, []);
+
+  // Mesurer performance JS
+  useEffect(() => {
+    const measurePerformance = () => {
+      if ('memory' in performance) {
+        const memory = (performance as any).memory;
+        setJsHeapSize({
+          used: memory.usedJSHeapSize,
+          total: memory.jsHeapSizeLimit
+        });
+      }
+    };
+    
+    measurePerformance();
+    const interval = setInterval(measurePerformance, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -175,11 +195,15 @@ export const Monitoring = () => {
         },
         {
           title: 'Performance JS',
-          value: `${Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || 'N/A'}MB`,
-          status: 'ok',
+          value: jsHeapSize 
+            ? `${Math.round(jsHeapSize.used / 1024 / 1024)}MB`
+            : 'N/A',
+          status: jsHeapSize && jsHeapSize.used / jsHeapSize.total > 0.8 ? 'error' : 'ok',
           icon: <Activity className="w-5 h-5" />,
-          description: 'Mémoire JavaScript utilisée'
-        }
+          description: jsHeapSize 
+            ? `${Math.round(jsHeapSize.used / 1024 / 1024)}MB / ${Math.round(jsHeapSize.total / 1024 / 1024)}MB (${Math.round(jsHeapSize.used / jsHeapSize.total * 100)}%)`
+            : 'Mémoire JavaScript utilisée'
+        },
       ];
 
       setMetrics(newMetrics);
