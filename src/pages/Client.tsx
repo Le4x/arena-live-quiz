@@ -52,6 +52,7 @@ const Client = () => {
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const previousQuestionIdRef = useRef<string | null>(null);
   const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
+  const [isTeamBlocked, setIsTeamBlocked] = useState(false);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -383,10 +384,22 @@ const Client = () => {
         setAnswerResult(null);
         setIsBlockedForQuestion(false);
         setEliminatedOptions([]); // Reset les options éliminées
+        setIsTeamBlocked(false); // Reset le statut bloqué
         
         // Reset le flag de notification de timeout
         hasShownTimeoutToast.current = false;
       }
+    }
+    
+    // Vérifier si l'équipe est bloquée
+    if (team && gameState?.excluded_teams) {
+      const excludedTeams = (gameState.excluded_teams || []) as any[];
+      const isBlocked = excludedTeams.some(
+        (t: any) => (t.team_id || t.id) === team.id
+      );
+      setIsTeamBlocked(isBlocked);
+    } else {
+      setIsTeamBlocked(false);
     }
     
     // Ne rien faire si pas de team (page de login)
@@ -977,12 +990,16 @@ const Client = () => {
     }
 
     // Vérifier si l'équipe est exclue
-    const excludedTeams = (gameState.excluded_teams || []) as string[];
-    if (excludedTeams.includes(team.id)) {
+    const excludedTeams = (gameState.excluded_teams || []) as any[];
+    const isBlocked = excludedTeams.some(
+      (t: any) => (t.team_id || t.id) === team.id
+    );
+    
+    if (isBlocked) {
       console.log('❌ Buzzer bloqué - équipe exclue');
       toast({
-        title: "Buzzer désactivé",
-        description: "Vous ne pouvez plus buzzer pour cette question",
+        title: "🚫 Buzzer désactivé",
+        description: "Vous êtes bloqué et ne pouvez plus buzzer pour cette question",
         variant: "destructive"
       });
       return;
@@ -1374,7 +1391,22 @@ const Client = () => {
           <Card className="relative overflow-hidden p-4 sm:p-8 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 backdrop-blur-xl border-2 border-primary/30 shadow-2xl animate-scale-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             <div className="relative">
-              {hasBuzzed ? (
+              {isTeamBlocked ? (
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-24 sm:h-36 flex flex-col items-center justify-center bg-destructive/20 rounded-lg border-2 border-destructive backdrop-blur-sm"
+                >
+                  <X className="h-12 w-12 sm:h-16 sm:w-16 text-destructive mb-2" />
+                  <p className="text-lg sm:text-2xl font-bold text-destructive text-center px-4">
+                    🚫 ÉQUIPE BLOQUÉE
+                  </p>
+                  <p className="text-sm sm:text-base text-destructive/80 text-center px-4 mt-1">
+                    Vous ne pouvez plus buzzer
+                  </p>
+                </motion.div>
+              ) : hasBuzzed ? (
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
