@@ -76,88 +76,136 @@ export const useGameSimulation = () => {
     setIsRunning(true);
     setConfig(prev => ({ ...prev, enabled: true }));
     
+    console.log('🤖 ============================================');
+    console.log('🤖 DÉMARRAGE DE LA SIMULATION');
+    console.log('🤖 ============================================');
+    console.log(`🤖 Équipes simulées: ${simulatedTeams.length}`);
+    console.log(`🤖 Configuration:`, config);
+    
     logger.info('🤖 Starting simulation...', { 
       teamCount: simulatedTeams.length,
       config: config 
     });
     
-    // Check current game state immediately
-    const { data: activeSessions } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('status', 'active')
-      .maybeSingle();
-    
-    if (activeSessions) {
-      const { data: currentGameState } = await supabase
-        .from('game_state')
+    try {
+      // Check current game state immediately
+      console.log('🔍 Vérification de la session active...');
+      const { data: activeSessions, error: sessionError } = await supabase
+        .from('game_sessions')
         .select('*')
-        .eq('game_session_id', activeSessions.id)
+        .eq('status', 'active')
         .maybeSingle();
       
-      if (currentGameState) {
-        logger.info('🎮 Current game state detected', currentGameState);
+      if (sessionError) {
+        console.error('❌ Erreur lors de la récupération de la session:', sessionError);
+        toast.error('Erreur lors du chargement de la session');
+        return;
+      }
+      
+      if (!activeSessions) {
+        console.log('⚠️ Aucune session active trouvée');
+        toast.warning('Aucune session active - la simulation attendra qu\'une question soit lancée');
+      } else {
+        console.log('✅ Session active trouvée:', activeSessions.name);
         
-        // Handle current question if active
-        if (currentGameState.current_question_id && currentGameState.current_question_instance_id) {
-          if (currentGameState.is_buzzer_active) {
-            logger.info('🔔 Buzzer is active, simulating buzzers...');
-            await simulateBuzzers(
-              currentGameState.current_question_id,
-              currentGameState.current_question_instance_id,
-              currentGameState.game_session_id
-            );
+        const { data: currentGameState, error: stateError } = await supabase
+          .from('game_state')
+          .select('*')
+          .eq('game_session_id', activeSessions.id)
+          .maybeSingle();
+        
+        if (stateError) {
+          console.error('❌ Erreur lors de la récupération du game state:', stateError);
+        } else if (currentGameState) {
+          console.log('🎮 État du jeu actuel:', {
+            question: currentGameState.current_question_id,
+            instance: currentGameState.current_question_instance_id,
+            buzzerActive: currentGameState.is_buzzer_active
+          });
+          
+          // Handle current question if active
+          if (currentGameState.current_question_id && currentGameState.current_question_instance_id) {
+            if (currentGameState.is_buzzer_active) {
+              console.log('🔔 Buzzer déjà actif - simulation des buzzers...');
+              await simulateBuzzers(
+                currentGameState.current_question_id,
+                currentGameState.current_question_instance_id,
+                currentGameState.game_session_id
+              );
+            } else {
+              console.log('📝 Question déjà affichée - simulation des réponses...');
+              await simulateAnswers(
+                currentGameState.current_question_id,
+                currentGameState.current_question_instance_id,
+                currentGameState.game_session_id
+              );
+            }
           } else {
-            logger.info('📝 Question is active, simulating answers...');
-            await simulateAnswers(
-              currentGameState.current_question_id,
-              currentGameState.current_question_instance_id,
-              currentGameState.game_session_id
-            );
+            console.log('ℹ️ Aucune question active pour le moment');
           }
         }
       }
-    }
-    
-    // Subscribe to game state changes
-    channelRef.current = supabase
-      .channel('simulation-game-state')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'game_state'
-      }, async (payload) => {
-        const gameState = payload.new;
-        logger.info('🔄 Game state updated', gameState);
-        
-        // Handle buzzer activation
-        if (gameState.is_buzzer_active && gameState.current_question_id && gameState.current_question_instance_id) {
-          logger.info('🔔 Buzzer activated, simulating...');
-          await simulateBuzzers(
-            gameState.current_question_id,
-            gameState.current_question_instance_id,
-            gameState.game_session_id
-          );
-        }
-        
-        // Handle question display (for non-buzzer questions)
-        if (gameState.current_question_id && 
-            gameState.current_question_instance_id && 
-            !gameState.is_buzzer_active) {
-          logger.info('📝 Question displayed, simulating answers...');
-          await simulateAnswers(
-            gameState.current_question_id,
-            gameState.current_question_instance_id,
-            gameState.game_session_id
-          );
-        }
-      })
-      .subscribe((status) => {
-        logger.info('📡 Simulation channel subscribed', { status: status });
-      });
+      
+      // Subscribe to game state changes
+      console.log('📡 Abonnement aux changements de game_state...');
+      channelRef.current = supabase
+        .channel('simulation-game-state')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_state'
+        }, async (payload) => {
+          const gameState = payload.new;
+          console.log('🔄 ============================================');
+          console.log('🔄 CHANGEMENT DÉTECTÉ DANS GAME_STATE');
+          console.log('🔄 ============================================');
+          console.log('🔄 Nouveau state:', gameState);
+          
+          logger.info('🔄 Game state updated', gameState);
+          
+          // Handle buzzer activation
+          if (gameState.is_buzzer_active && gameState.current_question_id && gameState.current_question_instance_id) {
+            console.log('🔔 Buzzer activé - démarrage simulation buzzers...');
+            await simulateBuzzers(
+              gameState.current_question_id,
+              gameState.current_question_instance_id,
+              gameState.game_session_id
+            );
+          }
+          
+          // Handle question display (for non-buzzer questions)
+          if (gameState.current_question_id && 
+              gameState.current_question_instance_id && 
+              !gameState.is_buzzer_active) {
+            console.log('📝 Question affichée - démarrage simulation réponses...');
+            await simulateAnswers(
+              gameState.current_question_id,
+              gameState.current_question_instance_id,
+              gameState.game_session_id
+            );
+          }
+        })
+        .subscribe((status) => {
+          console.log(`📡 État du channel de simulation: ${status}`);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Channel de simulation connecté avec succès');
+            toast.success('🤖 Simulation connectée et prête');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Erreur de connexion du channel de simulation');
+            toast.error('Erreur de connexion de la simulation');
+          }
+          logger.info('📡 Simulation channel status', { status });
+        });
 
-    toast.success('🤖 Simulation démarrée');
-    logger.info('✅ Game simulation started', { teamCount: simulatedTeams.length });
+      toast.success('🤖 Simulation démarrée');
+      console.log('✅ Simulation démarrée avec succès');
+      logger.info('✅ Game simulation started', { teamCount: simulatedTeams.length });
+    } catch (error) {
+      console.error('❌ Erreur lors du démarrage de la simulation:', error);
+      logger.error('Failed to start simulation', error as Error);
+      toast.error('Erreur lors du démarrage de la simulation');
+      setIsRunning(false);
+    }
   }, [simulatedTeams, config]);
 
   // Stop simulation
@@ -187,66 +235,97 @@ export const useGameSimulation = () => {
     questionInstanceId: string,
     sessionId: string
   ) => {
+    console.log('🔔 ============================================');
+    console.log('🔔 SIMULATION DES BUZZERS');
+    console.log('🔔 ============================================');
+    console.log(`🔔 Question ID: ${questionId}`);
+    console.log(`🔔 Instance ID: ${questionInstanceId}`);
+    console.log(`🔔 Session ID: ${sessionId}`);
+    console.log(`🔔 Équipes disponibles: ${simulatedTeams.length}`);
+    
     logger.info('🔔 Simulating buzzers', { 
       questionId, 
       questionInstanceId,
       teamCount: simulatedTeams.length 
     });
 
-    // Check if already buzzed for this question instance
-    const { data: existingBuzzers } = await supabase
-      .from('buzzer_attempts')
-      .select('team_id')
-      .eq('question_instance_id', questionInstanceId);
+    try {
+      // Check if already buzzed for this question instance
+      console.log('🔍 Vérification des buzzers existants...');
+      const { data: existingBuzzers, error: buzzerError } = await supabase
+        .from('buzzer_attempts')
+        .select('team_id, teams(name)')
+        .eq('question_instance_id', questionInstanceId);
 
-    const buzzedTeamIds = new Set(existingBuzzers?.map(b => b.team_id) || []);
-    logger.info(`Already buzzed: ${buzzedTeamIds.size} teams`);
+      if (buzzerError) {
+        console.error('❌ Erreur lors de la récupération des buzzers:', buzzerError);
+        return;
+      }
 
-    // Select 30-70% of teams to buzz
-    const teamsWhoWillBuzz = simulatedTeams
-      .filter(t => !buzzedTeamIds.has(t.id))
-      .filter(() => Math.random() < 0.5);
+      const buzzedTeamIds = new Set(existingBuzzers?.map(b => b.team_id) || []);
+      console.log(`📊 Buzzers existants: ${buzzedTeamIds.size} équipes ont déjà buzzé`);
+      if (existingBuzzers && existingBuzzers.length > 0) {
+        console.log('📋 Équipes ayant déjà buzzé:', existingBuzzers);
+      }
 
-    logger.info(`🎯 ${teamsWhoWillBuzz.length} teams will buzz`);
+      // Select 30-70% of teams to buzz
+      const teamsWhoWillBuzz = simulatedTeams
+        .filter(t => !buzzedTeamIds.has(t.id))
+        .filter(() => Math.random() < 0.5);
 
-    if (teamsWhoWillBuzz.length === 0) {
-      logger.warn('No teams selected to buzz');
-      return;
-    }
+      console.log(`🎯 ${teamsWhoWillBuzz.length} équipes vont buzzer:`, teamsWhoWillBuzz.map(t => t.name));
+      logger.info(`🎯 ${teamsWhoWillBuzz.length} teams will buzz`);
 
-    teamsWhoWillBuzz.forEach((team) => {
-      const delay = randomBetween(
-        config.buzzerResponseTime.min,
-        config.buzzerResponseTime.max
-      );
+      if (teamsWhoWillBuzz.length === 0) {
+        console.log('⚠️ Aucune équipe sélectionnée pour buzzer (déjà buzzé ou aléatoire)');
+        logger.warn('No teams selected to buzz');
+        return;
+      }
 
-      const timeout = setTimeout(async () => {
-        try {
-          const { error } = await supabase
-            .from('buzzer_attempts')
-            .insert({
-              team_id: team.id,
-              question_id: questionId,
-              question_instance_id: questionInstanceId,
-              game_session_id: sessionId,
-              buzzed_at: new Date().toISOString(),
-            });
+      teamsWhoWillBuzz.forEach((team) => {
+        const delay = randomBetween(
+          config.buzzerResponseTime.min,
+          config.buzzerResponseTime.max
+        );
 
-          if (!error) {
-            logger.buzzer(`✅ Team ${team.name} buzzed`, { delay });
-            toast.success(`🔔 ${team.name} a buzzé !`);
-          } else {
-            logger.error('Buzzer insert error', error);
+        console.log(`⏱️ ${team.name} va buzzer dans ${delay}ms`);
+
+        const timeout = setTimeout(async () => {
+          try {
+            console.log(`🔔 ${team.name} buzze maintenant...`);
+            const { error, data } = await supabase
+              .from('buzzer_attempts')
+              .insert({
+                team_id: team.id,
+                question_id: questionId,
+                question_instance_id: questionInstanceId,
+                game_session_id: sessionId,
+                buzzed_at: new Date().toISOString(),
+              })
+              .select();
+
+            if (!error) {
+              console.log(`✅ ${team.name} a buzzé avec succès!`, data);
+              logger.buzzer(`✅ Team ${team.name} buzzed`, { delay });
+              toast.success(`🔔 ${team.name} a buzzé !`);
+            } else {
+              console.error(`❌ Erreur buzzer pour ${team.name}:`, error);
+              logger.error('Buzzer insert error', error);
+            }
+          } catch (error) {
+            console.error(`❌ Exception lors du buzzer de ${team.name}:`, error);
+            logger.error('Buzzer simulation error', error as Error);
           }
-        } catch (error) {
-          logger.error('Buzzer simulation error', error as Error);
-        }
 
-        buzzerTimeoutsRef.current.delete(team.id);
-      }, delay);
+          buzzerTimeoutsRef.current.delete(team.id);
+        }, delay);
 
-      buzzerTimeoutsRef.current.set(team.id, timeout);
-    });
+        buzzerTimeoutsRef.current.set(team.id, timeout);
+      });
+    } catch (error) {
+      console.error('❌ Erreur globale dans simulateBuzzers:', error);
+      logger.error('Global buzzer simulation error', error as Error);
+    }
   };
 
   // Simulate answers
@@ -255,95 +334,147 @@ export const useGameSimulation = () => {
     questionInstanceId: string,
     sessionId: string
   ) => {
-    // Get question details
-    const { data: question } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('id', questionId)
-      .maybeSingle();
+    console.log('📝 ============================================');
+    console.log('📝 SIMULATION DES RÉPONSES');
+    console.log('📝 ============================================');
+    console.log(`📝 Question ID: ${questionId}`);
+    console.log(`📝 Instance ID: ${questionInstanceId}`);
+    console.log(`📝 Session ID: ${sessionId}`);
+    
+    try {
+      // Get question details
+      console.log('🔍 Récupération des détails de la question...');
+      const { data: question, error: questionError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('id', questionId)
+        .maybeSingle();
 
-    if (!question) {
-      logger.warn('Question not found', { questionId });
-      return;
-    }
+      if (questionError) {
+        console.error('❌ Erreur lors de la récupération de la question:', questionError);
+        return;
+      }
 
-    logger.info('📝 Simulating answers', { 
-      questionId, 
-      questionInstanceId,
-      type: question.question_type,
-      teamCount: simulatedTeams.length
-    });
+      if (!question) {
+        console.log('⚠️ Question non trouvée');
+        logger.warn('Question not found', { questionId });
+        return;
+      }
 
-    // Check if already answered for this question instance
-    const { data: existingAnswers } = await supabase
-      .from('team_answers')
-      .select('team_id')
-      .eq('question_instance_id', questionInstanceId);
+      console.log('✅ Question trouvée:', {
+        text: question.question_text,
+        type: question.question_type,
+        points: question.points
+      });
 
-    const answeredTeamIds = new Set(existingAnswers?.map(a => a.team_id) || []);
-    logger.info(`Already answered: ${answeredTeamIds.size} teams`);
+      logger.info('📝 Simulating answers', { 
+        questionId, 
+        questionInstanceId,
+        type: question.question_type,
+        teamCount: simulatedTeams.length
+      });
 
-    // Select 60-90% of teams to answer
-    const teamsWhoWillAnswer = simulatedTeams
-      .filter(t => !answeredTeamIds.has(t.id))
-      .filter(() => Math.random() < 0.75);
+      // Check if already answered for this question instance
+      console.log('🔍 Vérification des réponses existantes...');
+      const { data: existingAnswers, error: answersError } = await supabase
+        .from('team_answers')
+        .select('team_id, teams(name), answer')
+        .eq('question_instance_id', questionInstanceId);
 
-    logger.info(`🎯 ${teamsWhoWillAnswer.length} teams will answer`);
+      if (answersError) {
+        console.error('❌ Erreur lors de la récupération des réponses:', answersError);
+        return;
+      }
 
-    teamsWhoWillAnswer.forEach((team) => {
-      const delay = randomBetween(
-        config.answerDelay.min,
-        config.answerDelay.max
-      );
+      const answeredTeamIds = new Set(existingAnswers?.map(a => a.team_id) || []);
+      console.log(`📊 Réponses existantes: ${answeredTeamIds.size} équipes ont déjà répondu`);
+      if (existingAnswers && existingAnswers.length > 0) {
+        console.log('📋 Équipes ayant déjà répondu:', existingAnswers);
+      }
 
-      const timeout = setTimeout(async () => {
-        try {
-          let answer = '';
-          
-          if (question.question_type === 'qcm' && question.options) {
-            // QCM: choose random option, bias towards correct answer
-            const options = question.options as any[];
-            const correctOption = options.find(o => o.isCorrect);
+      // Select 60-90% of teams to answer
+      const teamsWhoWillAnswer = simulatedTeams
+        .filter(t => !answeredTeamIds.has(t.id))
+        .filter(() => Math.random() < 0.75);
+
+      console.log(`🎯 ${teamsWhoWillAnswer.length} équipes vont répondre:`, teamsWhoWillAnswer.map(t => t.name));
+      logger.info(`🎯 ${teamsWhoWillAnswer.length} teams will answer`);
+
+      if (teamsWhoWillAnswer.length === 0) {
+        console.log('⚠️ Aucune équipe sélectionnée pour répondre');
+        return;
+      }
+
+      teamsWhoWillAnswer.forEach((team) => {
+        const delay = randomBetween(
+          config.answerDelay.min,
+          config.answerDelay.max
+        );
+
+        console.log(`⏱️ ${team.name} va répondre dans ${delay}ms`);
+
+        const timeout = setTimeout(async () => {
+          try {
+            let answer = '';
             
-            if (Math.random() < config.correctAnswerProbability && correctOption) {
-              answer = correctOption.text;
-            } else {
-              // Choose random wrong answer
-              const wrongOptions = options.filter(o => !o.isCorrect);
-              answer = wrongOptions[Math.floor(Math.random() * wrongOptions.length)]?.text || options[0].text;
+            if (question.question_type === 'qcm' && question.options) {
+              // QCM: choose random option, bias towards correct answer
+              const options = question.options as any[];
+              const correctOption = options.find(o => o.isCorrect);
+              
+              if (Math.random() < config.correctAnswerProbability && correctOption) {
+                answer = correctOption.text;
+                console.log(`✅ ${team.name} choisit la bonne réponse: ${answer}`);
+              } else {
+                // Choose random wrong answer
+                const wrongOptions = options.filter(o => !o.isCorrect);
+                answer = wrongOptions[Math.floor(Math.random() * wrongOptions.length)]?.text || options[0].text;
+                console.log(`❌ ${team.name} choisit une mauvaise réponse: ${answer}`);
+              }
+            } else if (question.question_type === 'text') {
+              // Text: submit variation of correct answer or random text
+              if (Math.random() < config.correctAnswerProbability && question.correct_answer) {
+                answer = generateAnswerVariation(question.correct_answer);
+                console.log(`✅ ${team.name} donne une bonne réponse: ${answer}`);
+              } else {
+                answer = generateRandomAnswer();
+                console.log(`❌ ${team.name} donne une mauvaise réponse: ${answer}`);
+              }
             }
-          } else if (question.question_type === 'text') {
-            // Text: submit variation of correct answer or random text
-            if (Math.random() < config.correctAnswerProbability && question.correct_answer) {
-              answer = generateAnswerVariation(question.correct_answer);
+
+            console.log(`📝 ${team.name} envoie sa réponse...`);
+            const { error, data } = await supabase
+              .from('team_answers')
+              .insert({
+                team_id: team.id,
+                question_id: questionId,
+                question_instance_id: questionInstanceId,
+                game_session_id: sessionId,
+                answer: answer,
+                answered_at: new Date().toISOString(),
+              })
+              .select();
+
+            if (!error) {
+              console.log(`✅ ${team.name} a répondu avec succès!`, data);
+              logger.info(`Team ${team.name} answered`, { answer, delay });
             } else {
-              answer = generateRandomAnswer();
+              console.error(`❌ Erreur réponse pour ${team.name}:`, error);
             }
+          } catch (error) {
+            console.error(`❌ Exception lors de la réponse de ${team.name}:`, error);
+            logger.error('Answer simulation error', error as Error);
           }
 
-          const { error } = await supabase
-            .from('team_answers')
-            .insert({
-              team_id: team.id,
-              question_id: questionId,
-              question_instance_id: questionInstanceId,
-              game_session_id: sessionId,
-              answer: answer,
-              answered_at: new Date().toISOString(),
-            });
+          answerTimeoutsRef.current.delete(team.id);
+        }, delay);
 
-          if (!error) {
-            logger.info(`Team ${team.name} answered`, { answer, delay });
-          }
-        } catch (error) {
-          logger.error('Answer simulation error', error as Error);
-        }
-
-        answerTimeoutsRef.current.delete(team.id);
-      }, delay);
-
-      answerTimeoutsRef.current.set(team.id, timeout);
-    });
+        answerTimeoutsRef.current.set(team.id, timeout);
+      });
+    } catch (error) {
+      console.error('❌ Erreur globale dans simulateAnswers:', error);
+      logger.error('Global answer simulation error', error as Error);
+    }
   };
 
   // Update config
