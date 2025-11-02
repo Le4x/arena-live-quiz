@@ -76,6 +76,49 @@ export const useGameSimulation = () => {
     setIsRunning(true);
     setConfig(prev => ({ ...prev, enabled: true }));
     
+    logger.info('🤖 Starting simulation...', { 
+      teamCount: simulatedTeams.length,
+      config: config 
+    });
+    
+    // Check current game state immediately
+    const { data: activeSessions } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('status', 'active')
+      .maybeSingle();
+    
+    if (activeSessions) {
+      const { data: currentGameState } = await supabase
+        .from('game_state')
+        .select('*')
+        .eq('game_session_id', activeSessions.id)
+        .maybeSingle();
+      
+      if (currentGameState) {
+        logger.info('🎮 Current game state detected', currentGameState);
+        
+        // Handle current question if active
+        if (currentGameState.current_question_id && currentGameState.current_question_instance_id) {
+          if (currentGameState.is_buzzer_active) {
+            logger.info('🔔 Buzzer is active, simulating buzzers...');
+            await simulateBuzzers(
+              currentGameState.current_question_id,
+              currentGameState.current_question_instance_id,
+              currentGameState.game_session_id
+            );
+          } else {
+            logger.info('📝 Question is active, simulating answers...');
+            await simulateAnswers(
+              currentGameState.current_question_id,
+              currentGameState.current_question_instance_id,
+              currentGameState.game_session_id
+            );
+          }
+        }
+      }
+    }
+    
     // Subscribe to game state changes
     channelRef.current = supabase
       .channel('simulation-game-state')
@@ -85,9 +128,11 @@ export const useGameSimulation = () => {
         table: 'game_state'
       }, async (payload) => {
         const gameState = payload.new;
+        logger.info('🔄 Game state updated', gameState);
         
         // Handle buzzer activation
         if (gameState.is_buzzer_active && gameState.current_question_id && gameState.current_question_instance_id) {
+          logger.info('🔔 Buzzer activated, simulating...');
           await simulateBuzzers(
             gameState.current_question_id,
             gameState.current_question_instance_id,
@@ -99,6 +144,7 @@ export const useGameSimulation = () => {
         if (gameState.current_question_id && 
             gameState.current_question_instance_id && 
             !gameState.is_buzzer_active) {
+          logger.info('📝 Question displayed, simulating answers...');
           await simulateAnswers(
             gameState.current_question_id,
             gameState.current_question_instance_id,
@@ -106,11 +152,13 @@ export const useGameSimulation = () => {
           );
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        logger.info('📡 Simulation channel subscribed', { status: status });
+      });
 
     toast.success('🤖 Simulation démarrée');
-    logger.info('Game simulation started', { teamCount: simulatedTeams.length });
-  }, [simulatedTeams]);
+    logger.info('✅ Game simulation started', { teamCount: simulatedTeams.length });
+  }, [simulatedTeams, config]);
 
   // Stop simulation
   const stopSimulation = useCallback(() => {
@@ -139,7 +187,11 @@ export const useGameSimulation = () => {
     questionInstanceId: string,
     sessionId: string
   ) => {
-    logger.info('Simulating buzzers', { questionId, questionInstanceId });
+    logger.info('🔔 Simulating buzzers', { 
+      questionId, 
+      questionInstanceId,
+      teamCount: simulatedTeams.length 
+    });
 
     // Check if already buzzed for this question instance
     const { data: existingBuzzers } = await supabase
@@ -148,11 +200,19 @@ export const useGameSimulation = () => {
       .eq('question_instance_id', questionInstanceId);
 
     const buzzedTeamIds = new Set(existingBuzzers?.map(b => b.team_id) || []);
+    logger.info(`Already buzzed: ${buzzedTeamIds.size} teams`);
 
     // Select 30-70% of teams to buzz
     const teamsWhoWillBuzz = simulatedTeams
       .filter(t => !buzzedTeamIds.has(t.id))
       .filter(() => Math.random() < 0.5);
+
+    logger.info(`🎯 ${teamsWhoWillBuzz.length} teams will buzz`);
+
+    if (teamsWhoWillBuzz.length === 0) {
+      logger.warn('No teams selected to buzz');
+      return;
+    }
 
     teamsWhoWillBuzz.forEach((team) => {
       const delay = randomBetween(
@@ -173,7 +233,10 @@ export const useGameSimulation = () => {
             });
 
           if (!error) {
-            logger.buzzer(`Team ${team.name} buzzed`, { delay });
+            logger.buzzer(`✅ Team ${team.name} buzzed`, { delay });
+            toast.success(`🔔 ${team.name} a buzzé !`);
+          } else {
+            logger.error('Buzzer insert error', error);
           }
         } catch (error) {
           logger.error('Buzzer simulation error', error as Error);
@@ -197,14 +260,18 @@ export const useGameSimulation = () => {
       .from('questions')
       .select('*')
       .eq('id', questionId)
-      .single();
+      .maybeSingle();
 
-    if (!question) return;
+    if (!question) {
+      logger.warn('Question not found', { questionId });
+      return;
+    }
 
-    logger.info('Simulating answers', { 
+    logger.info('📝 Simulating answers', { 
       questionId, 
       questionInstanceId,
-      type: question.question_type 
+      type: question.question_type,
+      teamCount: simulatedTeams.length
     });
 
     // Check if already answered for this question instance
@@ -214,11 +281,14 @@ export const useGameSimulation = () => {
       .eq('question_instance_id', questionInstanceId);
 
     const answeredTeamIds = new Set(existingAnswers?.map(a => a.team_id) || []);
+    logger.info(`Already answered: ${answeredTeamIds.size} teams`);
 
     // Select 60-90% of teams to answer
     const teamsWhoWillAnswer = simulatedTeams
       .filter(t => !answeredTeamIds.has(t.id))
       .filter(() => Math.random() < 0.75);
+
+    logger.info(`🎯 ${teamsWhoWillAnswer.length} teams will answer`);
 
     teamsWhoWillAnswer.forEach((team) => {
       const delay = randomBetween(
