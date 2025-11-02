@@ -69,7 +69,12 @@ export const Monitoring = () => {
       const totalChannels = allSupabaseChannels.length;
       
       logger.info(`📊 Monitoring - Channels Supabase: ${activeChannels.length}/${totalChannels} (joined: ${joinedChannels.length}, joining: ${joiningChannels.length}, closed: ${closedChannels.length}, errored: ${erroredChannels.length})`);
-      logger.info(`📊 Détails channels:`, allSupabaseChannels.map(c => ({ topic: c.topic, state: c.state })));
+      
+      if (allSupabaseChannels.length > 0) {
+        logger.info(`📊 Détails channels:`, allSupabaseChannels.map(c => ({ topic: c.topic, state: c.state })));
+      } else {
+        logger.warn(`⚠️ Aucun canal Realtime détecté - les pages Client/Regie/Screen sont-elles ouvertes?`);
+      }
       
       // Game metrics - Vérifier last_seen_at pour équipes réellement connectées
       const { data: teams } = await supabase.from('teams').select('*');

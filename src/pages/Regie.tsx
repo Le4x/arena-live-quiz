@@ -561,7 +561,7 @@ const Regie = () => {
     setClipStartTime(0);
     console.log('✅ États locaux réinitialisés');
     
-    // Précharger le son pour les blind tests - GARDER EN MÉMOIRE
+    // Précharger le son pour les blind tests - CHARGÉ ET PRÊT À JOUER
     if (question.question_type === 'blind_test' && question.audio_url) {
       const track = audioTracks.find(t => t.url === question.audio_url);
       if (track) {
@@ -571,12 +571,14 @@ const Regie = () => {
         toast({ title: '⏳ Chargement audio...', description: track.name });
         
         try {
-          // Précharger le son SANS le jouer - juste charger en mémoire
+          // Précharger le buffer
           await audioEngine.preloadTrack(track);
           
-          // IMPORTANT: Définir le track et buffer dans l'engine pour que playClip30s() fonctionne
-          audioEngine['currentTrack'] = track;
-          audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(track.url) || null;
+          // Charger ET jouer le track pour initialiser l'AudioContext
+          await audioEngine.loadAndPlay(track);
+          
+          // Mettre en pause immédiatement pour qu'il soit prêt
+          audioEngine.pause();
           
           setCurrentTrack(track);
           setAudioPreloaded(true);
@@ -586,7 +588,7 @@ const Regie = () => {
             description: track.name,
             duration: 3000
           });
-          console.log('✅ Audio complètement préchargé en mémoire et prêt');
+          console.log('✅ Audio complètement préchargé et prêt à jouer');
         } catch (error) {
           console.error('❌ Erreur préchargement:', error);
           setAudioPreloading(false);
@@ -689,12 +691,12 @@ const Regie = () => {
     await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
-    if (question.question_type === 'blind_test' && currentTrack) {
+    if (question.question_type === 'blind_test' && currentTrack && audioPreloaded) {
       console.log('🎵 Lancement automatique de l\'audio depuis l\'extrait:', currentTrack.name);
       // Sauvegarder la position de départ du clip (CUE1)
       const cue1Time = currentTrack.cues[0]?.time || 0;
       setClipStartTime(cue1Time);
-      // Jouer l'extrait de 30s (depuis CUE#1)
+      // Le track est déjà chargé, on peut directement jouer l'extrait
       await audioEngine.playClip30s(300);
       toast({ title: '🚀 Question envoyée !', description: '🎵 Extrait lancé' });
     } else {
@@ -758,24 +760,18 @@ const Regie = () => {
       // Relancer la musique et le timer pour blind test
       if (currentQ?.question_type === 'blind_test') {
         console.log('🔄 Relance de la musique après mauvaise réponse');
-        if (currentQ?.audio_url) { 
-          const s = audioTracks.find(t => t.url === currentQ.audio_url); 
-          if (s) {
-            // S'assurer que le track est chargé dans l'engine
-            await audioEngine.preloadTrack(s);
-            audioEngine['currentTrack'] = s;
-            audioEngine['currentBuffer'] = audioEngine['bufferCache'].get(s.url);
-            
-            // Reprendre EXACTEMENT à la position sauvegardée
-            const cue1Time = s.cues[0]?.time || 0;
-            const resumePosition = cue1Time + audioPositionWhenBuzzed;
-            const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
-            
-            console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ')');
-            
-            // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
-            await audioEngine.playFromTo(resumePosition, endPosition, 300);
-          }
+        
+        // Le track est déjà chargé (currentTrack), on peut directement reprendre
+        if (currentTrack) {
+          // Reprendre EXACTEMENT à la position sauvegardée
+          const cue1Time = currentTrack.cues[0]?.time || 0;
+          const resumePosition = cue1Time + audioPositionWhenBuzzed;
+          const endPosition = cue1Time + 30; // L'extrait doit toujours finir 30s après le CUE1
+          
+          console.log('🎵 Reprise audio depuis:', resumePosition, 's (CUE1:', cue1Time, '+ offset:', audioPositionWhenBuzzed, ')');
+          
+          // Utiliser playFromTo pour gérer automatiquement l'arrêt à la fin de l'extrait
+          await audioEngine.playFromTo(resumePosition, endPosition, 300);
         }
         
         // Reprendre avec le timer sauvegardé au moment du buzz
@@ -847,9 +843,8 @@ const Regie = () => {
     setTimerActive(false);
     const q = questions.find(x => x.id === currentQuestionId);
     if (q?.audio_url && q.question_type === 'blind_test') { 
-      const s = audioTracks.find(t => t.url === q.audio_url); 
-      if (s) { 
-        await audioEngine.loadAndPlay(s); 
+      // Le track est déjà chargé (currentTrack), on peut directement jouer la solution
+      if (currentTrack) { 
         await audioEngine.playSolution(8, 300, 300); 
       } 
     }
