@@ -148,8 +148,15 @@ export const useGameSimulation = () => {
       
       // Subscribe to game state changes
       console.log('📡 Abonnement aux changements de game_state...');
+      
+      if (channelRef.current) {
+        console.log('⚠️ Un channel existe déjà, on le supprime d\'abord');
+        await supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      
       channelRef.current = supabase
-        .channel('simulation-game-state')
+        .channel(`simulation-game-state-${Date.now()}`) // Nom unique pour éviter conflits
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
@@ -185,14 +192,27 @@ export const useGameSimulation = () => {
             );
           }
         })
-        .subscribe((status) => {
+        .subscribe(async (status) => {
           console.log(`📡 État du channel de simulation: ${status}`);
           if (status === 'SUBSCRIBED') {
             console.log('✅ Channel de simulation connecté avec succès');
+            
+            // Vérifier les channels actifs
+            const allChannels = supabase.getChannels();
+            console.log(`📊 Total channels Supabase actifs: ${allChannels.length}`, allChannels.map(c => ({
+              topic: c.topic,
+              state: c.state
+            })));
+            
             toast.success('🤖 Simulation connectée et prête');
           } else if (status === 'CHANNEL_ERROR') {
             console.error('❌ Erreur de connexion du channel de simulation');
             toast.error('Erreur de connexion de la simulation');
+          } else if (status === 'TIMED_OUT') {
+            console.error('⏱️ Timeout du channel de simulation');
+            toast.error('Timeout de la simulation');
+          } else if (status === 'CLOSED') {
+            console.warn('⚠️ Channel de simulation fermé');
           }
           logger.info('📡 Simulation channel status', { status });
         });
@@ -268,17 +288,27 @@ export const useGameSimulation = () => {
         console.log('📋 Équipes ayant déjà buzzé:', existingBuzzers);
       }
 
-      // Select 30-70% of teams to buzz
-      const teamsWhoWillBuzz = simulatedTeams
-        .filter(t => !buzzedTeamIds.has(t.id))
+      // IMPORTANT: Ne pas re-buzzer si l'équipe a déjà buzzé pour cette instance
+      const teamsWhoCanBuzz = simulatedTeams.filter(t => !buzzedTeamIds.has(t.id));
+      
+      console.log(`✅ ${teamsWhoCanBuzz.length} équipes peuvent buzzer (pas encore buzzé)`);
+      
+      if (teamsWhoCanBuzz.length === 0) {
+        console.log('⚠️ Toutes les équipes ont déjà buzzé pour cette instance');
+        logger.warn('All teams already buzzed for this instance');
+        return;
+      }
+
+      // Select 30-70% of teams who haven't buzzed yet to buzz
+      const teamsWhoWillBuzz = teamsWhoCanBuzz
         .filter(() => Math.random() < 0.5);
 
       console.log(`🎯 ${teamsWhoWillBuzz.length} équipes vont buzzer:`, teamsWhoWillBuzz.map(t => t.name));
       logger.info(`🎯 ${teamsWhoWillBuzz.length} teams will buzz`);
 
       if (teamsWhoWillBuzz.length === 0) {
-        console.log('⚠️ Aucune équipe sélectionnée pour buzzer (déjà buzzé ou aléatoire)');
-        logger.warn('No teams selected to buzz');
+        console.log('⚠️ Aucune équipe sélectionnée pour buzzer (aléatoire)');
+        logger.warn('No teams selected to buzz (random)');
         return;
       }
 
@@ -292,6 +322,19 @@ export const useGameSimulation = () => {
 
         const timeout = setTimeout(async () => {
           try {
+            // Double-check avant d'insérer
+            const { data: recheck } = await supabase
+              .from('buzzer_attempts')
+              .select('id')
+              .eq('team_id', team.id)
+              .eq('question_instance_id', questionInstanceId)
+              .maybeSingle();
+            
+            if (recheck) {
+              console.log(`⚠️ ${team.name} a déjà buzzé pendant le délai, annulation`);
+              return;
+            }
+
             console.log(`🔔 ${team.name} buzze maintenant...`);
             const { error, data } = await supabase
               .from('buzzer_attempts')
