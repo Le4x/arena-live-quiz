@@ -13,6 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { MetricCard as MetricCardComponent } from '@/components/monitoring/MetricCard';
+import { ConsoleMonitor } from '@/components/monitoring/ConsoleMonitor';
+import { useRealtimeReconnect } from '@/hooks/useRealtimeReconnect';
 
 interface MetricCard {
   title: string;
@@ -55,7 +57,10 @@ export const Monitoring = () => {
       
       // Test connexion realtime
       const channels = supabase.getChannels();
-      const activeChannels = channels.filter(c => c.state === 'joined' || c.state === 'joining');
+      const activeChannels = channels.filter(c => c.state === 'joined');
+      const totalChannels = channels.length;
+      
+      logger.info(`📊 Monitoring update - Channels: ${activeChannels.length}/${totalChannels}`);
       
       // Game metrics
       const { data: teams } = await supabase.from('teams').select('*');
@@ -102,10 +107,12 @@ export const Monitoring = () => {
         },
         {
           title: 'Channels Realtime',
-          value: `${activeChannels.length}/${channels.length}`,
-          status: activeChannels.length === channels.length && activeChannels.length > 0 ? 'ok' : 'warning',
+          value: `${activeChannels.length}/${totalChannels}`,
+          status: activeChannels.length === totalChannels && activeChannels.length > 0 ? 'ok' : 'warning',
           icon: <Wifi className="w-5 h-5" />,
-          description: `${stats.channelCount} channels gérés par RealtimeManager`
+          description: activeChannels.length > 0 
+            ? `${activeChannels.length} channels connectés` 
+            : '⚠️ Aucun channel actif'
         },
         {
           title: 'Reconnexions',
@@ -268,20 +275,7 @@ export const Monitoring = () => {
         </Card>
 
         {/* Logs */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5" />
-            <h2 className="text-xl font-semibold">Logs Système</h2>
-            <Badge variant="outline" className="ml-auto">
-              Dernière mise à jour: {lastUpdate.toLocaleTimeString()}
-            </Badge>
-          </div>
-          <div className="bg-black rounded-lg p-4 font-mono text-xs text-green-400 h-96 overflow-y-auto">
-            {logs.map((log, idx) => (
-              <div key={idx} className="mb-1">{log}</div>
-            ))}
-          </div>
-        </Card>
+        <ConsoleMonitor />
       </div>
     </div>
   );

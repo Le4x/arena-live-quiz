@@ -415,7 +415,7 @@ export const useGameSimulation = () => {
 
         const timeout = setTimeout(async () => {
           try {
-            let answer = '';
+            let answer = 'Pas de réponse'; // Valeur par défaut pour éviter undefined
             
             if (question.question_type === 'qcm' && question.options) {
               // QCM: choose random option, bias towards correct answer
@@ -423,23 +423,30 @@ export const useGameSimulation = () => {
               const correctOption = options.find(o => o.isCorrect);
               
               if (Math.random() < config.correctAnswerProbability && correctOption) {
-                answer = correctOption.text;
+                answer = correctOption.text || 'Réponse A';
                 console.log(`✅ ${team.name} choisit la bonne réponse: ${answer}`);
               } else {
                 // Choose random wrong answer
                 const wrongOptions = options.filter(o => !o.isCorrect);
-                answer = wrongOptions[Math.floor(Math.random() * wrongOptions.length)]?.text || options[0].text;
+                const randomWrong = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+                answer = randomWrong?.text || options[0]?.text || 'Réponse aléatoire';
                 console.log(`❌ ${team.name} choisit une mauvaise réponse: ${answer}`);
               }
             } else if (question.question_type === 'text') {
               // Text: submit variation of correct answer or random text
               if (Math.random() < config.correctAnswerProbability && question.correct_answer) {
-                answer = generateAnswerVariation(question.correct_answer);
+                answer = generateAnswerVariation(question.correct_answer) || question.correct_answer || 'Réponse correcte';
                 console.log(`✅ ${team.name} donne une bonne réponse: ${answer}`);
               } else {
-                answer = generateRandomAnswer();
+                answer = generateRandomAnswer() || 'Je ne sais pas';
                 console.log(`❌ ${team.name} donne une mauvaise réponse: ${answer}`);
               }
+            }
+            
+            // Vérification finale - ne devrait jamais arriver mais sécurité
+            if (!answer || answer.trim() === '') {
+              answer = 'Sans réponse';
+              console.warn(`⚠️ ${team.name} avait une réponse vide, valeur par défaut appliquée`);
             }
 
             console.log(`📝 ${team.name} envoie sa réponse...`);
@@ -505,6 +512,10 @@ const randomBetween = (min: number, max: number) => {
 };
 
 const generateAnswerVariation = (correctAnswer: string): string => {
+  if (!correctAnswer || correctAnswer.trim() === '') {
+    return 'Réponse';
+  }
+  
   // Generate slight variations of the correct answer
   const variations = [
     correctAnswer,
@@ -514,7 +525,8 @@ const generateAnswerVariation = (correctAnswer: string): string => {
     correctAnswer.trim(),
   ];
   
-  return variations[Math.floor(Math.random() * variations.length)];
+  const selected = variations[Math.floor(Math.random() * variations.length)];
+  return selected || correctAnswer; // Fallback to original if somehow undefined
 };
 
 const generateRandomAnswer = (): string => {
@@ -528,5 +540,6 @@ const generateRandomAnswer = (): string => {
     '???',
   ];
   
-  return randomAnswers[Math.floor(Math.random() * randomAnswers.length)];
+  const selected = randomAnswers[Math.floor(Math.random() * randomAnswers.length)];
+  return selected || 'Je ne sais pas'; // Fallback if somehow undefined
 };
