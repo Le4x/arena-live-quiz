@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,16 +7,21 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Zap, Check, X, Send, HelpCircle, Medal, Crown, Award, Key, LogOut, Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/sounds";
+import { triggerHaptic } from "@/lib/haptics";
 import { getGameEvents, type BuzzerResetEvent, type StartQuestionEvent } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { JokerPanel } from "@/components/client/JokerPanel";
 import { PublicVotePanel } from "@/components/client/PublicVotePanel";
-import { motion } from "framer-motion";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { SoundControl } from "@/components/SoundControl";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 import { useWakeLock } from "@/hooks/use-wake-lock";
+import debounce from "lodash/debounce";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -53,6 +58,8 @@ const Client = () => {
   const previousQuestionIdRef = useRef<string | null>(null);
   const [firstBuzzerTeam, setFirstBuzzerTeam] = useState<any>(null);
   const [isTeamBlocked, setIsTeamBlocked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBuzzing, setIsBuzzing] = useState(false);
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -1014,6 +1021,9 @@ const Client = () => {
   };
 
   const handleBuzzer = async () => {
+    // Haptic feedback on press
+    triggerHaptic('heavy');
+
     console.log('🔔 Tentative de buzzer', {
       team: team?.name,
       teamId: team?.id,
@@ -1027,11 +1037,13 @@ const Client = () => {
 
     if (!team || !currentQuestion || !currentQuestionInstanceId || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
       console.log('❌ Buzzer bloqué - conditions non remplies');
+      triggerHaptic('error');
       return;
     }
 
     if (hasBuzzed) {
       console.log('❌ Buzzer bloqué - déjà buzzé');
+      triggerHaptic('error');
       toast({
         title: "⚠️ Déjà buzzé",
         description: "Vous avez déjà buzzé pour cette question",
@@ -1039,6 +1051,9 @@ const Client = () => {
       });
       return;
     }
+
+    // Visual feedback - show buzzing state
+    setIsBuzzing(true);
 
     // Vérifier si l'équipe est exclue - excluded_teams est un array d'UUID strings
     const excludedTeams = (gameState.excluded_teams || []) as string[];
@@ -1068,6 +1083,8 @@ const Client = () => {
     if (existingBuzz) {
       console.log('❌ Buzzer bloqué - déjà buzzé dans la DB');
       setHasBuzzed(true);
+      setIsBuzzing(false);
+      triggerHaptic('error');
       toast({
         title: "⚠️ Déjà buzzé",
         description: "Vous avez déjà buzzé pour cette question",
@@ -1080,8 +1097,8 @@ const Client = () => {
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
-        { 
-          team_id: team.id, 
+        {
+          team_id: team.id,
           question_id: currentQuestion.id,
           question_instance_id: currentQuestionInstanceId,
           game_session_id: gameState.game_session_id,
@@ -1089,8 +1106,11 @@ const Client = () => {
         }
       ]);
 
+    setIsBuzzing(false);
+
     if (error) {
       console.error('❌ Erreur buzzer:', error);
+      triggerHaptic('error');
       if (error.code === '23505') {
         setHasBuzzed(true);
         toast({
@@ -1114,6 +1134,7 @@ const Client = () => {
     } else {
       console.log('✅ Buzzer enregistré avec succès');
       setHasBuzzed(true);
+      triggerHaptic('success');
       playSound('buzz');
       toast({
         title: "✅ Buzzé !",
@@ -1302,28 +1323,26 @@ const Client = () => {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
+        {/* Connection Status Indicator */}
+        <ConnectionStatus />
+
+        {/* Sound Control */}
+        <SoundControl />
+
         {/* Bouton de déconnexion amélioré */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleDisconnect}
-              className="fixed top-2 right-2 p-2 rounded-lg bg-card/80 hover:bg-destructive/90 text-muted-foreground hover:text-destructive-foreground opacity-40 hover:opacity-100 transition-all duration-300 backdrop-blur-md shadow-sm hover:shadow-md z-50 border border-border/50 hover:border-destructive/50"
+              className="fixed top-2 left-2 p-2 rounded-lg bg-card/80 hover:bg-destructive/90 text-muted-foreground hover:text-destructive-foreground opacity-40 hover:opacity-100 transition-all duration-300 backdrop-blur-md shadow-sm hover:shadow-md z-50 border border-border/50 hover:border-destructive/50"
             >
               <LogOut className="h-4 w-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">Se déconnecter</TooltipContent>
+          <TooltipContent side="bottom">Se déconnecter</TooltipContent>
         </Tooltip>
 
-        {/* Badge de statut de connexion */}
-        <div className="fixed top-2 left-2 z-50">
-          <Badge variant="outline" className="bg-card/80 backdrop-blur-md shadow-sm border-green-500/30 text-green-600 dark:text-green-400">
-            <Wifi className="h-3 w-3 mr-1" />
-            Connecté
-          </Badge>
-        </div>
-
-        <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+        <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 landscape-compact">
           {/* Logo configurable en haut avec animation */}
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
@@ -1502,19 +1521,30 @@ const Client = () => {
               ) : gameState?.is_buzzer_active ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      ref={buzzerButtonRef}
-                      onClick={handleBuzzer}
-                      disabled={isTeamBlocked}
-                      className="w-full h-24 sm:h-36 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-105 active:scale-95 animate-pulse disabled:opacity-30 disabled:cursor-not-allowed"
-                      style={{
-                        boxShadow: '0 0 40px rgba(255, 120, 0, 0.5)',
-                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                      }}
+                    <motion.div
+                      whileTap={{ scale: 0.92 }}
+                      className="w-full"
                     >
-                      <Zap className="mr-2 sm:mr-4 h-10 w-10 sm:h-16 sm:w-16" />
-                      ⚡ BUZZER
-                    </Button>
+                      <Button
+                        ref={buzzerButtonRef}
+                        onClick={handleBuzzer}
+                        disabled={isTeamBlocked || isBuzzing}
+                        className={`w-full h-28 sm:h-40 text-2xl sm:text-4xl font-bold bg-gradient-to-br from-primary via-secondary to-accent hover:from-primary/90 hover:via-secondary/90 hover:to-accent/90 text-primary-foreground shadow-elegant transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation ${!isTeamBlocked && !isBuzzing ? 'animate-pulse' : ''}`}
+                        style={{
+                          boxShadow: isBuzzing
+                            ? '0 0 60px rgba(255, 120, 0, 0.9), 0 0 120px rgba(255, 120, 0, 0.5)'
+                            : '0 0 40px rgba(255, 120, 0, 0.5)',
+                          animation: isBuzzing
+                            ? 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                            : 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                          minHeight: '7rem',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <Zap className={`mr-2 sm:mr-4 h-12 w-12 sm:h-20 sm:w-20 ${isBuzzing ? 'animate-spin' : ''}`} />
+                        {isBuzzing ? '⚡ ENVOI...' : '⚡ BUZZER'}
+                      </Button>
+                    </motion.div>
                   </TooltipTrigger>
                   <TooltipContent>
                     {isTeamBlocked ? '🚫 Votre équipe est bloquée' : 'Appuyez pour buzzer et donner votre réponse !'}
