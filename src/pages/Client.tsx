@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
+import { debounce } from "lodash";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -64,30 +65,48 @@ const Client = () => {
     return deviceId;
   };
 
-  // Hook de reconnexion automatique
+  // Hook de reconnexion automatique avec debounce et chargement progressif
   const reconnectCountRef = useRef(0);
-  
-  useRealtimeReconnect({
-    onReconnect: () => {
+
+  // ⚡ OPTIMISATION: Debounce pour éviter les reconnexions multiples
+  // Si 60 clients se reconnectent en même temps → étalé sur ~3 secondes
+  const handleReconnect = useMemo(
+    () => debounce(() => {
       reconnectCountRef.current++;
       console.log('🔄 Reconnexion #' + reconnectCountRef.current);
-      
-      // Recharger toutes les données
-      if (teamId) {
-        loadTeam();
-        loadGameState();
+
+      if (!teamId) return;
+
+      // Charger données critiques immédiatement
+      Promise.all([
+        loadTeam(),
+        loadGameState(),
+        loadActiveSession()
+      ]).then(() => {
+        console.log('✅ Données critiques rechargées');
+      });
+
+      // Charger données secondaires avec délai progressif basé sur teamId
+      // Cela étale la charge sur plusieurs secondes pour 60 équipes
+      const clientDelay = teamId ? (parseInt(teamId.slice(-2), 16) % 60) * 50 : 0;
+
+      setTimeout(() => {
         loadAllTeams();
-        loadActiveSession();
         loadFinal();
         loadFirstBuzzer();
         checkAnswerResult();
-      }
-      
+      }, clientDelay);
+
       toast({
         title: "🔄 Reconnecté",
         description: "Connexion rétablie"
       });
-    }
+    }, 1000), // Attendre 1s avant de déclencher la reconnexion
+    [teamId]
+  );
+
+  useRealtimeReconnect({
+    onReconnect: handleReconnect
   });
 
   // Empêcher la mise en veille de l'écran
@@ -203,21 +222,10 @@ const Client = () => {
         }
       });
 
-    // Mettre à jour last_seen_at toutes les 30 secondes pour maintenir la connexion active
-    const heartbeatInterval = setInterval(async () => {
-      if (teamId && team) {
-        try {
-          await supabase.from('teams').update({ 
-            last_seen_at: new Date().toISOString(),
-            is_active: true 
-          }).eq('id', teamId);
-          console.log('💓 Heartbeat: last_seen_at mis à jour');
-        } catch (error) {
-          console.error('❌ Erreur heartbeat:', error);
-          // Continue quand même, ce n'est pas critique
-        }
-      }
-    }, 30000); // Toutes les 30 secondes
+    // ⚡ OPTIMISATION: Heartbeat DB désactivé - Le système Presence suffit
+    // Le canal Presence gère automatiquement les heartbeats via WebSocket
+    // Gain: 0 write DB constant vs 2 writes/s pour 60 équipes
+    // Note: last_seen_at mis à jour uniquement à la connexion initiale (ligne 218-221)
 
     // Cleanup quand la page se ferme
     const handleBeforeUnload = async () => {
@@ -340,7 +348,6 @@ const Client = () => {
     });
 
     return () => {
-      clearInterval(heartbeatInterval);
       presenceChannel.untrack();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
