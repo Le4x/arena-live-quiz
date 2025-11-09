@@ -58,8 +58,18 @@ const Client = () => {
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('arena_device_id');
     if (!deviceId) {
-      deviceId = crypto.randomUUID();
+      try {
+        // Essayer crypto.randomUUID() (moderne)
+        deviceId = crypto.randomUUID();
+      } catch (e) {
+        // Fallback pour navigateurs plus anciens
+        console.warn('⚠️ crypto.randomUUID() not available, using fallback');
+        deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      }
       localStorage.setItem('arena_device_id', deviceId);
+      console.log('🆕 New device_id generated:', deviceId);
+    } else {
+      console.log('♻️ Existing device_id:', deviceId);
     }
     return deviceId;
   };
@@ -869,28 +879,40 @@ const Client = () => {
       return;
     }
 
-    const currentDeviceId = getDeviceId();
+    try {
+      const currentDeviceId = getDeviceId();
+      console.log('🔧 Creating team with device_id:', currentDeviceId);
 
-    const { data, error } = await supabase
-      .from('teams')
-      .insert([
-        { name: teamName, color: teamColor, score: 0, connected_device_id: currentDeviceId }
-      ])
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('teams')
+        .insert([
+          { name: teamName, color: teamColor, score: 0, connected_device_id: currentDeviceId }
+        ])
+        .select()
+        .single();
 
-    if (error) {
+      if (error) {
+        console.error('❌ Error creating team:', error);
+        toast({
+          title: "Erreur",
+          description: `Impossible de créer l'équipe: ${error.message}`,
+          variant: "destructive"
+        });
+      } else if (data) {
+        console.log('✅ Team created:', data);
+        setTeam(data);
+        window.history.replaceState(null, '', `/client/${data.id}`);
+        toast({
+          title: "Équipe créée !",
+          description: `Bienvenue ${data.name} !`,
+        });
+      }
+    } catch (err) {
+      console.error('❌ Exception creating team:', err);
       toast({
-        title: "Erreur",
-        description: "Impossible de créer l'équipe",
+        title: "Erreur technique",
+        description: err instanceof Error ? err.message : "Erreur inconnue",
         variant: "destructive"
-      });
-    } else if (data) {
-      setTeam(data);
-      window.history.replaceState(null, '', `/client/${data.id}`);
-      toast({
-        title: "Équipe créée !",
-        description: `Bienvenue ${data.name} !`,
       });
     }
   };
