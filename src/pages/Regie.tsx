@@ -839,6 +839,19 @@ const Regie = () => {
   };
 
   const handleCorrectAnswer = async (teamId: string, points: number) => {
+    // Récupérer le speed_bonus du buzzer avant de supprimer
+    let speedBonus = 0;
+    if (currentQuestionInstanceId) {
+      const { data: buzzerData } = await supabase
+        .from('buzzer_attempts')
+        .select('speed_bonus')
+        .eq('team_id', teamId)
+        .eq('question_instance_id', currentQuestionInstanceId)
+        .single();
+
+      speedBonus = buzzerData?.speed_bonus || 0;
+    }
+
     // Supprimer immédiatement les buzzers (state local ET DB)
     if (currentQuestionId && sessionId) {
       await supabase
@@ -846,11 +859,12 @@ const Regie = () => {
         .delete()
         .eq('question_id', currentQuestionId)
         .eq('game_session_id', sessionId);
-      
+
       setBuzzers([]); // Vider le state local immédiatement
     }
-    
-    // Attribuer les points à l'équipe
+
+    // Attribuer les points à l'équipe (base + bonus de rapidité)
+    const totalPoints = points + speedBonus;
     const { data: team } = await supabase
       .from('teams')
       .select('score')
@@ -860,8 +874,16 @@ const Regie = () => {
     if (team) {
       await supabase
         .from('teams')
-        .update({ score: team.score + points })
+        .update({ score: team.score + totalPoints })
         .eq('id', teamId);
+
+      // Toast avec le bonus si applicable
+      if (speedBonus > 0) {
+        toast({
+          title: `✅ Bonne réponse ! +${points} pts + 🚀 ${speedBonus} pts bonus rapidité`,
+          duration: 3000
+        });
+      }
       
       // Afficher l'animation "Bonne réponse" et révéler la réponse en dessous
       await supabase.from('game_state').update({ 
@@ -943,36 +965,47 @@ const Regie = () => {
       // Pour QCM et Blind Test : vérification simple et attribution automatique
       const { data: answers } = await supabase
         .from('team_answers')
-        .select('*, teams(score)')
+        .select('*, teams(score), speed_bonus')
         .eq('question_id', currentQuestionId)
         .eq('game_session_id', sessionId);
 
       if (answers) {
+        let totalBonus = 0;
         for (const answer of answers) {
           const isCorrect = answer.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim();
-          const points = isCorrect ? (currentQ.points || 10) : 0;
-          
+          const basePoints = isCorrect ? (currentQ.points || 10) : 0;
+          const speedBonus = isCorrect ? (answer.speed_bonus || 0) : 0;
+          const totalPoints = basePoints + speedBonus;
+
+          if (speedBonus > 0) totalBonus += speedBonus;
+
           // Mettre à jour la réponse
           await supabase
             .from('team_answers')
-            .update({ 
+            .update({
               is_correct: isCorrect,
-              points_awarded: points
+              points_awarded: totalPoints
             })
             .eq('id', answer.id);
 
-          // Mettre à jour le score de l'équipe
+          // Mettre à jour le score de l'équipe (inclut le bonus)
           if (isCorrect && answer.teams) {
             await supabase
               .from('teams')
-              .update({ score: (answer.teams.score || 0) + points })
+              .update({ score: (answer.teams.score || 0) + totalPoints })
               .eq('id', answer.team_id);
           }
 
           // Envoyer l'événement de reveal à chaque équipe
           await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
         }
-        toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
+
+        const correctAnswers = answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim());
+        const bonusMsg = totalBonus > 0 ? ` (🚀 +${totalBonus} pts bonus rapidité)` : '';
+        toast({
+          title: '👁️ Réponse révélée et points attribués',
+          description: `${correctAnswers.length} bonne(s) réponse(s)${bonusMsg}`
+        });
       }
     } else if (currentQ.question_type === 'text' || currentQ.question_type === 'free_text') {
       // Pour les textes libres : utiliser les validations de la régie
