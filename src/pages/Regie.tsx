@@ -1451,23 +1451,35 @@ const Regie = () => {
                       'qcm': '✓',
                       'free_text': '✍️'
                     };
+                    const typeColors: Record<string, string> = {
+                      'blind_test': 'border-l-green-500 bg-green-500/5',
+                      'qcm': 'border-l-blue-500 bg-blue-500/5',
+                      'free_text': 'border-l-orange-500 bg-orange-500/5'
+                    };
+                    const typeBadgeColors: Record<string, string> = {
+                      'blind_test': 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400',
+                      'qcm': 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400',
+                      'free_text': 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-400'
+                    };
                     const icon = typeIcons[q.question_type] || '?';
+                    const borderColor = typeColors[q.question_type] || '';
+                    const badgeColor = typeBadgeColors[q.question_type] || '';
                     const isActive = currentQuestionId === q.id;
-                    
+
                     return (
-                      <tr 
-                        key={q.id} 
-                        className={`border-b hover:bg-muted/50 cursor-pointer transition-all ${isActive ? 'bg-primary/10 shadow-sm' : ''}`}
+                      <tr
+                        key={q.id}
+                        className={`border-b border-l-4 hover:bg-muted/50 cursor-pointer transition-all ${borderColor} ${isActive ? 'bg-primary/10 shadow-sm font-semibold' : ''}`}
                         onClick={() => startQuestion(q)}
                       >
-                        <td className="p-2 w-6 text-center">
-                          <span className={isActive ? 'animate-pulse text-lg' : ''}>{icon}</span>
+                        <td className="p-2 w-8 text-center">
+                          <span className={`text-base ${isActive ? 'animate-pulse scale-110' : ''}`}>{icon}</span>
                         </td>
                         <td className="p-2">
                           <div className={`truncate ${isActive ? 'font-bold' : 'font-medium'}`}>{q.question_text}</div>
                         </td>
-                        <td className="p-2 w-12 text-right">
-                          <Badge variant={isActive ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                        <td className="p-2 w-14 text-right">
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${isActive ? 'bg-primary text-primary-foreground border-primary' : badgeColor}`}>
                             {q.points}p
                           </Badge>
                         </td>
@@ -1479,11 +1491,11 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Contrôles de diffusion - Déplacés ici */}
+          {/* Contrôles de diffusion - AMÉLIORÉS */}
           <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-purple-500/5 border-purple-500/20 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">Contrôles TV</h3>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-purple-600 dark:text-purple-400">📺 Contrôles TV</h3>
+              <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-purple-500/10">
                 {[
                   gameState?.show_welcome_screen,
                   gameState?.show_team_connection_screen,
@@ -1496,160 +1508,173 @@ const Regie = () => {
                 ].filter(Boolean).length} actifs
               </Badge>
             </div>
-            
-            <div className="grid grid-cols-2 gap-1.5">
-              {/* Ligne 1: Écran TV + Accueil */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => window.open('/screen', '_blank')}
-                    className="h-8 text-xs hover:bg-accent"
-                  >
-                    <Monitor className="h-3 w-3 mr-1" />
-                    Écran
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Ouvrir l'écran TV</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_welcome_screen}
-                    onPressedChange={toggleWelcomeScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <Home className="h-3 w-3 mr-1" />
-                    Accueil
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Écran d'accueil</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 2: Équipes + Sponsors */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_team_connection_screen}
-                    onPressedChange={toggleTeamConnectionScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <Wifi className="h-3 w-3 mr-1" />
-                    Équipes
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Connexion équipes</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_sponsors_screen}
-                    onPressedChange={toggleSponsorsScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <Award className="h-3 w-3 mr-1" />
-                    Sponsors
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Écran sponsors</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 3: Merci + Attente */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_thanks_screen}
-                    onPressedChange={toggleThanksScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <Heart className="h-3 w-3 mr-1" />
-                    Merci
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Remerciements</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_waiting_screen}
-                    onPressedChange={toggleWaitingScreen}
-                    className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    ⏸️ Attente
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Écran d'attente</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 4: Buzzer + Intro */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.is_buzzer_active}
-                    onPressedChange={toggleBuzzer}
-                    className="h-8 text-xs data-[state=on]:bg-green-600 data-[state=on]:text-white"
-                  >
-                    <Radio className="h-3 w-3 mr-1" />
-                    Buzzer
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Activer buzzer</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-8 text-xs hover:bg-accent" 
-                    onClick={showRoundIntro}
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Intro
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Intro manche</TooltipContent>
-              </Tooltip>
-              
-              {/* Ligne 5: Scores + Transition */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle 
-                    size="sm"
-                    pressed={gameState?.show_leaderboard}
-                    onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
-                    className="h-8 text-xs data-[state=on]:bg-yellow-600 data-[state=on]:text-white"
-                  >
-                    <Trophy className="h-3 w-3 mr-1" />
-                    Scores
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>Classement</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={activateTransition}
-                    className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
-                  >
-                    ✨ Transition
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Transition</TooltipContent>
-              </Tooltip>
+
+            <div className="space-y-3">
+              {/* Groupe: Utilitaire */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Utilitaire</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open('/screen', '_blank')}
+                        className="h-9 text-xs hover:bg-accent"
+                      >
+                        <Monitor className="h-3.5 w-3.5 mr-1.5" />
+                        Ouvrir Écran
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Nouvelle fenêtre TV</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_waiting_screen}
+                        onPressedChange={toggleWaitingScreen}
+                        className="h-9 text-xs data-[state=on]:bg-slate-600 data-[state=on]:text-white"
+                      >
+                        ⏸️ Pause
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Écran d'attente / Pause</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Groupe: Écrans Spéciaux */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Écrans</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_welcome_screen}
+                        onPressedChange={toggleWelcomeScreen}
+                        className="h-9 text-xs data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+                      >
+                        <Home className="h-3.5 w-3.5 mr-1.5" />
+                        Accueil
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Écran d'accueil</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_team_connection_screen}
+                        onPressedChange={toggleTeamConnectionScreen}
+                        className="h-9 text-xs data-[state=on]:bg-cyan-600 data-[state=on]:text-white"
+                      >
+                        <Wifi className="h-3.5 w-3.5 mr-1.5" />
+                        Connexion
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Écran connexion équipes</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_sponsors_screen}
+                        onPressedChange={toggleSponsorsScreen}
+                        className="h-9 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white"
+                      >
+                        <Award className="h-3.5 w-3.5 mr-1.5" />
+                        Sponsors
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Afficher les sponsors</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_thanks_screen}
+                        onPressedChange={toggleThanksScreen}
+                        className="h-9 text-xs data-[state=on]:bg-pink-600 data-[state=on]:text-white"
+                      >
+                        <Heart className="h-3.5 w-3.5 mr-1.5" />
+                        Merci
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Écran de remerciements</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Groupe: Contrôle Jeu */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Jeu</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs hover:bg-purple-500/20 border-purple-500/30"
+                        onClick={showRoundIntro}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        Intro Manche
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Afficher intro de la manche</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.is_buzzer_active}
+                        onPressedChange={toggleBuzzer}
+                        className="h-9 text-xs font-semibold data-[state=on]:bg-green-600 data-[state=on]:text-white"
+                      >
+                        <Radio className="h-3.5 w-3.5 mr-1.5" />
+                        Buzzer
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Activer/Désactiver les buzzers</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={gameState?.show_leaderboard}
+                        onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
+                        className="h-9 text-xs font-semibold data-[state=on]:bg-yellow-600 data-[state=on]:text-white"
+                      >
+                        <Trophy className="h-3.5 w-3.5 mr-1.5" />
+                        Classement
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent>Afficher le leaderboard</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={activateTransition}
+                        className="h-9 text-xs bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30"
+                      >
+                        ✨ Transition
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Effet de transition</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
@@ -1791,63 +1816,84 @@ const Regie = () => {
             </Card>
           )}
 
-          {/* Timer et Audio - Section améliorée */}
-          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-blue-500/5 border-blue-500/20">
-            {currentQuestionId && timerRemaining > 0 && (
+          {/* Timer et Audio - Section AMÉLIORÉE */}
+          <Card className={`flex-shrink-0 p-3 bg-gradient-to-br border-2 transition-all ${
+            currentQuestionId && timerRemaining > 0 && timerRemaining <= 5 && timerActive
+              ? 'from-red-500/20 via-orange-500/20 to-red-500/20 border-red-500/50 shadow-lg shadow-red-500/20 animate-pulse'
+              : 'from-blue-500/5 via-cyan-500/5 to-blue-500/5 border-blue-500/20'
+          }`}>
+            {currentQuestionId && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400">Chronomètre</h3>
+                    <Clock className={`h-4 w-4 ${
+                      timerRemaining > 0 && timerRemaining <= 5 && timerActive
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`} />
+                    <h3 className={`text-sm font-bold ${
+                      timerRemaining > 0 && timerRemaining <= 5 && timerActive
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      Chronomètre
+                      {timerRemaining > 0 && timerRemaining <= 5 && timerActive && (
+                        <span className="ml-2 text-xs animate-pulse">⚠️ {timerRemaining}s</span>
+                      )}
+                      {timerRemaining <= 0 && (
+                        <span className="ml-2 text-xs text-muted-foreground">(Terminé)</span>
+                      )}
+                    </h3>
                   </div>
-                  
+
                   {/* Contrôles Timer */}
                   <div className="flex gap-1">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
-                          className="h-7 w-7 p-0"
+                          className="h-8 w-8 p-0"
                           onClick={() => {
                             setTimerActive(!timerActive);
-                            supabase.from('game_state').update({ 
-                              timer_active: !timerActive 
+                            supabase.from('game_state').update({
+                              timer_active: !timerActive
                             }).eq('game_session_id', sessionId);
                           }}
+                          disabled={timerRemaining <= 0}
                         >
-                          {timerActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                          {timerActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>{timerActive ? 'Pause' : 'Reprendre'}</TooltipContent>
+                      <TooltipContent>{timerActive ? 'Pause (Espace)' : 'Reprendre (Espace)'}</TooltipContent>
                     </Tooltip>
-                    
+
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
-                          className="h-7 w-7 p-0"
+                          className="h-8 w-8 p-0"
                           onClick={() => {
                             const duration = rounds.find(r => r.id === currentRoundId)?.timer_duration || 30;
                             setTimerRemaining(duration);
                             setTimerActive(false);
-                            supabase.from('game_state').update({ 
+                            supabase.from('game_state').update({
                               timer_remaining: duration,
-                              timer_active: false 
+                              timer_active: false
                             }).eq('game_session_id', sessionId);
                             toast({ title: '🔄 Timer réinitialisé' });
                           }}
                         >
-                          <RotateCw className="h-3 w-3" />
+                          <RotateCw className="h-3.5 w-3.5" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Reset timer</TooltipContent>
+                      <TooltipContent>Reset timer (R)</TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
-                
-                <TimerBar 
+
+                <TimerBar
                   timerRemaining={timerRemaining}
                   timerDuration={rounds.find(r => r.id === currentRoundId)?.timer_duration || 30}
                   timerActive={timerActive}
@@ -1941,58 +1987,91 @@ const Regie = () => {
                           </Button>
                         ) : (
                           <>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-5 w-5 p-0 text-xs" 
-                              onClick={async () => {
-                                const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
-                                await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
-                                toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
-                              }}
-                              title="Retirer carton"
-                              disabled={!t.yellow_cards || t.yellow_cards === 0}
-                            >
-                              ↓
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-5 w-5 p-0 text-xs text-yellow-600" 
-                              onClick={async () => {
-                                const newCount = (t.yellow_cards || 0) + 1;
-                                
-                                if (newCount >= 2) {
-                                  // Exclure l'équipe DÉFINITIVEMENT
-                                  await supabase.from('teams').update({ 
-                                    yellow_cards: newCount,
-                                    is_excluded: true,
-                                    is_active: false,
-                                    connected_device_id: null
-                                  }).eq('id', t.id);
-                                  
-                                  // Kick l'équipe immédiatement
-                                  await gameEvents.kickTeam(t.id);
-                                  
-                                  toast({ 
-                                    title: '🟥 Équipe EXCLUE définitivement !', 
-                                    description: `${t.name} a reçu 2 cartons jaunes et ne peut plus se reconnecter`,
-                                    variant: 'destructive' 
-                                  });
-                                } else {
-                                  await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
-                                  toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
-                                }
-                              }}
-                              title="Donner carton jaune"
-                              disabled={t.is_excluded}
-                            >
-                              🟨
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
-                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
-                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => resetTeamConnectionBlock(t.id)} title="Débloquer">🔓</Button>
-                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-xs" onClick={() => disconnectTeam(t.id)}>X</Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 text-xs disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  onClick={async () => {
+                                    const newCount = Math.max(0, (t.yellow_cards || 0) - 1);
+                                    await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                    toast({ title: newCount === 0 ? '✅ Cartons retirés' : `🟨 ${newCount} carton(s)` });
+                                  }}
+                                  disabled={!t.yellow_cards || t.yellow_cards === 0}
+                                >
+                                  ↓
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Retirer carton</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 text-xs text-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-yellow-100 dark:hover:bg-yellow-900/20"
+                                  onClick={async () => {
+                                    const newCount = (t.yellow_cards || 0) + 1;
+
+                                    if (newCount >= 2) {
+                                      // Exclure l'équipe DÉFINITIVEMENT
+                                      await supabase.from('teams').update({
+                                        yellow_cards: newCount,
+                                        is_excluded: true,
+                                        is_active: false,
+                                        connected_device_id: null
+                                      }).eq('id', t.id);
+
+                                      // Kick l'équipe immédiatement
+                                      await gameEvents.kickTeam(t.id);
+
+                                      toast({
+                                        title: '🟥 Équipe EXCLUE définitivement !',
+                                        description: `${t.name} a reçu 2 cartons jaunes et ne peut plus se reconnecter`,
+                                        variant: 'destructive'
+                                      });
+                                    } else {
+                                      await supabase.from('teams').update({ yellow_cards: newCount }).eq('id', t.id);
+                                      toast({ title: `🟨 Carton jaune donné (${newCount}/2)` });
+                                    }
+                                  }}
+                                  disabled={t.is_excluded}
+                                >
+                                  🟨
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Donner carton jaune</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600" onClick={() => adjustTeamScore(t.id, -1)}>-</Button>
+                              </TooltipTrigger>
+                              <TooltipContent>-1 point</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs hover:bg-green-100 dark:hover:bg-green-900/20 text-green-600" onClick={() => adjustTeamScore(t.id, 1)}>+</Button>
+                              </TooltipTrigger>
+                              <TooltipContent>+1 point</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs hover:bg-blue-100 dark:hover:bg-blue-900/20" onClick={() => resetTeamConnectionBlock(t.id)}>🔓</Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Débloquer appareil</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs hover:bg-destructive hover:text-destructive-foreground" onClick={() => disconnectTeam(t.id)}>X</Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Déconnecter</TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                       </div>
