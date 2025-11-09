@@ -687,8 +687,8 @@ const Screen = () => {
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Multiple floating orbs with different sizes and speeds */}
-        {[...Array(8)].map((_, i) => (
+        {/* Multiple floating orbs with different sizes and speeds - optimized */}
+        {[...Array(4)].map((_, i) => (
           <motion.div
             key={`orb-${i}`}
             className="absolute rounded-full blur-3xl"
@@ -718,15 +718,15 @@ const Screen = () => {
           />
         ))}
 
-        {/* Rotating light rays */}
-        {[...Array(16)].map((_, i) => (
+        {/* Rotating light rays - optimized */}
+        {[...Array(6)].map((_, i) => (
           <motion.div
             key={`ray-${i}`}
             className="absolute top-1/2 left-1/2 w-0.5 origin-left"
             style={{
               height: '150vh',
               background: `linear-gradient(to bottom, transparent, hsl(var(--primary) / 0.08), transparent)`,
-              transform: `rotate(${i * 22.5}deg)`,
+              transform: `rotate(${i * 60}deg)`,
             }}
             animate={{ 
               opacity: [0.1, 0.3, 0.1],
@@ -741,8 +741,8 @@ const Screen = () => {
           />
         ))}
 
-        {/* Animated particles floating around */}
-        {[...Array(40)].map((_, i) => {
+        {/* Animated particles floating around - optimized */}
+        {[...Array(15)].map((_, i) => {
           const size = Math.random() * 5 + 2;
           const duration = Math.random() * 10 + 10;
           
@@ -1410,8 +1410,8 @@ const Screen = () => {
                           boxShadow: `0 0 60px ${buzzerNotification.team.color}, inset 0 0 30px rgba(255,255,255,0.3)`
                         }}
                       />
-                      {/* Particules autour */}
-                      {[...Array(8)].map((_, i) => (
+                      {/* Particules autour - optimisé */}
+                      {[...Array(4)].map((_, i) => (
                         <div
                           key={i}
                           className="absolute w-4 h-4 rounded-full"
@@ -1421,7 +1421,7 @@ const Screen = () => {
                             left: '50%',
                             animation: `ping 1s ease-out infinite`,
                             animationDelay: `${i * 0.15}s`,
-                            transform: `rotate(${i * 45}deg) translateY(-100px)`,
+                            transform: `rotate(${i * 90}deg) translateY(-100px)`,
                           }}
                         />
                       ))}

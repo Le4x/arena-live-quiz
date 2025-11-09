@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import debounce from "lodash/debounce";
+import Confetti from "react-confetti";
 
 const Client = () => {
   const { teamId } = useParams();
@@ -621,6 +622,7 @@ const Client = () => {
       
       console.log('✅ Team loaded:', data);
       setTeam(data);
+      setIsLoading(false);
     }
   };
 
@@ -1328,6 +1330,18 @@ const Client = () => {
 
   return (
     <TooltipProvider delayDuration={300}>
+      {/* Confetti pour célébration - n'apparaît que pour bonnes réponses */}
+      {showReveal && answerResult === 'correct' && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          numberOfPieces={300}
+          recycle={false}
+          colors={[team?.color || '#D4AF37', '#FFD700', '#FFA500', '#FF6B00']}
+          gravity={0.3}
+        />
+      )}
+
       <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 p-2 sm:p-4">
         {/* Connection Status Indicator */}
         <ConnectionStatus />
@@ -1364,10 +1378,23 @@ const Client = () => {
           </motion.div>
 
         {/* Header équipe premium avec classement - RESPONSIVE */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in" 
-              style={{ borderColor: team.color }}>
-          {/* Effet de brillance */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+        {isLoading ? (
+          <Card className="p-6 animate-pulse">
+            <div className="flex items-center gap-4 mb-4">
+              <Skeleton className="w-20 h-20 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-6 w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-full mb-2" />
+            <Skeleton className="h-2 w-full" />
+          </Card>
+        ) : (
+          <Card className="relative overflow-hidden bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 shadow-2xl animate-fade-in"
+                style={{ borderColor: team.color }}>
+            {/* Effet de brillance */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
           
           <div className="relative p-3 sm:p-6">
             <div className="flex items-start sm:items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
@@ -1419,7 +1446,7 @@ const Client = () => {
                 </div>
               </div>
 
-              {/* Bouton d'aide amélioré - RESPONSIVE */}
+              {/* Bouton d'aide amélioré - RESPONSIVE et VISIBLE */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1427,13 +1454,25 @@ const Client = () => {
                     disabled={isRequestingHelp}
                     variant="outline"
                     size="lg"
-                    className="flex-shrink-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border-red-500/30 hover:border-red-500 transition-all shadow-glow-red h-10 w-10 sm:h-12 sm:w-12 p-0 hover:scale-110 active:scale-95"
+                    className={`
+                      flex-shrink-0
+                      bg-gradient-to-br from-red-500/10 to-orange-500/10
+                      hover:from-red-500/20 hover:to-orange-500/20
+                      border-2 border-red-500/50 hover:border-red-500
+                      transition-all shadow-lg hover:shadow-xl
+                      h-12 w-12 sm:h-14 sm:w-14 p-0
+                      hover:scale-110 active:scale-95
+                      ${!isRequestingHelp ? 'animate-pulse' : ''}
+                    `}
+                    style={{
+                      boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)'
+                    }}
                   >
-                    <HelpCircle className={`h-5 w-5 sm:h-6 sm:w-6 text-red-500 ${isRequestingHelp ? 'animate-pulse' : ''}`} />
+                    <HelpCircle className={`h-6 w-6 sm:h-7 sm:w-7 text-red-500 ${isRequestingHelp ? 'animate-spin' : ''}`} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="left">
-                  {isRequestingHelp ? 'Demande envoyée...' : 'Demander de l\'aide à la régie'}
+                <TooltipContent side="left" className="text-base font-bold">
+                  {isRequestingHelp ? '⏳ Demande envoyée...' : '🆘 Demander de l\'aide à la régie'}
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1457,6 +1496,7 @@ const Client = () => {
             )}
           </div>
         </Card>
+        )}
 
         {/* Panneau des Jokers pour les finalistes */}
         {gameState?.final_mode && final && isFinalist && (
@@ -1582,49 +1622,45 @@ const Client = () => {
           <Card className="relative overflow-hidden p-4 sm:p-6 bg-gradient-to-br from-card/95 via-card/90 to-card/95 backdrop-blur-xl border-2 border-secondary/30 shadow-2xl animate-fade-in">
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
             
-            {showReveal && answerResult && (
-              <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
-                answerResult === 'correct' 
-                  ? 'from-green-500/98 to-emerald-600/98' 
-                  : 'from-red-500/98 to-rose-600/98'
-              } rounded-lg animate-scale-in z-50 backdrop-blur-md shadow-2xl border-4 ${
-                answerResult === 'correct' ? 'border-green-300' : 'border-red-300'
-              }`}
-              style={{
-                animation: 'scale-in 0.5s ease-out, pulse 2s ease-in-out infinite'
-              }}>
-                <div className="text-center p-6 sm:p-8">
-                  <div className="animate-bounce mb-4">
-                    {answerResult === 'correct' ? (
-                      <Check className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                             style={{ filter: 'drop-shadow(0 0 30px white)' }} />
-                    ) : (
-                      <X className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                         style={{ filter: 'drop-shadow(0 0 30px white)' }} />
-                    )}
+            {/* Banner de révélation NON-bloquant en haut */}
+            <AnimatePresence>
+              {showReveal && answerResult && (
+                <motion.div
+                  initial={{ y: -150, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -150, opacity: 0 }}
+                  transition={{ type: "spring", damping: 15 }}
+                  className={`absolute top-0 left-0 right-0 z-40 mx-2 sm:mx-4 mt-2 sm:mt-4 rounded-2xl backdrop-blur-xl border-4 shadow-2xl ${
+                    answerResult === 'correct'
+                      ? 'bg-green-500/90 border-green-300'
+                      : 'bg-red-500/90 border-red-300'
+                  }`}
+                  style={{
+                    boxShadow: answerResult === 'correct'
+                      ? '0 20px 60px rgba(34, 197, 94, 0.6)'
+                      : '0 20px 60px rgba(239, 68, 68, 0.6)'
+                  }}
+                >
+                  <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
+                    <div className="animate-bounce">
+                      {answerResult === 'correct' ? (
+                        <Check className="w-10 h-10 sm:w-14 sm:h-14 text-white drop-shadow-lg" />
+                      ) : (
+                        <X className="w-10 h-10 sm:w-14 sm:h-14 text-white drop-shadow-lg" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-2xl sm:text-4xl font-black text-white drop-shadow-lg">
+                        {answerResult === 'correct' ? '✓ BONNE RÉPONSE !' : '✗ MAUVAISE RÉPONSE'}
+                      </p>
+                      <p className="text-sm sm:text-lg text-white/90 font-bold mt-0.5 sm:mt-1">
+                        {answerResult === 'correct' ? '🎉 Félicitations !' : '💪 Continuez à jouer !'}
+                      </p>
+                    </div>
                   </div>
-                  {answerResult === 'correct' ? (
-                    <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
-                        BONNE RÉPONSE !
-                      </p>
-                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
-                        🎉 Félicitations ! 🎉
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
-                        MAUVAISE RÉPONSE
-                      </p>
-                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
-                        💪 Continuez à jouer !
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
             
             <div className="relative">
               <div className="flex items-center gap-2 mb-3 sm:mb-4 flex-wrap">
@@ -1691,15 +1727,25 @@ const Client = () => {
                           <Button
                             variant="outline"
                             disabled={hasAnswered || !isTimerActive || isEliminated}
-                            className={`w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-6 disabled:opacity-100 transition-all text-sm sm:text-base ${
-                              showReveal && isCorrectOption 
-                                ? 'bg-green-500/20 border-green-500 border-2' 
-                                : showReveal && isSelectedOption && answerResult === 'incorrect'
-                                ? 'bg-red-500/20 border-red-500 border-2'
-                                : hasAnswered || !isTimerActive
-                                ? 'opacity-50' 
-                                : ''
-                            }`}
+                            className={`
+                              w-full justify-start text-left h-auto
+                              py-4 sm:py-6 px-5 sm:px-7
+                              text-base sm:text-lg font-bold
+                              disabled:opacity-100
+                              transition-all duration-200
+                              hover:scale-[1.02] hover:shadow-xl
+                              active:scale-[0.98]
+                              ${answer === optionValue && !showReveal ? 'ring-4 ring-primary scale-[1.02] shadow-xl bg-primary/10' : ''}
+                              ${
+                                showReveal && isCorrectOption
+                                  ? 'bg-green-500/20 border-green-500 border-4 shadow-lg shadow-green-500/50'
+                                  : showReveal && isSelectedOption && answerResult === 'incorrect'
+                                  ? 'bg-red-500/20 border-red-500 border-4 shadow-lg shadow-red-500/50'
+                                  : hasAnswered || !isTimerActive
+                                  ? 'opacity-50'
+                                  : 'hover:border-primary/50 hover:bg-primary/5'
+                              }
+                            `}
                             onClick={() => {
                               if (!isEliminated) {
                                 setAnswer(optionValue);
