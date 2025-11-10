@@ -23,7 +23,7 @@ import { BuzzerMonitor } from "@/components/BuzzerMonitor";
 import { AudioDeck } from "@/components/audio/AudioDeck";
 import { TimerBar } from "@/components/TimerBar";
 import { HelpRequestMonitor } from "@/components/HelpRequestMonitor";
-import { FinalManager } from "@/components/regie/FinalManager";
+import { EnhancedFinalManager } from "@/components/regie/EnhancedFinalManager";
 import { PublicVoteControl } from "@/components/regie/PublicVoteControl";
 import { useRealtimeReconnect } from "@/hooks/useRealtimeReconnect";
 
@@ -2132,7 +2132,7 @@ const Regie = () => {
                   <Trophy className="h-3 w-3" />
                   Mode Finale
                 </h3>
-                <FinalManager sessionId={sessionId!} gameState={gameState} />
+                <EnhancedFinalManager sessionId={sessionId!} gameState={gameState} />
               </Card>
               
               <Card className="p-2">
