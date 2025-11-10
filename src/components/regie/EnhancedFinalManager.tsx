@@ -45,13 +45,27 @@ export const EnhancedFinalManager = ({
   }, [final?.id]);
 
   const loadJokerTypes = async () => {
-    const { data } = await supabase
-      .from('joker_types')
-      .select('*')
-      .eq('is_active', true)
-      .order('rarity');
+    try {
+      const { data, error } = await supabase
+        .from('joker_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('rarity');
 
-    if (data) setJokerTypes(data);
+      if (error) {
+        console.error('Error loading joker types:', error);
+        toast({
+          title: '⚠️ Migration requise',
+          description: 'La table joker_types n\'existe pas. Applique la migration 20251110110000_enhanced_finals_system.sql',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data) setJokerTypes(data);
+    } catch (error: any) {
+      console.error('Error loading joker types:', error);
+    }
   };
 
   const loadTeams = async () => {
@@ -344,10 +358,31 @@ export const EnhancedFinalManager = ({
 
       {showConfig && !final ? (
         /* Configuration Panel */
-        <FinalConfigPanel
-          jokerTypes={jokerTypes}
-          onSave={createFinal}
-        />
+        jokerTypes.length > 0 ? (
+          <FinalConfigPanel
+            jokerTypes={jokerTypes}
+            onSave={createFinal}
+          />
+        ) : (
+          <Card className="p-12 text-center">
+            <div className="space-y-4">
+              <div className="text-6xl">⚠️</div>
+              <h3 className="text-xl font-bold">Migration Requise</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Les tables nécessaires pour le système de finales n'existent pas encore.
+                <br /><br />
+                Va dans Supabase Studio → SQL Editor et exécute la migration :
+                <br />
+                <code className="text-xs bg-muted px-2 py-1 rounded">
+                  supabase/migrations/20251110110000_enhanced_finals_system.sql
+                </code>
+              </p>
+              <Button variant="outline" onClick={loadJokerTypes}>
+                Réessayer
+              </Button>
+            </div>
+          </Card>
+        )
       ) : final ? (
         /* Finale Active */
         <div className="space-y-6">
