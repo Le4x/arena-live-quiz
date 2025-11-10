@@ -66,17 +66,33 @@ const Client = () => {
   // Synchroniser l'horloge avec le serveur Supabase
   const synchronizeServerTime = async () => {
     try {
-      const clientTime = Date.now();
+      console.log('🕐 Synchronisation de l\'horloge avec le serveur...');
+      const clientTimeBefore = Date.now();
+
       const { data, error } = await supabase.rpc('get_server_time');
 
-      if (!error && data) {
+      if (error) {
+        console.error('❌ Erreur sync horloge:', error);
+        console.warn('⚠️ Utilisation du temps local (décalage possible)');
+        return;
+      }
+
+      if (data) {
+        const clientTimeAfter = Date.now();
+        const networkDelay = (clientTimeAfter - clientTimeBefore) / 2; // Estimation du délai réseau
         const serverTime = new Date(data).getTime();
-        const offset = serverTime - clientTime;
+        const offset = serverTime - clientTimeAfter + networkDelay;
+
         setServerTimeOffset(offset);
-        console.log(`🕐 Horloge synchronisée: décalage = ${offset}ms`);
+        console.log(`✅ Horloge synchronisée:`);
+        console.log(`   • Décalage: ${offset}ms`);
+        console.log(`   • Délai réseau: ${networkDelay.toFixed(0)}ms`);
+        console.log(`   • Temps serveur: ${new Date(serverTime).toISOString()}`);
+        console.log(`   • Temps local: ${new Date(clientTimeAfter).toISOString()}`);
       }
     } catch (err) {
-      console.warn('⚠️ Impossible de synchroniser l\'horloge, utilisation du temps local');
+      console.error('❌ Exception lors de la sync horloge:', err);
+      console.warn('⚠️ Utilisation du temps local (décalage possible)');
     }
   };
 
@@ -147,9 +163,17 @@ const Client = () => {
   // Empêcher la mise en veille de l'écran
   useWakeLock();
 
-  // Synchroniser l'horloge au montage
+  // Synchroniser l'horloge au montage et périodiquement
   useEffect(() => {
+    // Synchronisation initiale
     synchronizeServerTime();
+
+    // Resynchroniser toutes les 30 secondes pour compenser la dérive
+    const syncInterval = setInterval(() => {
+      synchronizeServerTime();
+    }, 30000); // 30 secondes
+
+    return () => clearInterval(syncInterval);
   }, []);
 
   useEffect(() => {
@@ -520,9 +544,9 @@ const Client = () => {
 
     // Mise à jour toutes les secondes
     const interval = setInterval(updateTimer, 1000);
-    
+
     return () => clearInterval(interval);
-  }, [gameState?.timer_started_at, gameState?.timer_duration, currentQuestion, team]);
+  }, [gameState?.timer_started_at, gameState?.timer_duration, currentQuestion, team, serverTimeOffset]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
