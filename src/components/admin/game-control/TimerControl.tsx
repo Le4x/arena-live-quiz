@@ -34,7 +34,7 @@ export const TimerControl = ({
         timer_active: true,
         timer_started_at: serverTime.toISOString(),
         timer_duration: duration,
-      }).eq('session_id', sessionId);
+      }).eq('game_session_id', sessionId);
 
       toast({ title: 'Timer démarré' });
       onLoadData();
@@ -51,7 +51,7 @@ export const TimerControl = ({
     try {
       await supabase.from('game_state').update({
         timer_active: false,
-      }).eq('session_id', sessionId);
+      }).eq('game_session_id', sessionId);
 
       toast({ title: 'Timer arrêté' });
       onLoadData();

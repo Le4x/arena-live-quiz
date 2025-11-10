@@ -37,7 +37,7 @@ export const QuestionSelector = ({
         current_question_id: questionId,
         show_answer: false,
         timer_active: false,
-      }).eq('session_id', sessionId);
+      }).eq('game_session_id', sessionId);
 
       toast({ title: 'Question activée' });
       onLoadData();

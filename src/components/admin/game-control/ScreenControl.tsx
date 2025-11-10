@@ -33,7 +33,7 @@ export const ScreenControl = ({
         show_sponsors_screen: screen === 'sponsors',
       };
 
-      await supabase.from('game_state').update(updates).eq('session_id', sessionId);
+      await supabase.from('game_state').update(updates).eq('game_session_id', sessionId);
 
       toast({ title: `Écran ${screen} activé` });
       onLoadData();

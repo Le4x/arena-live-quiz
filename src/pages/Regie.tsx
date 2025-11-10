@@ -47,11 +47,12 @@ const Regie = () => {
     const sessionData = await loadActiveSession();
 
     if (sessionData) {
-      // Ensuite charger les autres données avec le sessionId
+      // Charger les données liées à la session ET les bibliothèques globales
       await Promise.all([
         loadGameState(sessionData.id),
         loadTeams(sessionData.id),
-        loadRounds(sessionData.id),
+        loadRounds(), // Bibliothèque globale
+        loadQuestions(), // Bibliothèque globale
       ]);
     }
 
@@ -96,7 +97,7 @@ const Regie = () => {
       const { data, error } = await supabase
         .from('game_state')
         .select('*')
-        .eq('session_id', id)
+        .eq('game_session_id', id)
         .maybeSingle();
 
       if (error) throw error;
@@ -128,7 +129,7 @@ const Regie = () => {
       const { data, error } = await supabase
         .from('teams')
         .select('*')
-        .eq('session_id', id)
+        .eq('game_session_id', id)
         .order('name');
 
       if (error) throw error;
@@ -138,27 +139,22 @@ const Regie = () => {
     }
   };
 
-  // Charger les rounds
-  const loadRounds = async (sid?: string) => {
-    const id = sid || sessionId;
-    if (!id) return;
-
+  // Charger les rounds - TOUS les rounds (bibliothèque globale)
+  const loadRounds = async () => {
     try {
       const { data, error } = await supabase
         .from('rounds')
         .select('*')
-        .eq('session_id', id)
-        .order('order_index');
+        .order('created_at');
 
       if (error) throw error;
       setRounds(data || []);
 
-      // Charger les questions du round actuel
-      const session = currentSession || (await supabase.from('game_sessions').select('*').eq('id', id).maybeSingle()).data;
-      if (session?.current_round_id) {
-        loadQuestions(session.current_round_id);
+      // Charger les questions du round actuel si la session a un current_round_id
+      if (currentSession?.current_round_id) {
+        await loadQuestions(currentSession.current_round_id);
 
-        const currentRoundData = data?.find(r => r.id === session.current_round_id);
+        const currentRoundData = data?.find(r => r.id === currentSession.current_round_id);
         setCurrentRound(currentRoundData);
       }
     } catch (error) {
@@ -166,14 +162,17 @@ const Regie = () => {
     }
   };
 
-  // Charger les questions
-  const loadQuestions = async (roundId: string) => {
+  // Charger les questions - TOUTES les questions (bibliothèque globale)
+  const loadQuestions = async (roundId?: string) => {
     try {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('round_id', roundId)
-        .order('order_index');
+      let query = supabase.from('questions').select('*');
+
+      // Si roundId fourni, filtrer par round
+      if (roundId) {
+        query = query.eq('round_id', roundId);
+      }
+
+      const { data, error } = await query.order('display_order');
 
       if (error) throw error;
       setQuestions(data || []);
@@ -239,7 +238,7 @@ const Regie = () => {
       .channel('regie-game-state')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'game_state', filter: `session_id=eq.${sessionId}` },
+        { event: '*', schema: 'public', table: 'game_state', filter: `game_session_id=eq.${sessionId}` },
         () => {
           console.log('🔄 Game state updated');
           loadGameState();
@@ -252,7 +251,7 @@ const Regie = () => {
       .channel('regie-teams')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'teams', filter: `session_id=eq.${sessionId}` },
+        { event: '*', schema: 'public', table: 'teams', filter: `game_session_id=eq.${sessionId}` },
         () => {
           console.log('🔄 Teams updated');
           loadTeams();

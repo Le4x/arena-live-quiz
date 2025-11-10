@@ -66,7 +66,7 @@ export const AnswersMonitor = ({
     try {
       await supabase.from('game_state').update({
         show_answer: !gameState?.show_answer,
-      }).eq('session_id', sessionId);
+      }).eq('game_session_id', sessionId);
 
       toast({
         title: gameState?.show_answer ? 'Réponse cachée' : 'Réponse révélée',
