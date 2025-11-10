@@ -338,7 +338,8 @@ export const EnhancedFinalManager = ({
     }
   };
 
-  const getModeIcon = (mode: string) => {
+  const getModeIcon = (mode: string | undefined) => {
+    if (!mode) return Trophy;
     switch (mode) {
       case 'lives':
         return Heart;
@@ -395,7 +396,7 @@ export const EnhancedFinalManager = ({
               <h2 className="text-2xl font-bold text-yellow-500">Mode Final Ultra Personnalisable</h2>
               <p className="text-sm text-muted-foreground">
                 {final
-                  ? `Finale ${final.mode} - ${final.nb_finalists} finalistes`
+                  ? `Finale ${final.mode || 'classique'} - ${final.nb_finalists || 8} finalistes`
                   : 'Configurez votre finale sur mesure'}
               </p>
             </div>
@@ -452,7 +453,7 @@ export const EnhancedFinalManager = ({
                 <ModeIcon className="h-8 w-8 text-primary" />
                 <div>
                   <h3 className="text-xl font-bold">
-                    Mode: {final.mode.replace('_', ' ').toUpperCase()}
+                    Mode: {final.mode ? final.mode.replace('_', ' ').toUpperCase() : 'CLASSIQUE'}
                   </h3>
                   <Badge className="mt-1">{final.status}</Badge>
                 </div>
@@ -461,7 +462,7 @@ export const EnhancedFinalManager = ({
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Finalistes</p>
                 <p className="text-3xl font-black text-primary">
-                  {final.nb_finalists}
+                  {final.nb_finalists || 8}
                 </p>
               </div>
             </div>
@@ -499,7 +500,7 @@ export const EnhancedFinalManager = ({
           </Card>
 
           {/* Lives Display (si mode Lives ou Sudden Death) */}
-          {(final.mode === 'lives' || final.mode === 'sudden_death') && finalLives.length > 0 && (
+          {final.mode && (final.mode === 'lives' || final.mode === 'sudden_death') && finalLives.length > 0 && (
             <Card className="p-6">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Heart className="w-5 h-5 text-red-500" />
@@ -539,7 +540,7 @@ export const EnhancedFinalManager = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {[...Array(final.starting_lives)].map((_, i) => (
+                          {[...Array(final.starting_lives || 3)].map((_, i) => (
                             <Heart
                               key={i}
                               className={`w-6 h-6 ${
@@ -574,15 +575,15 @@ export const EnhancedFinalManager = ({
             <Card className="p-6">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Target className="w-5 h-5 text-blue-500" />
-                Course aux Points - Objectif: {final.points_to_win}pts
+                Course aux Points - Objectif: {final.points_to_win || 100}pts
               </h3>
 
               <div className="space-y-3">
-                {final.finalist_teams.slice(0, final.nb_finalists).map((teamId: string) => {
+                {final.finalist_teams.slice(0, final.nb_finalists || 8).map((teamId: string) => {
                   const team = teams.find((t) => t.id === teamId);
                   if (!team) return null;
 
-                  const progress = (team.score / final.points_to_win) * 100;
+                  const progress = (team.score / (final.points_to_win || 100)) * 100;
 
                   return (
                     <div key={team.id} className="space-y-2">
@@ -595,7 +596,7 @@ export const EnhancedFinalManager = ({
                           <span className="font-semibold">{team.name}</span>
                         </div>
                         <span className="text-sm font-bold">
-                          {team.score} / {final.points_to_win}pts
+                          {team.score} / {final.points_to_win || 100}pts
                         </span>
                       </div>
                       <Progress value={progress} className="h-3" />
