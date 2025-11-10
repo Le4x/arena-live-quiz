@@ -9,6 +9,7 @@ import { LeaderboardPaginated } from "@/components/tv/LeaderboardPaginated";
 import { WelcomeScreen } from "@/components/tv/WelcomeScreen";
 import { TeamConnectionScreen } from "@/components/tv/TeamConnectionScreen";
 import { WaitingScreen } from "@/components/tv/WaitingScreen";
+import { NextQuestionPreview } from "@/components/tv/NextQuestionPreview";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
