@@ -987,26 +987,117 @@ const Screen = () => {
                   </motion.div>
                 </div>
 
-                {/* Question text avec effet premium - taille TV */}
-                <div className="text-center mb-8 relative">
+                {/* Question text avec effet SHOW TV SPECTACULAIRE */}
+                <motion.div
+                  className="text-center mb-8 relative"
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {/* Effet de projecteur - 4 spots dans les coins */}
+                  {[
+                    { top: -60, left: -60, rotate: 45 },
+                    { top: -60, right: -60, rotate: -45 },
+                    { bottom: -60, left: -60, rotate: -45 },
+                    { bottom: -60, right: -60, rotate: 45 },
+                  ].map((pos, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-32 h-32"
+                      style={{
+                        ...pos,
+                        background: `radial-gradient(circle, hsl(var(--primary) / 0.3), transparent 70%)`,
+                        filter: 'blur(20px)',
+                        transform: `rotate(${pos.rotate}deg)`,
+                      }}
+                      animate={{
+                        opacity: [0.3, 0.6, 0.3],
+                        scale: [1, 1.2, 1],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                      }}
+                    />
+                  ))}
+
+                  {/* Cadre de projecteur élégant */}
                   <motion.div
-                    className="absolute inset-0 blur-xl opacity-20"
+                    className="absolute inset-0 rounded-3xl"
                     style={{
-                      background: 'radial-gradient(ellipse at center, hsl(var(--primary)), transparent)',
+                      boxShadow: 'inset 0 0 80px hsl(var(--primary) / 0.2), 0 0 60px hsl(var(--primary) / 0.15)',
+                      border: '3px solid hsl(var(--primary) / 0.3)',
                     }}
                     animate={{
-                      scale: [1, 1.1, 1],
-                      opacity: [0.15, 0.25, 0.15],
+                      boxShadow: [
+                        'inset 0 0 80px hsl(var(--primary) / 0.2), 0 0 60px hsl(var(--primary) / 0.15)',
+                        'inset 0 0 100px hsl(var(--primary) / 0.3), 0 0 80px hsl(var(--primary) / 0.25)',
+                        'inset 0 0 80px hsl(var(--primary) / 0.2), 0 0 60px hsl(var(--primary) / 0.15)',
+                      ],
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+
+                  {/* Glow d'arrière-plan principal */}
+                  <motion.div
+                    className="absolute inset-0 blur-3xl opacity-20"
+                    style={{
+                      background: 'radial-gradient(ellipse 80% 50% at center, hsl(var(--primary)), hsl(var(--secondary)), transparent)',
+                    }}
+                    animate={{
+                      scale: [1, 1.15, 1],
+                      opacity: [0.2, 0.35, 0.2],
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+
+                  {/* Particules dorées flottantes autour de la question */}
+                  {[...Array(8)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 rounded-full bg-accent"
+                      style={{
+                        left: `${10 + i * 12}%`,
+                        top: `${Math.random() * 100}%`,
+                        boxShadow: '0 0 10px hsl(var(--accent))',
+                      }}
+                      animate={{
+                        y: [0, -20, 0],
+                        opacity: [0, 1, 0],
+                        scale: [0, 1.5, 0],
+                      }}
+                      transition={{
+                        duration: 2 + Math.random(),
+                        repeat: Infinity,
+                        delay: i * 0.3,
+                      }}
+                    />
+                  ))}
+
+                  {/* Texte de la question avec effet 3D */}
+                  <motion.h2
+                    className="relative text-8xl font-black leading-tight px-12 py-8"
+                    style={{
+                      background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.8))',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      textShadow: '0 4px 30px hsl(var(--primary) / 0.5), 0 0 60px hsl(var(--primary) / 0.3)',
+                      filter: 'drop-shadow(0 0 20px hsl(var(--primary) / 0.4))',
+                    }}
+                    animate={{
+                      textShadow: [
+                        '0 4px 30px hsl(var(--primary) / 0.5), 0 0 60px hsl(var(--primary) / 0.3)',
+                        '0 4px 40px hsl(var(--primary) / 0.7), 0 0 80px hsl(var(--primary) / 0.5)',
+                        '0 4px 30px hsl(var(--primary) / 0.5), 0 0 60px hsl(var(--primary) / 0.3)',
+                      ],
                     }}
                     transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  <h2 className="relative text-7xl font-black leading-tight"
-                      style={{
-                        textShadow: '0 2px 20px hsl(var(--primary) / 0.3)',
-                      }}>
+                  >
                     {currentQuestion.question_text}
-                  </h2>
-                </div>
+                  </motion.h2>
+                </motion.div>
                 
                 {/* Image de la question si présente */}
                 {currentQuestion.image_url && (
@@ -1078,45 +1169,115 @@ const Screen = () => {
                                 />
                               )}
 
-                              <div
-                                className={`
-                                  relative rounded-2xl p-6 border-2 transition-all duration-500
-                                  ${isEliminated 
-                                    ? 'bg-red-500/10 border-red-500/30' 
-                                    : isCorrect 
-                                    ? 'bg-green-500/20 border-green-400' 
-                                    : 'bg-card/60 border-primary/30 hover:border-primary/60 hover:bg-card/80'
-                                  }
-                                `}
-                                style={{
-                                  boxShadow: isCorrect 
-                                    ? '0 0 30px hsl(var(--green-500) / 0.4), inset 0 0 30px hsl(var(--green-500) / 0.1)'
-                                    : '0 4px 20px rgba(0,0,0,0.2), inset 0 0 20px hsl(var(--primary) / 0.05)',
-                                }}
-                              >
-                                <div className="flex items-center gap-4">
-                                  {/* Letter badge */}
-                                  <div 
-                                    className={`
-                                      w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-black flex-shrink-0
-                                      ${isEliminated 
-                                        ? 'bg-red-500/20 text-red-400' 
-                                        : isCorrect 
-                                        ? 'bg-green-500 text-white' 
-                                        : 'bg-primary/20 text-primary'
-                                      }
-                                    `}
+                              {/* Card GLASSMORPHISM style show TV */}
+                              <div className="relative group">
+                                {/* Glow arrière-plan pour bonne réponse */}
+                                {isCorrect && (
+                                  <motion.div
+                                    className="absolute -inset-2 rounded-3xl blur-xl"
                                     style={{
-                                      boxShadow: isCorrect ? '0 0 20px hsl(var(--green-500))' : undefined,
+                                      background: 'linear-gradient(135deg, hsl(var(--green-500) / 0.6), hsl(var(--green-600) / 0.4))',
                                     }}
-                                  >
-                                    {isEliminated ? <X className="w-8 h-8" /> : isCorrect ? <Check className="w-8 h-8" /> : key}
+                                    animate={{
+                                      scale: [1, 1.1, 1],
+                                      opacity: [0.6, 0.9, 0.6],
+                                    }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                  />
+                                )}
+
+                                {/* Card principale */}
+                                <div
+                                  className={`
+                                    relative rounded-3xl p-8 transition-all duration-500
+                                    ${isEliminated
+                                      ? 'bg-red-500/10 border-red-500/40 backdrop-blur-md'
+                                      : isCorrect
+                                      ? 'bg-green-500/15 border-green-400/60 backdrop-blur-xl'
+                                      : 'bg-card/40 border-primary/40 backdrop-blur-2xl hover:bg-card/60 hover:border-primary/70 hover:scale-[1.02]'
+                                    }
+                                    border-3
+                                  `}
+                                  style={{
+                                    boxShadow: isCorrect
+                                      ? '0 0 40px hsl(var(--green-500) / 0.5), 0 8px 32px rgba(0,0,0,0.3), inset 0 0 40px hsl(var(--green-500) / 0.15)'
+                                      : isEliminated
+                                      ? '0 8px 32px rgba(0,0,0,0.2), inset 0 0 20px hsl(var(--red-500) / 0.1)'
+                                      : '0 8px 32px rgba(0,0,0,0.2), inset 0 0 30px hsl(var(--primary) / 0.08)',
+                                  }}
+                                >
+                                  {/* Reflet de verre */}
+                                  <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent" />
+                                    <motion.div
+                                      className="absolute -inset-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                                      animate={{
+                                        x: ['-200%', '200%'],
+                                      }}
+                                      transition={{
+                                        duration: 3,
+                                        repeat: Infinity,
+                                        repeatDelay: 2,
+                                      }}
+                                    />
                                   </div>
 
-                                  {/* Answer text - taille TV */}
-                                  <span className={`text-3xl font-semibold flex-1 ${isEliminated ? 'line-through text-red-400/50' : isCorrect ? 'text-green-300' : ''}`}>
-                                    {value as string}
-                                  </span>
+                                  <div className="flex items-center gap-6">
+                                    {/* Letter badge avec effet néon */}
+                                    <motion.div
+                                      className={`
+                                        w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black flex-shrink-0 relative
+                                        ${isEliminated
+                                          ? 'bg-red-500/20 text-red-400'
+                                          : isCorrect
+                                          ? 'bg-green-500/30 text-green-300'
+                                          : 'bg-gradient-to-br from-primary/30 to-secondary/30 text-primary'
+                                        }
+                                      `}
+                                      style={{
+                                        boxShadow: isCorrect
+                                          ? '0 0 30px hsl(var(--green-500) / 0.8), inset 0 0 20px hsl(var(--green-500) / 0.3)'
+                                          : '0 4px 20px rgba(0,0,0,0.3), inset 0 0 15px hsl(var(--primary) / 0.2)',
+                                      }}
+                                      whileHover={{ scale: 1.1, rotate: 5 }}
+                                      animate={isCorrect ? {
+                                        boxShadow: [
+                                          '0 0 30px hsl(var(--green-500) / 0.8)',
+                                          '0 0 50px hsl(var(--green-500) / 1)',
+                                          '0 0 30px hsl(var(--green-500) / 0.8)',
+                                        ],
+                                      } : {}}
+                                      transition={isCorrect ? { duration: 1, repeat: Infinity } : {}}
+                                    >
+                                      {isEliminated ? (
+                                        <X className="w-10 h-10" />
+                                      ) : isCorrect ? (
+                                        <Check className="w-10 h-10" />
+                                      ) : (
+                                        key
+                                      )}
+                                    </motion.div>
+
+                                    {/* Answer text - taille TV avec gradient */}
+                                    <span
+                                      className={`
+                                        text-4xl font-bold flex-1
+                                        ${isEliminated
+                                          ? 'line-through text-red-400/60'
+                                          : isCorrect
+                                          ? 'text-green-300'
+                                          : 'text-foreground'
+                                        }
+                                      `}
+                                      style={{
+                                        textShadow: isCorrect
+                                          ? '0 0 20px hsl(var(--green-500) / 0.6)'
+                                          : '0 2px 10px rgba(0,0,0,0.3)',
+                                      }}
+                                    >
+                                      {value as string}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </motion.div>
