@@ -61,6 +61,24 @@ const Client = () => {
   const [isTeamBlocked, setIsTeamBlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBuzzing, setIsBuzzing] = useState(false);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0); // Décalage entre horloge serveur et locale
+
+  // Synchroniser l'horloge avec le serveur Supabase
+  const synchronizeServerTime = async () => {
+    try {
+      const clientTime = Date.now();
+      const { data, error } = await supabase.rpc('get_server_time');
+
+      if (!error && data) {
+        const serverTime = new Date(data).getTime();
+        const offset = serverTime - clientTime;
+        setServerTimeOffset(offset);
+        console.log(`🕐 Horloge synchronisée: décalage = ${offset}ms`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Impossible de synchroniser l\'horloge, utilisation du temps local');
+    }
+  };
 
   // Générer ou récupérer l'ID unique de l'appareil
   const getDeviceId = () => {
@@ -129,6 +147,11 @@ const Client = () => {
   // Empêcher la mise en veille de l'écran
   useWakeLock();
 
+  // Synchroniser l'horloge au montage
+  useEffect(() => {
+    synchronizeServerTime();
+  }, []);
+
   useEffect(() => {
     if (teamId) {
       loadTeam();
@@ -151,18 +174,20 @@ const Client = () => {
 
     const teamsChannel = supabase
       .channel('client-teams-realtime')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
         table: 'teams',
         filter: teamId ? `id=eq.${teamId}` : undefined
       }, (payload) => {
         console.log('🔄 Client: Team updated realtime', payload);
-        // Mise à jour IMMEDIATE du state local
-        if (payload.new) {
+        // IMPORTANT: Vérifier que c'est bien NOTRE équipe avant de mettre à jour
+        if (payload.new && payload.new.id === teamId) {
+          // Mise à jour IMMEDIATE du state local
           setTeam(payload.new);
+          reloadTeamData();
         }
-        reloadTeamData();
+        // Toujours recharger la liste complète pour le classement
         loadAllTeams();
       })
       .subscribe();
@@ -466,7 +491,8 @@ const Client = () => {
 
     const updateTimer = () => {
       const startedAt = new Date(gameState.timer_started_at).getTime();
-      const now = Date.now();
+      // Utiliser l'horloge synchronisée avec le serveur
+      const now = Date.now() + serverTimeOffset;
       const elapsed = Math.floor((now - startedAt) / 1000);
       const remaining = Math.max(0, gameState.timer_duration - elapsed);
       
