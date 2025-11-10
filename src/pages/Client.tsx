@@ -684,7 +684,7 @@ const Client = () => {
       .select('*')
       .eq('id', teamId)
       .single();
-    
+
     if (data) {
       // Vérifier si l'équipe est exclue
       if (data.is_excluded) {
@@ -698,28 +698,70 @@ const Client = () => {
         }, 2000);
         return;
       }
-      
+
       const currentDeviceId = getDeviceId();
-      
-      // Vérifier si un appareil est déjà connecté
-      if (data.connected_device_id && data.connected_device_id !== currentDeviceId) {
-        setDeviceBlocked(true);
-        toast({
-          title: "Accès bloqué",
-          description: "Un appareil est déjà connecté à cette équipe",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Si aucun appareil n'est connecté ou si c'est le même appareil, enregistrer l'appareil
-      if (!data.connected_device_id) {
+
+      // Si c'est le même appareil, permettre la reconnexion (refresh de page)
+      if (data.connected_device_id === currentDeviceId) {
+        // Reconnexion du même appareil - autoriser et mettre à jour last_seen
         await supabase
           .from('teams')
-          .update({ connected_device_id: currentDeviceId })
+          .update({ is_active: true, last_seen_at: new Date().toISOString() })
           .eq('id', teamId);
+
+        console.log('✅ Team loaded (same device):', data);
+        setTeam(data);
+        setIsLoading(false);
+        return;
       }
-      
+
+      // Vérifier si un AUTRE appareil est connecté ET actif récemment (moins de 3 minutes)
+      if (data.connected_device_id && data.last_seen_at) {
+        const lastSeen = new Date(data.last_seen_at).getTime();
+        const now = Date.now();
+        const threeMinutesAgo = now - 180000; // 3 minutes (plus tolérant que 2 minutes)
+
+        // Si l'autre appareil était actif récemment, bloquer
+        if (lastSeen > threeMinutesAgo) {
+          console.warn('🚫 Autre appareil actif récemment');
+          setDeviceBlocked(true);
+          toast({
+            title: "Accès bloqué",
+            description: "Un autre appareil est actuellement connecté à cette équipe",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // L'autre appareil est inactif depuis plus de 3 minutes, autoriser la prise de contrôle
+        console.log('✅ Prise de contrôle autorisée (ancien device inactif)');
+        await supabase
+          .from('teams')
+          .update({
+            connected_device_id: currentDeviceId,
+            is_active: true,
+            last_seen_at: new Date().toISOString()
+          })
+          .eq('id', teamId);
+
+        toast({
+          title: "✅ Connexion autorisée",
+          description: "L'ancien appareil était inactif, connexion établie",
+        });
+      } else if (!data.connected_device_id) {
+        // Aucun appareil n'est connecté, enregistrer ce device
+        await supabase
+          .from('teams')
+          .update({
+            connected_device_id: currentDeviceId,
+            is_active: true,
+            last_seen_at: new Date().toISOString()
+          })
+          .eq('id', teamId);
+
+        console.log('✅ Premier appareil connecté');
+      }
+
       console.log('✅ Team loaded:', data);
       setTeam(data);
       setIsLoading(false);
