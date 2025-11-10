@@ -507,6 +507,22 @@ const Client = () => {
     }
   }, [currentQuestionInstanceId]);
 
+  // Surveiller quand la Régie révèle la réponse
+  useEffect(() => {
+    if (gameState?.show_answer && currentQuestion && team) {
+      console.log('🎭 show_answer activé, vérification du résultat');
+      checkAnswerResult();
+    } else if (!gameState?.show_answer && showReveal) {
+      // Cacher le reveal si show_answer est désactivé
+      console.log('🎭 show_answer désactivé, masquage du reveal');
+      setShowReveal(false);
+      if (revealTimeoutRef.current) {
+        clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
+    }
+  }, [gameState?.show_answer, currentQuestion?.id, team?.id]);
+
   const checkIfBuzzed = async () => {
     if (!team || !currentQuestion?.id || !currentQuestionInstanceId) return;
     
@@ -550,8 +566,42 @@ const Client = () => {
   };
 
   const checkAnswerResult = async () => {
-    // Ne rien faire ici - le reveal se fera via l'événement REVEAL_ANSWER
-    return;
+    // Vérifier si show_answer est activé et si l'équipe a répondu
+    if (!gameState?.show_answer || !currentQuestion || !team) return;
+
+    console.log('🎭 checkAnswerResult: Vérification du résultat de la réponse');
+
+    // Vérifier si l'équipe a une réponse pour cette question
+    const { data: answerData } = await supabase
+      .from('team_answers')
+      .select('*')
+      .eq('team_id', team.id)
+      .eq('question_id', currentQuestion.id)
+      .maybeSingle();
+
+    if (answerData && !showReveal) {
+      console.log('🎭 Réponse trouvée, affichage du reveal:', answerData);
+
+      // Annuler tout timeout précédent
+      if (revealTimeoutRef.current) {
+        clearTimeout(revealTimeoutRef.current);
+      }
+
+      setShowReveal(true);
+      const isCorrect = answerData.is_correct;
+      setAnswerResult(isCorrect ? 'correct' : 'incorrect');
+      playSound(isCorrect ? 'correct' : 'incorrect');
+
+      // Durée plus longue pour les bonnes réponses
+      const revealDuration = isCorrect ? 8000 : 5000;
+
+      // Cacher le reveal après la durée appropriée
+      revealTimeoutRef.current = setTimeout(() => {
+        console.log('🎭 Animation reveal terminée');
+        setShowReveal(false);
+        revealTimeoutRef.current = null;
+      }, revealDuration);
+    }
   };
 
   const handleDisconnect = async () => {
