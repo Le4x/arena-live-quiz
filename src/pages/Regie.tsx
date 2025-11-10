@@ -43,12 +43,18 @@ const Regie = () => {
 
   // Charger toutes les données
   const loadAllData = async () => {
-    await Promise.all([
-      loadActiveSession(),
-      loadGameState(),
-      loadTeams(),
-      loadRounds(),
-    ]);
+    // D'abord charger la session
+    const sessionData = await loadActiveSession();
+
+    if (sessionData) {
+      // Ensuite charger les autres données avec le sessionId
+      await Promise.all([
+        loadGameState(sessionData.id),
+        loadTeams(sessionData.id),
+        loadRounds(sessionData.id),
+      ]);
+    }
+
     setLoading(false);
   };
 
@@ -59,42 +65,54 @@ const Regie = () => {
         .from('sessions')
         .select('*')
         .eq('is_active', true)
-        .single();
+        .maybeSingle(); // Utiliser maybeSingle au lieu de single
 
       if (error) {
-        console.log('Aucune session active');
-        return;
+        console.error('Erreur chargement session:', error);
+        return null;
       }
 
+      if (!data) {
+        console.log('Aucune session active trouvée');
+        return null;
+      }
+
+      console.log('✅ Session active chargée:', data.name);
       setCurrentSession(data);
       setSessionId(data.id);
+      return data;
     } catch (error) {
-      console.error('Erreur chargement session:', error);
+      console.error('Exception chargement session:', error);
+      return null;
     }
   };
 
   // Charger le game state
-  const loadGameState = async () => {
-    if (!sessionId) return;
+  const loadGameState = async (sid?: string) => {
+    const id = sid || sessionId;
+    if (!id) return;
 
     try {
       const { data, error } = await supabase
         .from('game_state')
         .select('*')
-        .eq('session_id', sessionId)
-        .single();
+        .eq('session_id', id)
+        .maybeSingle();
 
       if (error) throw error;
-      setGameState(data);
 
-      // Charger la question actuelle
-      if (data.current_question_id) {
-        const { data: questionData } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('id', data.current_question_id)
-          .single();
-        setCurrentQuestion(questionData);
+      if (data) {
+        setGameState(data);
+
+        // Charger la question actuelle
+        if (data.current_question_id) {
+          const { data: questionData } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('id', data.current_question_id)
+            .maybeSingle();
+          setCurrentQuestion(questionData);
+        }
       }
     } catch (error) {
       console.error('Erreur chargement game state:', error);
@@ -102,14 +120,15 @@ const Regie = () => {
   };
 
   // Charger les équipes
-  const loadTeams = async () => {
-    if (!sessionId) return;
+  const loadTeams = async (sid?: string) => {
+    const id = sid || sessionId;
+    if (!id) return;
 
     try {
       const { data, error } = await supabase
         .from('teams')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', id)
         .order('name');
 
       if (error) throw error;
@@ -120,24 +139,26 @@ const Regie = () => {
   };
 
   // Charger les rounds
-  const loadRounds = async () => {
-    if (!sessionId) return;
+  const loadRounds = async (sid?: string) => {
+    const id = sid || sessionId;
+    if (!id) return;
 
     try {
       const { data, error } = await supabase
         .from('rounds')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', id)
         .order('order_index');
 
       if (error) throw error;
       setRounds(data || []);
 
       // Charger les questions du round actuel
-      if (currentSession?.current_round_id) {
-        loadQuestions(currentSession.current_round_id);
+      const session = currentSession || (await supabase.from('sessions').select('*').eq('id', id).maybeSingle()).data;
+      if (session?.current_round_id) {
+        loadQuestions(session.current_round_id);
 
-        const currentRoundData = data?.find(r => r.id === currentSession.current_round_id);
+        const currentRoundData = data?.find(r => r.id === session.current_round_id);
         setCurrentRound(currentRoundData);
       }
     } catch (error) {
