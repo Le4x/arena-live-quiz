@@ -4,7 +4,18 @@
 -- ============================================================================
 
 -- ============================================================================
--- 1. AMÉLIORATION TABLE FINALS
+-- 1. AMÉLIORER LA TABLE JOKER_TYPES (Ajouter colonnes manquantes)
+-- ============================================================================
+
+-- Ajouter les colonnes effect_type, effect_value et rarity
+ALTER TABLE public.joker_types
+  ADD COLUMN IF NOT EXISTS effect_type TEXT DEFAULT 'bonus',
+  ADD COLUMN IF NOT EXISTS effect_value JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS rarity TEXT DEFAULT 'common'
+    CHECK (rarity IN ('common', 'rare', 'epic', 'legendary'));
+
+-- ============================================================================
+-- 2. AMÉLIORATION TABLE FINALS
 -- ============================================================================
 
 -- Ajouter colonnes de configuration
@@ -20,14 +31,14 @@ ALTER TABLE public.finals ADD COLUMN IF NOT EXISTS joker_refill_enabled BOOLEAN 
 ALTER TABLE public.finals ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
 
 -- ============================================================================
--- 2. AMÉLIORATION TABLE FINAL_JOKERS
+-- 3. AMÉLIORATION TABLE FINAL_JOKERS
 -- ============================================================================
 
-ALTER TABLE public.final_jokers ADD COLUMN IF NOT EXISTS used_count INTEGER DEFAULT 0;
+-- Colonnes already exist dans la migration originale, mais on s'assure
 ALTER TABLE public.final_jokers ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ;
 
 -- ============================================================================
--- 3. TABLE FINAL_LIVES (Tracking des vies)
+-- 4. TABLE FINAL_LIVES (Tracking des vies)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.final_lives (
@@ -51,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_final_lives_team_id ON public.final_lives(team_id
 CREATE INDEX IF NOT EXISTS idx_final_lives_eliminated ON public.final_lives(is_eliminated);
 
 -- ============================================================================
--- 4. TABLE JOKER_USAGES (Historique des jokers)
+-- 5. TABLE JOKER_USAGES (Historique des jokers)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.joker_usages (
@@ -76,54 +87,87 @@ CREATE INDEX IF NOT EXISTS idx_joker_usages_team_id ON public.joker_usages(team_
 CREATE INDEX IF NOT EXISTS idx_joker_usages_question ON public.joker_usages(question_instance_id);
 
 -- ============================================================================
--- 5. INSERTION DES 15 JOKERS STRATÉGIQUES
+-- 6. MISE À JOUR DES JOKERS EXISTANTS (Ajouter rarity et effect_value)
 -- ============================================================================
 
--- Supprimer les anciens jokers pour éviter les doublons
--- DELETE FROM public.joker_types;
+-- Mettre à jour les anciens jokers avec rarity
+UPDATE public.joker_types SET rarity = 'epic', effect_type = 'multiplier', effect_value = '{"factor": 2}' WHERE name = 'double_points';
+UPDATE public.joker_types SET rarity = 'rare', effect_type = 'shield', effect_value = '{"protection": true}' WHERE name = 'shield';
+UPDATE public.joker_types SET rarity = 'common', effect_type = 'eliminate', effect_value = '{"count": 1}' WHERE name = 'eliminate_answer';
+UPDATE public.joker_types SET rarity = 'rare', effect_type = 'add_time', effect_value = '{"seconds": 10}' WHERE name = 'time_bonus';
+UPDATE public.joker_types SET rarity = 'epic', effect_type = 'public_vote', effect_value = '{}' WHERE name = 'public_vote';
+
+-- ============================================================================
+-- 7. INSERTION DES 15 NOUVEAUX JOKERS STRATÉGIQUES
+-- ============================================================================
 
 -- Jokers Défensifs (RARE + LEGENDARY)
-INSERT INTO public.joker_types (id, name, description, icon, effect_type, effect_value, is_active, rarity)
+INSERT INTO public.joker_types (name, description, icon, effect_type, effect_value, is_active, rarity)
 VALUES
-  (gen_random_uuid(), 'BOUCLIER', 'Protège contre une mauvaise réponse - pas de pénalité ni perte de vie', '🛡️', 'shield', '{"protection": true}', true, 'rare'),
-  (gen_random_uuid(), 'RESURRECTION', 'Récupère une vie perdue (si mode vies)', '❤️‍🩹', 'heal', '{"lives": 1}', true, 'legendary')
-ON CONFLICT (id) DO NOTHING;
+  ('BOUCLIER', 'Protège contre une mauvaise réponse - pas de pénalité ni perte de vie', '🛡️', 'shield', '{"protection": true}', true, 'rare'),
+  ('RESURRECTION', 'Récupère une vie perdue (si mode vies)', '❤️‍🩹', 'heal', '{"lives": 1}', true, 'legendary')
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  effect_type = EXCLUDED.effect_type,
+  effect_value = EXCLUDED.effect_value,
+  rarity = EXCLUDED.rarity;
 
--- Jokers Offensifs (EPIC)
-INSERT INTO public.joker_types (id, name, description, icon, effect_type, effect_value, is_active, rarity)
+-- Jokers Offensifs (EPIC + RARE)
+INSERT INTO public.joker_types (name, description, icon, effect_type, effect_value, is_active, rarity)
 VALUES
-  (gen_random_uuid(), 'VOL_POINTS', 'Vole 10 points à l''équipe de ton choix', '🦹', 'steal', '{"points": 10}', true, 'epic'),
-  (gen_random_uuid(), 'SABOTAGE', 'Bloque le buzzer d''une équipe pour cette question', '⚡', 'block_buzzer', '{"duration": "question"}', true, 'epic'),
-  (gen_random_uuid(), 'CONFUSION', 'Inverse 2 options de réponse pour les autres équipes', '🌪️', 'swap_options', '{"count": 2}', true, 'rare')
-ON CONFLICT (id) DO NOTHING;
+  ('VOL_POINTS', 'Vole 10 points à l''équipe de ton choix', '🦹', 'steal', '{"points": 10}', true, 'epic'),
+  ('SABOTAGE', 'Bloque le buzzer d''une équipe pour cette question', '⚡', 'block_buzzer', '{"duration": "question"}', true, 'epic'),
+  ('CONFUSION', 'Inverse 2 options de réponse pour les autres équipes', '🌪️', 'swap_options', '{"count": 2}', true, 'rare')
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  effect_type = EXCLUDED.effect_type,
+  effect_value = EXCLUDED.effect_value,
+  rarity = EXCLUDED.rarity;
 
 -- Jokers Informatifs (COMMON + RARE + LEGENDARY)
-INSERT INTO public.joker_types (id, name, description, icon, effect_type, effect_value, is_active, rarity)
+INSERT INTO public.joker_types (name, description, icon, effect_type, effect_value, is_active, rarity)
 VALUES
-  (gen_random_uuid(), 'VISION', 'Révèle quelle option est correcte (QCM uniquement)', '👁️', 'reveal_answer', '{}', true, 'legendary'),
-  (gen_random_uuid(), 'INDICE', 'Élimine 2 mauvaises réponses (QCM uniquement)', '💡', 'eliminate', '{"count": 2}', true, 'common'),
-  (gen_random_uuid(), 'TEMPS_LIBRE', 'Ajoute 15 secondes au chrono de l''équipe', '⏰', 'add_time', '{"seconds": 15}', true, 'rare')
-ON CONFLICT (id) DO NOTHING;
+  ('VISION', 'Révèle quelle option est correcte (QCM uniquement)', '👁️', 'reveal_answer', '{}', true, 'legendary'),
+  ('INDICE', 'Élimine 2 mauvaises réponses (QCM uniquement)', '💡', 'eliminate', '{"count": 2}', true, 'common'),
+  ('TEMPS_LIBRE', 'Ajoute 15 secondes au chrono de l''équipe', '⏰', 'add_time', '{"seconds": 15}', true, 'rare')
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  effect_type = EXCLUDED.effect_type,
+  effect_value = EXCLUDED.effect_value,
+  rarity = EXCLUDED.rarity;
 
 -- Jokers Tactiques (COMMON + RARE + EPIC)
-INSERT INTO public.joker_types (id, name, description, icon, effect_type, effect_value, is_active, rarity)
+INSERT INTO public.joker_types (name, description, icon, effect_type, effect_value, is_active, rarity)
 VALUES
-  (gen_random_uuid(), 'DOUBLE_OU_RIEN', 'Double les points si bonne réponse, 0 si mauvaise', '🎲', 'double_or_nothing', '{}', true, 'epic'),
-  (gen_random_uuid(), 'PASSE_TON_TOUR', 'Saute cette question sans pénalité', '⏭️', 'skip', '{}', true, 'common'),
-  (gen_random_uuid(), 'MULTIPLICATEUR', 'X2 sur les points de cette question', '✖️2', 'multiplier', '{"factor": 2}', true, 'epic'),
-  (gen_random_uuid(), 'CHANCE', 'Réponse aléatoire - 25% de réussir', '🍀', 'random_answer', '{"success_rate": 0.25}', true, 'rare')
-ON CONFLICT (id) DO NOTHING;
+  ('DOUBLE_OU_RIEN', 'Double les points si bonne réponse, 0 si mauvaise', '🎲', 'double_or_nothing', '{}', true, 'epic'),
+  ('PASSE_TON_TOUR', 'Saute cette question sans pénalité', '⏭️', 'skip', '{}', true, 'common'),
+  ('MULTIPLICATEUR', 'X2 sur les points de cette question', '✖️2', 'multiplier', '{"factor": 2}', true, 'epic'),
+  ('CHANCE', 'Réponse aléatoire - 25% de réussir', '🍀', 'random_answer', '{"success_rate": 0.25}', true, 'rare')
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  effect_type = EXCLUDED.effect_type,
+  effect_value = EXCLUDED.effect_value,
+  rarity = EXCLUDED.rarity;
 
 -- Jokers d'Équipe (RARE + LEGENDARY)
-INSERT INTO public.joker_types (id, name, description, icon, effect_type, effect_value, is_active, rarity)
+INSERT INTO public.joker_types (name, description, icon, effect_type, effect_value, is_active, rarity)
 VALUES
-  (gen_random_uuid(), 'PARTAGE', 'Partage tes points avec une autre équipe', '🤝', 'share_points', '{"percentage": 50}', true, 'rare'),
-  (gen_random_uuid(), 'ALLIANCE', 'Forme une alliance avec une équipe - points partagés pendant 3 questions', '🔗', 'alliance', '{"duration": 3}', true, 'legendary'),
-  (gen_random_uuid(), 'TRAHISON', 'Rompt une alliance et vole tous les points de l''allié', '🗡️', 'betray', '{}', true, 'legendary')
-ON CONFLICT (id) DO NOTHING;
+  ('PARTAGE', 'Partage tes points avec une autre équipe', '🤝', 'share_points', '{"percentage": 50}', true, 'rare'),
+  ('ALLIANCE', 'Forme une alliance avec une équipe - points partagés pendant 3 questions', '🔗', 'alliance', '{"duration": 3}', true, 'legendary'),
+  ('TRAHISON', 'Rompt une alliance et vole tous les points de l''allié', '🗡️', 'betray', '{}', true, 'legendary')
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  effect_type = EXCLUDED.effect_type,
+  effect_value = EXCLUDED.effect_value,
+  rarity = EXCLUDED.rarity;
 
 -- ============================================================================
--- 6. POLITIQUES DE SÉCURITÉ (RLS)
+-- 8. POLITIQUES DE SÉCURITÉ (RLS)
 -- ============================================================================
 
 -- Activer RLS
@@ -150,14 +194,14 @@ CREATE POLICY "Authenticated users can insert joker usages"
   ON public.joker_usages FOR INSERT TO authenticated WITH CHECK (true);
 
 -- ============================================================================
--- 7. PERMISSIONS (GRANTS)
+-- 9. PERMISSIONS (GRANTS)
 -- ============================================================================
 
 GRANT ALL ON public.final_lives TO authenticated;
 GRANT ALL ON public.joker_usages TO authenticated;
 
 -- ============================================================================
--- 8. FONCTION: use_joker() - Utiliser un joker
+-- 10. FONCTION: use_joker() - Utiliser un joker
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.use_joker(
@@ -222,7 +266,7 @@ END;
 $$;
 
 -- ============================================================================
--- 9. FONCTION: lose_life() - Perdre une vie
+-- 11. FONCTION: lose_life() - Perdre une vie
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.lose_life(
@@ -273,14 +317,14 @@ END;
 $$;
 
 -- ============================================================================
--- 10. PERMISSIONS SUR LES FONCTIONS
+-- 12. PERMISSIONS SUR LES FONCTIONS
 -- ============================================================================
 
 GRANT EXECUTE ON FUNCTION public.use_joker TO authenticated;
 GRANT EXECUTE ON FUNCTION public.lose_life TO authenticated;
 
 -- ============================================================================
--- 11. COMMENTAIRES
+-- 13. COMMENTAIRES
 -- ============================================================================
 
 COMMENT ON TABLE public.final_lives IS 'Tracking des vies des finalistes dans les finales avec système de vies';
@@ -291,6 +335,6 @@ COMMENT ON FUNCTION public.lose_life IS 'Faire perdre une vie à une équipe et 
 -- ============================================================================
 -- FIN DE LA MIGRATION
 -- ============================================================================
--- Si tout s'est bien passé, tu verras "Success" dans Supabase Studio
+-- Si tout s'est bien passé, tu verras "Success. No rows returned" dans Supabase Studio
 -- Retourne dans la Régie et clique sur "Réessayer" dans le mode Final
 -- ============================================================================
