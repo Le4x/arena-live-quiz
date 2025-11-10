@@ -63,9 +63,17 @@ WHERE tablename = 'joker_types';
 -- ============================================================================
 -- Si des jokers ont created_at = NULL, ça peut causer des problèmes de tri
 
+WITH numbered_jokers AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (ORDER BY name) as row_num
+  FROM public.joker_types
+  WHERE created_at IS NULL
+)
 UPDATE public.joker_types
-SET created_at = now() + (ROW_NUMBER() OVER (ORDER BY name)) * INTERVAL '1 second'
-WHERE created_at IS NULL;
+SET created_at = now() + (numbered_jokers.row_num * INTERVAL '1 second')
+FROM numbered_jokers
+WHERE public.joker_types.id = numbered_jokers.id;
 
 -- ============================================================================
 -- FIX 2: Supprimer TOUTES les policies RLS et en recréer des simples
