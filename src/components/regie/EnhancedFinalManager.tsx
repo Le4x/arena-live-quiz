@@ -29,13 +29,31 @@ export const EnhancedFinalManager = ({
   const [final, setFinal] = useState<any>(null);
   const [finalLives, setFinalLives] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadJokerTypes();
-    loadTeams();
-    loadFinal();
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        await Promise.all([
+          loadJokerTypes(),
+          loadTeams(),
+          loadFinal()
+        ]);
+      } catch (err: any) {
+        console.error('Error loading final data:', err);
+        setError(err.message || 'Erreur lors du chargement');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (sessionId) {
+      loadData();
+    }
   }, [sessionId]);
 
   useEffect(() => {
@@ -50,21 +68,33 @@ export const EnhancedFinalManager = ({
         .from('joker_types')
         .select('*')
         .eq('is_active', true)
-        .order('rarity');
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Error loading joker types:', error);
-        toast({
-          title: '⚠️ Migration requise',
-          description: 'La table joker_types n\'existe pas. Applique la migration 20251110110000_enhanced_finals_system.sql',
-          variant: 'destructive',
-        });
-        return;
+
+        // Si c'est une erreur de colonne manquante
+        if (error.message.includes('column') || error.message.includes('does not exist')) {
+          toast({
+            title: '⚠️ Migration requise',
+            description: 'Les colonnes nécessaires n\'existent pas. Applique MIGRATION_FINALE.sql depuis Supabase Studio',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: '⚠️ Erreur',
+            description: error.message,
+            variant: 'destructive',
+          });
+        }
+        throw error; // Propager l'erreur pour que le useEffect la capture
       }
 
+      console.log('Joker types loaded:', data?.length);
       if (data) setJokerTypes(data);
     } catch (error: any) {
       console.error('Error loading joker types:', error);
+      throw error; // Propager l'erreur
     }
   };
 
@@ -324,6 +354,35 @@ export const EnhancedFinalManager = ({
   };
 
   const ModeIcon = final ? getModeIcon(final.mode) : Trophy;
+
+  // Loading state
+  if (loading) {
+    return (
+      <Card className="p-12 text-center">
+        <div className="space-y-4">
+          <div className="animate-spin text-6xl">⏳</div>
+          <h3 className="text-xl font-bold">Chargement...</h3>
+          <p className="text-muted-foreground">Chargement du système de finales</p>
+        </div>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card className="p-12 text-center">
+        <div className="space-y-4">
+          <div className="text-6xl">❌</div>
+          <h3 className="text-xl font-bold text-red-500">Erreur</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">{error}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Recharger la page
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
