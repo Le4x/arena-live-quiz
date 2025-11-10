@@ -80,12 +80,14 @@ const FINAL_MODES = [
 
 interface FinalConfigPanelProps {
   jokerTypes: any[];
+  teams: any[];
   onSave: (config: FinalConfig) => void;
   initialConfig?: Partial<FinalConfig>;
 }
 
 export const FinalConfigPanel = ({
   jokerTypes,
+  teams,
   onSave,
   initialConfig,
 }: FinalConfigPanelProps) => {
@@ -163,6 +165,45 @@ export const FinalConfigPanel = ({
               </motion.button>
             );
           })}
+        </div>
+      </Card>
+
+      {/* Équipes disponibles - Avertissement */}
+      <Card className={`p-4 ${teams.length < config.nbFinalists ? 'border-red-500 bg-red-500/5' : 'border-green-500 bg-green-500/5'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Users className={`w-5 h-5 ${teams.length < config.nbFinalists ? 'text-red-500' : 'text-green-500'}`} />
+            <div>
+              <p className="font-semibold">
+                {teams.length} équipe{teams.length > 1 ? 's' : ''} disponible{teams.length > 1 ? 's' : ''}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {teams.length >= config.nbFinalists
+                  ? `Les ${config.nbFinalists} meilleures équipes seront sélectionnées`
+                  : `⚠️ Il faut au moins ${config.nbFinalists} équipes pour cette configuration`
+                }
+              </p>
+            </div>
+          </div>
+          {teams.length > 0 && (
+            <div className="flex gap-1">
+              {teams.slice(0, Math.min(5, teams.length)).map((team, i) => (
+                <div
+                  key={team.id}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                  style={{ backgroundColor: team.color }}
+                  title={`${team.name} - ${team.score}pts`}
+                >
+                  {i + 1}
+                </div>
+              ))}
+              {teams.length > 5 && (
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground">
+                  +{teams.length - 5}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -314,9 +355,22 @@ export const FinalConfigPanel = ({
 
         <TabsContent value="jokers" className="space-y-4">
           <Card className="p-6">
-            <p className="text-sm text-muted-foreground mb-4">
-              Configurez le nombre de jokers que chaque finaliste aura
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                Configurez le nombre de jokers que chaque finaliste aura
+              </p>
+              <Badge variant={jokerTypes.length < 10 ? 'destructive' : 'default'}>
+                {jokerTypes.length} joker{jokerTypes.length > 1 ? 's' : ''}
+              </Badge>
+            </div>
+
+            {jokerTypes.length < 10 && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500 rounded-lg">
+                <p className="text-sm text-red-500">
+                  ⚠️ Seulement {jokerTypes.length} jokers disponibles. Applique <code className="bg-red-500/20 px-1 rounded">MIGRATION_FINALE.sql</code> pour avoir 20 jokers stratégiques !
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {jokerTypes

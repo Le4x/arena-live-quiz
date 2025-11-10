@@ -105,6 +105,7 @@ export const EnhancedFinalManager = ({
       .eq('game_session_id', sessionId)
       .order('score', { ascending: false });
 
+    console.log('Teams loaded:', data?.length, 'teams');
     if (data) setTeams(data);
   };
 
@@ -421,6 +422,7 @@ export const EnhancedFinalManager = ({
         jokerTypes.length > 0 ? (
           <FinalConfigPanel
             jokerTypes={jokerTypes}
+            teams={teams}
             onSave={createFinal}
           />
         ) : (
