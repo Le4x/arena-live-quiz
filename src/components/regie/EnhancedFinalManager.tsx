@@ -64,14 +64,16 @@ export const EnhancedFinalManager = ({
 
   const loadJokerTypes = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Tentative de chargement des jokers...');
+
+      // ESSAI 1: Sans ORDER BY (peut causer des problèmes)
+      const { data, error, count } = await supabase
         .from('joker_types')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
+        .select('*', { count: 'exact' })
+        .eq('is_active', true);
 
       if (error) {
-        console.error('Error loading joker types:', error);
+        console.error('❌ Error loading joker types:', error);
 
         // Si c'est une erreur de colonne manquante
         if (error.message.includes('column') || error.message.includes('does not exist')) {
@@ -90,10 +92,25 @@ export const EnhancedFinalManager = ({
         throw error; // Propager l'erreur pour que le useEffect la capture
       }
 
-      console.log('Joker types loaded:', data?.length);
-      if (data) setJokerTypes(data);
+      console.log('✅ Joker types loaded:', data?.length);
+      console.log('📊 Count from DB:', count);
+      console.log('📋 Jokers:', data?.map(j => j.name).join(', '));
+
+      if (data) {
+        setJokerTypes(data);
+
+        // Afficher un warning si on n'a pas tous les jokers
+        if (data.length < 15) {
+          console.warn('⚠️ Seulement', data.length, 'jokers chargés sur 20 attendus');
+          toast({
+            title: '⚠️ Jokers manquants',
+            description: `Seulement ${data.length} jokers chargés. Vérifie DIAGNOSTIC_JOKERS.sql`,
+            variant: 'destructive',
+          });
+        }
+      }
     } catch (error: any) {
-      console.error('Error loading joker types:', error);
+      console.error('❌ Error loading joker types:', error);
       throw error; // Propager l'erreur
     }
   };
