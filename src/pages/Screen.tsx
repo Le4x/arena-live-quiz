@@ -10,6 +10,7 @@ import { WelcomeScreen } from "@/components/tv/WelcomeScreen";
 import { TeamConnectionScreen } from "@/components/tv/TeamConnectionScreen";
 import { WaitingScreen } from "@/components/tv/WaitingScreen";
 import { NextQuestionPreview } from "@/components/tv/NextQuestionPreview";
+import { WaitingNextQuestion } from "@/components/tv/WaitingNextQuestion";
 import { getGameEvents } from "@/lib/runtime/GameEvents";
 import { TimerBar } from "@/components/TimerBar";
 import { FinalWaitingScreen } from "@/components/tv/FinalWaitingScreen";
@@ -40,6 +41,34 @@ const Screen = () => {
   const [final, setFinal] = useState<any>(null);
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0); // Décalage entre horloge serveur et locale
+
+  // Synchroniser l'horloge avec le serveur Supabase
+  const synchronizeServerTime = async () => {
+    try {
+      console.log('🕐 Screen: Synchronisation de l\'horloge avec le serveur...');
+      const clientTimeBefore = Date.now();
+
+      const { data, error } = await supabase.rpc('get_server_time');
+
+      if (error) {
+        console.error('❌ Screen: Erreur sync horloge:', error);
+        return;
+      }
+
+      if (data) {
+        const clientTimeAfter = Date.now();
+        const networkDelay = (clientTimeAfter - clientTimeBefore) / 2;
+        const serverTime = new Date(data).getTime();
+        const offset = serverTime - clientTimeAfter + networkDelay;
+
+        setServerTimeOffset(offset);
+        console.log(`✅ Screen: Horloge synchronisée, décalage: ${offset}ms`);
+      }
+    } catch (err) {
+      console.error('❌ Screen: Exception lors de la sync horloge:', err);
+    }
+  };
 
   // Debug: log buzzerNotification changes
   useEffect(() => {
@@ -56,6 +85,13 @@ const Screen = () => {
 
   useEffect(() => {
     console.log('🚀 Screen: Initialisation des canaux realtime');
+
+    // Synchronisation initiale de l'horloge
+    synchronizeServerTime();
+
+    // Resynchroniser toutes les 30 secondes
+    const syncInterval = setInterval(synchronizeServerTime, 30000);
+
     loadData();
     
     // Realtime subscriptions avec rechargement complet et IMMEDIAT
@@ -256,6 +292,7 @@ const Screen = () => {
 
     return () => {
       console.log('🧹 Screen: Nettoyage des canaux realtime');
+      clearInterval(syncInterval);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(gameStateChannel);
@@ -297,7 +334,7 @@ const Screen = () => {
       // Calculer le temps restant en fonction du timestamp de départ
       const calculateRemainingTime = () => {
         const startTime = new Date(gameState.timer_started_at).getTime();
-        const now = Date.now();
+        const now = Date.now() + serverTimeOffset; // Utiliser l'horloge synchronisée
         const elapsed = Math.floor((now - startTime) / 1000);
         const remaining = Math.max(0, gameState.timer_duration - elapsed);
         return remaining;
@@ -331,7 +368,7 @@ const Screen = () => {
         clearInterval(interval);
       }
     };
-  }, [gameState?.timer_active, gameState?.timer_started_at, gameState?.timer_duration]);
+  }, [gameState?.timer_active, gameState?.timer_started_at, gameState?.timer_duration, serverTimeOffset]);
 
   // Jouer les sons ET afficher l'animation quand le résultat change
   useEffect(() => {
@@ -658,6 +695,20 @@ const Screen = () => {
           }
           sponsors={sponsors}
         />
+      )}
+
+      {/* Écran de préparation prochaine question */}
+      {currentSession &&
+       !currentQuestion &&
+       !gameState?.show_leaderboard &&
+       !gameState?.show_round_intro &&
+       !gameState?.show_welcome_screen &&
+       !gameState?.show_team_connection_screen &&
+       !gameState?.show_waiting_screen &&
+       !gameState?.show_sponsors_screen &&
+       !gameState?.show_thanks_screen &&
+       !gameState?.final_mode && (
+        <WaitingNextQuestion />
       )}
 
       {/* Animation de révélation bonne/mauvaise réponse */}
