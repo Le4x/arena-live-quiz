@@ -114,8 +114,11 @@ export const EnhancedFinalManager = ({
       .from('finals')
       .select('*')
       .eq('game_session_id', sessionId)
+      .neq('status', 'cancelled') // NE PAS charger les finales annulées
+      .neq('status', 'completed') // NE PAS charger les finales terminées
       .maybeSingle();
 
+    console.log('Final loaded:', data ? `Status: ${data.status}` : 'No active final');
     if (data) {
       setFinal(data);
       setShowConfig(false);
