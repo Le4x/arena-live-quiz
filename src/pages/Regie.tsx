@@ -1052,7 +1052,7 @@ const Regie = () => {
     setBlockedTeams([]);
     previousBuzzersCount.current = 0;
     
-    // Activer l'écran de transition
+    // Activer l'écran de transition (sans message d'annonce)
     await supabase.from('game_state').update({
       current_question_id: null,
       current_question_instance_id: null,
@@ -1063,7 +1063,7 @@ const Regie = () => {
       timer_active: false,
       is_buzzer_active: false,
       excluded_teams: [],
-      announcement_text: '⏳ Préparation de la prochaine question...'
+      announcement_text: null
     }).eq('game_session_id', sessionId);
     
     toast({ 
@@ -1172,6 +1172,84 @@ const Regie = () => {
     }).eq('game_session_id', sessionId);
     
     toast({ title: newValue ? '❤️ Écran de remerciements activé' : '▶️ Retour au jeu' });
+  };
+
+  /**
+   * Fonction centralisée pour changer d'écran
+   * Garantit qu'un seul écran est actif à la fois
+   */
+  const switchToScreen = async (screenType:
+    'GAME' | 'WELCOME' | 'TEAM_CONNECTION' | 'WAITING' | 'SPONSORS' | 'THANKS' | 'LEADERBOARD'
+  ) => {
+    if (!sessionId) return;
+
+    // Définir l'état de base : tous les écrans désactivés
+    const baseState = {
+      show_welcome_screen: false,
+      show_team_connection_screen: false,
+      show_waiting_screen: false,
+      show_sponsors_screen: false,
+      show_thanks_screen: false,
+      show_leaderboard: false,
+      announcement_text: null,
+    };
+
+    // Si on revient au jeu, ne pas toucher la question en cours
+    if (screenType === 'GAME') {
+      await supabase.from('game_state').update(baseState).eq('game_session_id', sessionId);
+      toast({ title: '🎮 Retour au jeu', description: 'Question en cours affichée' });
+      return;
+    }
+
+    // Pour les autres écrans, activer celui demandé et effacer la question
+    const screenStates = {
+      WELCOME: { ...baseState, show_welcome_screen: true },
+      TEAM_CONNECTION: { ...baseState, show_team_connection_screen: true },
+      WAITING: { ...baseState, show_waiting_screen: true },
+      SPONSORS: { ...baseState, show_sponsors_screen: true },
+      THANKS: { ...baseState, show_thanks_screen: true },
+      LEADERBOARD: { ...baseState, show_leaderboard: true },
+    };
+
+    const newState = {
+      ...screenStates[screenType],
+      current_question_id: null,
+      show_answer: false,
+      timer_active: false,
+      is_buzzer_active: false
+    };
+
+    await supabase.from('game_state').update(newState).eq('game_session_id', sessionId);
+
+    const messages = {
+      WELCOME: { title: '🏠 Écran d\'accueil', description: 'Affichage de l\'écran d\'accueil' },
+      TEAM_CONNECTION: { title: '📡 Connexion équipes', description: 'Affichage des équipes connectées' },
+      WAITING: { title: '⏸️ Écran d\'attente', description: 'Pause avec sponsors' },
+      SPONSORS: { title: '🏆 Écran sponsors', description: 'Affichage des sponsors' },
+      THANKS: { title: '❤️ Remerciements', description: 'Écran de remerciements' },
+      LEADERBOARD: { title: '🏆 Classement', description: 'Affichage du classement' },
+    };
+
+    if (screenType in messages) {
+      toast(messages[screenType as keyof typeof messages]);
+    }
+  };
+
+  /**
+   * Obtenir l'écran actuellement actif
+   */
+  const getActiveScreen = (): string => {
+    if (!gameState) return 'AUCUN';
+    if (gameState.show_welcome_screen) return 'ACCUEIL';
+    if (gameState.show_team_connection_screen) return 'CONNEXION';
+    if (gameState.show_waiting_screen) return 'ATTENTE';
+    if (gameState.show_sponsors_screen) return 'SPONSORS';
+    if (gameState.show_thanks_screen) return 'REMERCIEMENTS';
+    if (gameState.show_leaderboard) return 'CLASSEMENT';
+    if (gameState.show_round_intro) return 'INTRO MANCHE';
+    if (gameState.final_mode) return 'FINALE';
+    if (gameState.current_question_id) return 'QUESTION';
+    return 'AUCUN';
   };
 
   const resetSession = async () => {
@@ -1446,123 +1524,112 @@ const Regie = () => {
             </div>
           </Card>
 
-          {/* Contrôles de diffusion - AMÉLIORÉS */}
-          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-purple-500/5 border-purple-500/20 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-purple-600 dark:text-purple-400">📺 Contrôles TV</h3>
-              <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-purple-500/10">
-                {[
-                  gameState?.show_welcome_screen,
-                  gameState?.show_team_connection_screen,
-                  gameState?.show_sponsors_screen,
-                  gameState?.show_thanks_screen,
-                  gameState?.show_waiting_screen,
-                  gameState?.is_buzzer_active,
-                  gameState?.show_answer,
-                  gameState?.show_leaderboard
-                ].filter(Boolean).length} actifs
-              </Badge>
+          {/* Contrôles de diffusion - REFONTE COMPLÈTE */}
+          <Card className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-purple-500/10 border-purple-500/30 shadow-lg">
+            {/* Indicateur d'écran actif - GROS ET VISIBLE */}
+            <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-primary/20 to-secondary/20 border-2 border-primary/30">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">ÉCRAN ACTIF</div>
+              <div className="text-lg font-black text-primary">
+                📺 {getActiveScreen()}
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {/* Groupe: Utilitaire */}
+            <div className="space-y-2.5">
+              {/* Groupe: Contrôle Principal */}
               <div className="space-y-1">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Utilitaire</div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Principal</div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open('/screen', '_blank')}
-                        className="h-9 text-xs hover:bg-accent"
-                      >
-                        <Monitor className="h-3.5 w-3.5 mr-1.5" />
-                        Ouvrir Écran
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Nouvelle fenêtre TV</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'QUESTION' || getActiveScreen() === 'AUCUN' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('GAME')}
+                    className="h-9 text-xs font-semibold"
+                  >
+                    <Play className="h-3.5 w-3.5 mr-1.5" />
+                    Jeu
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_waiting_screen}
-                        onPressedChange={toggleWaitingScreen}
-                        className="h-9 text-xs data-[state=on]:bg-slate-600 data-[state=on]:text-white"
-                      >
-                        ⏸️ Pause
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Écran d'attente / Pause</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open('/screen', '_blank')}
+                    className="h-9 text-xs hover:bg-accent"
+                  >
+                    <Monitor className="h-3.5 w-3.5 mr-1.5" />
+                    Ouvrir TV
+                  </Button>
+                </div>
+              </div>
+
+              {/* Groupe: Écrans Utilitaires */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Utilitaires</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'ATTENTE' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('WAITING')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'ATTENTE' ? 'bg-slate-600' : ''}`}
+                  >
+                    <Pause className="h-3.5 w-3.5 mr-1.5" />
+                    Pause
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'CLASSEMENT' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('LEADERBOARD')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'CLASSEMENT' ? 'bg-yellow-600' : ''}`}
+                  >
+                    <Trophy className="h-3.5 w-3.5 mr-1.5" />
+                    Classement
+                  </Button>
                 </div>
               </div>
 
               {/* Groupe: Écrans Spéciaux */}
               <div className="space-y-1">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Écrans</div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Écrans Spéciaux</div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_welcome_screen}
-                        onPressedChange={toggleWelcomeScreen}
-                        className="h-9 text-xs data-[state=on]:bg-blue-600 data-[state=on]:text-white"
-                      >
-                        <Home className="h-3.5 w-3.5 mr-1.5" />
-                        Accueil
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Écran d'accueil</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'ACCUEIL' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('WELCOME')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'ACCUEIL' ? 'bg-blue-600' : ''}`}
+                  >
+                    <Home className="h-3.5 w-3.5 mr-1.5" />
+                    Accueil
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_team_connection_screen}
-                        onPressedChange={toggleTeamConnectionScreen}
-                        className="h-9 text-xs data-[state=on]:bg-cyan-600 data-[state=on]:text-white"
-                      >
-                        <Wifi className="h-3.5 w-3.5 mr-1.5" />
-                        Connexion
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Écran connexion équipes</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'CONNEXION' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('TEAM_CONNECTION')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'CONNEXION' ? 'bg-cyan-600' : ''}`}
+                  >
+                    <Wifi className="h-3.5 w-3.5 mr-1.5" />
+                    Connexion
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_sponsors_screen}
-                        onPressedChange={toggleSponsorsScreen}
-                        className="h-9 text-xs data-[state=on]:bg-amber-600 data-[state=on]:text-white"
-                      >
-                        <Award className="h-3.5 w-3.5 mr-1.5" />
-                        Sponsors
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Afficher les sponsors</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'SPONSORS' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('SPONSORS')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'SPONSORS' ? 'bg-amber-600' : ''}`}
+                  >
+                    <Award className="h-3.5 w-3.5 mr-1.5" />
+                    Sponsors
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_thanks_screen}
-                        onPressedChange={toggleThanksScreen}
-                        className="h-9 text-xs data-[state=on]:bg-pink-600 data-[state=on]:text-white"
-                      >
-                        <Heart className="h-3.5 w-3.5 mr-1.5" />
-                        Merci
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Écran de remerciements</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="sm"
+                    variant={getActiveScreen() === 'REMERCIEMENTS' ? 'default' : 'outline'}
+                    onClick={() => switchToScreen('THANKS')}
+                    className={`h-9 text-xs ${getActiveScreen() === 'REMERCIEMENTS' ? 'bg-pink-600' : ''}`}
+                  >
+                    <Heart className="h-3.5 w-3.5 mr-1.5" />
+                    Merci
+                  </Button>
                 </div>
               </div>
 
@@ -1602,21 +1669,6 @@ const Regie = () => {
 
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Toggle
-                        size="sm"
-                        pressed={gameState?.show_leaderboard}
-                        onPressedChange={() => gameState?.show_leaderboard ? hideLeaderboard() : showLeaderboard()}
-                        className="h-9 text-xs font-semibold data-[state=on]:bg-yellow-600 data-[state=on]:text-white"
-                      >
-                        <Trophy className="h-3.5 w-3.5 mr-1.5" />
-                        Classement
-                      </Toggle>
-                    </TooltipTrigger>
-                    <TooltipContent>Afficher le leaderboard</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
                       <Button
                         size="sm"
                         variant="outline"
@@ -1626,7 +1678,7 @@ const Regie = () => {
                         ✨ Transition
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Effet de transition</TooltipContent>
+                    <TooltipContent>Purger et préparer la prochaine question</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
