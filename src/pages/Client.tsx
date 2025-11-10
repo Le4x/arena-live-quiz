@@ -1428,7 +1428,7 @@ const Client = () => {
           </motion.div>
 
         {/* Header équipe premium avec classement - RESPONSIVE */}
-        {isLoading ? (
+        {!team ? (
           <Card className="p-6 animate-pulse">
             <div className="flex items-center gap-4 mb-4">
               <Skeleton className="w-20 h-20 rounded-full" />
