@@ -14,6 +14,18 @@ ALTER TABLE public.joker_types
   ADD COLUMN IF NOT EXISTS rarity TEXT DEFAULT 'common'
     CHECK (rarity IN ('common', 'rare', 'epic', 'legendary'));
 
+-- Ajouter contrainte UNIQUE sur name si elle n'existe pas
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'joker_types_name_key' 
+        AND conrelid = 'public.joker_types'::regclass
+    ) THEN
+        ALTER TABLE public.joker_types ADD CONSTRAINT joker_types_name_key UNIQUE (name);
+    END IF;
+END $$;
+
 -- ============================================================================
 -- 2. AMÉLIORATION TABLE FINALS
 -- ============================================================================
@@ -335,6 +347,7 @@ COMMENT ON FUNCTION public.lose_life IS 'Faire perdre une vie à une équipe et 
 -- ============================================================================
 -- FIN DE LA MIGRATION
 -- ============================================================================
--- Si tout s'est bien passé, tu verras "Success. No rows returned" dans Supabase Studio
--- Retourne dans la Régie et clique sur "Réessayer" dans le mode Final
+-- ✅ Si tout s'est bien passé, tu verras "Success. No rows returned"
+-- ✅ Retourne dans la Régie et clique sur "Réessayer" dans le mode Final
+-- ✅ L'interface de configuration devrait apparaître !
 -- ============================================================================
