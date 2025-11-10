@@ -31,7 +31,7 @@ const Regie = () => {
   const { toast } = useToast();
   const audioEngine = getAudioEngine();
   const previousBuzzersCount = useRef(0);
-  
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [gameState, setGameState] = useState<any>(null);
@@ -54,11 +54,40 @@ const Regie = () => {
   const [showPublicVotes, setShowPublicVotes] = useState(false);
   const [audioPreloaded, setAudioPreloaded] = useState(false);
   const [audioPreloading, setAudioPreloading] = useState(false);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0); // Décalage entre horloge serveur et locale
+
+  // Synchroniser l'horloge avec le serveur Supabase
+  const synchronizeServerTime = async () => {
+    try {
+      console.log('🕐 Régie: Synchronisation de l\'horloge avec le serveur...');
+      const clientTimeBefore = Date.now();
+
+      const { data, error } = await supabase.rpc('get_server_time');
+
+      if (error) {
+        console.error('❌ Régie: Erreur sync horloge:', error);
+        return;
+      }
+
+      if (data) {
+        const clientTimeAfter = Date.now();
+        const networkDelay = (clientTimeAfter - clientTimeBefore) / 2;
+        const serverTime = new Date(data).getTime();
+        const offset = serverTime - clientTimeAfter + networkDelay;
+
+        setServerTimeOffset(offset);
+        console.log(`✅ Régie: Horloge synchronisée, décalage: ${offset}ms`);
+      }
+    } catch (err) {
+      console.error('❌ Régie: Exception lors de la sync horloge:', err);
+    }
+  };
 
   // Hook de reconnexion automatique
   useRealtimeReconnect({
     onReconnect: () => {
       console.log('🔄 Regie: Reconnexion - rechargement des données');
+      synchronizeServerTime(); // Resynchroniser l'horloge
       loadActiveSession();
       loadRounds();
       loadQuestions();
@@ -72,11 +101,19 @@ const Regie = () => {
   });
 
   useEffect(() => {
+    // Synchronisation initiale de l'horloge
+    synchronizeServerTime();
+
+    // Resynchroniser toutes les 30 secondes
+    const syncInterval = setInterval(synchronizeServerTime, 30000);
+
     loadActiveSession();
     loadRounds();
     loadQuestions();
     loadTeams();
     loadAudioTracks();
+
+    return () => clearInterval(syncInterval);
   }, []);
 
   // Écouteurs pour les votes du public
@@ -646,12 +683,13 @@ const Regie = () => {
     setTimerRemaining(timerDuration);
     setTimerActive(true);
 
-    // Envoyer la question aux clients et démarrer le chrono avec timestamp
+    // Envoyer la question aux clients et démarrer le chrono avec timestamp SERVEUR synchronisé
+    const serverTime = Date.now() + serverTimeOffset;
     await supabase.from('game_state').update({
       current_question_id: currentQuestionId,
       is_buzzer_active: question.question_type === 'blind_test',
       timer_active: true,
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: new Date(serverTime).toISOString(),
       timer_duration: timerDuration,
       timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);

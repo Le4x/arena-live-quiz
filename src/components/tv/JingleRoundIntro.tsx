@@ -1,10 +1,11 @@
 /**
  * JingleRoundIntro - Animation d'intro de manche style TV premium
- * Transition cinématique avec logo, titre, audio et effets avancés
+ * Design moderne et épuré pour un look professionnel
  */
 
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
 interface JingleRoundIntroProps {
   roundTitle: string;
@@ -15,13 +16,13 @@ interface JingleRoundIntroProps {
   duration?: number;
 }
 
-export const JingleRoundIntro = ({ 
-  roundTitle, 
+export const JingleRoundIntro = ({
+  roundTitle,
   roundNumber,
   sessionName = "ARENA",
   jingleUrl,
-  onComplete, 
-  duration = 6000 
+  onComplete,
+  duration = 6000
 }: JingleRoundIntroProps) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -35,10 +36,9 @@ export const JingleRoundIntro = ({
     }
 
     // Timer pour le fondu et la fin
-    const fadeStartTime = duration - 1000; // Démarrer le fondu 1s avant la fin
+    const fadeStartTime = duration - 1000;
     const fadeTimer = setTimeout(() => {
       if (audioRef.current) {
-        // Fondu progressif sur 1 seconde
         const fadeInterval = setInterval(() => {
           if (audioRef.current && audioRef.current.volume > 0.05) {
             audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.05);
@@ -69,285 +69,185 @@ export const JingleRoundIntro = ({
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
-        style={{
-          background: 'radial-gradient(ellipse at center, hsl(var(--primary) / 0.15) 0%, hsl(var(--background)) 50%, hsl(var(--secondary) / 0.2) 100%)'
-        }}
-      >
-        {/* Animated gradient overlay */}
-        <motion.div 
-          className="absolute inset-0"
-          animate={{
-            background: [
-              'radial-gradient(circle at 20% 50%, hsl(var(--primary) / 0.3) 0%, transparent 50%)',
-              'radial-gradient(circle at 80% 50%, hsl(var(--secondary) / 0.3) 0%, transparent 50%)',
-              'radial-gradient(circle at 50% 80%, hsl(var(--accent) / 0.3) 0%, transparent 50%)',
-              'radial-gradient(circle at 20% 50%, hsl(var(--primary) / 0.3) 0%, transparent 50%)',
-            ]
-          }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      <div className="fixed inset-0 z-50 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        {/* Rideaux qui s'ouvrent */}
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900"
+          initial={{ clipPath: 'inset(0 0 0 0)' }}
+          animate={{ clipPath: 'inset(0 50% 0 50%)' }}
+          transition={{ duration: 1.5, ease: [0.65, 0, 0.35, 1] }}
         />
 
-        {/* Premium light rays */}
-        {[...Array(8)].map((_, i) => (
-          <motion.div
-            key={`ray-${i}`}
-            className="absolute top-1/2 left-1/2 w-1 origin-left"
-            style={{
-              height: '150vh',
-              background: `linear-gradient(to bottom, transparent, hsl(var(--primary) / 0.1), transparent)`,
-              transform: `rotate(${i * 45}deg)`,
-            }}
-            initial={{ scaleY: 0, opacity: 0 }}
-            animate={{ 
-              scaleY: [0, 1, 1, 0],
-              opacity: [0, 0.6, 0.6, 0]
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              delay: i * 0.2,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
-
-        {/* Enhanced particles with depth */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(40)].map((_, i) => (
+        {/* Lumières d'ambiance subtiles */}
+        <div className="absolute inset-0">
+          {[...Array(3)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute rounded-full"
+              className="absolute w-[800px] h-[800px] rounded-full blur-[120px]"
               style={{
-                width: Math.random() * 4 + 2,
-                height: Math.random() * 4 + 2,
-                background: i % 3 === 0 
-                  ? 'hsl(var(--primary) / 0.4)' 
-                  : i % 3 === 1 
-                  ? 'hsl(var(--secondary) / 0.4)'
-                  : 'hsl(var(--accent) / 0.4)',
-                boxShadow: `0 0 ${Math.random() * 20 + 10}px currentColor`,
-              }}
-              initial={{ 
-                x: Math.random() * window.innerWidth,
-                y: -20,
-                scale: Math.random() * 0.5 + 0.5,
-                opacity: 0
+                left: `${20 + i * 30}%`,
+                top: `${30}%`,
+                background: i === 0
+                  ? 'radial-gradient(circle, hsl(var(--primary) / 0.15), transparent)'
+                  : i === 1
+                  ? 'radial-gradient(circle, hsl(var(--secondary) / 0.15), transparent)'
+                  : 'radial-gradient(circle, hsl(var(--accent) / 0.15), transparent)',
               }}
               animate={{
-                y: window.innerHeight + 20,
-                x: Math.random() * window.innerWidth,
-                rotate: Math.random() * 720,
-                opacity: [0, 1, 1, 0],
-                scale: [Math.random() * 0.5 + 0.5, Math.random() * 1.5 + 1, 0]
+                scale: [1, 1.3, 1],
+                opacity: [0.3, 0.5, 0.3],
               }}
               transition={{
-                duration: Math.random() * 4 + 3,
+                duration: 4,
                 repeat: Infinity,
-                ease: "linear",
-                delay: Math.random() * 2
+                delay: i * 0.8,
+                ease: "easeInOut",
               }}
             />
           ))}
         </div>
 
-        {/* Main content with premium animations */}
-        <div className="relative z-10 text-center space-y-8 px-8 max-w-6xl">
-          {/* Logo avec nom de session */}
+        {/* Rayons de lumière élégants */}
+        {[...Array(4)].map((_, i) => (
           <motion.div
-            initial={{ scale: 0, rotateY: -180, z: -200 }}
-            animate={{ 
-              scale: 1, 
-              rotateY: 0,
-              z: 0
-            }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 150, 
-              damping: 15,
-              delay: 0.1 
-            }}
-            style={{ perspective: 1000 }}
-          >
-            <motion.h1 
-              className="text-[12rem] font-black tracking-tighter leading-none"
-              style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--accent)))',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                filter: 'drop-shadow(0 0 30px hsl(var(--primary) / 0.5)) drop-shadow(0 0 60px hsl(var(--secondary) / 0.3))',
-              }}
-              animate={{
-                filter: [
-                  'drop-shadow(0 0 30px hsl(var(--primary) / 0.5)) drop-shadow(0 0 60px hsl(var(--secondary) / 0.3))',
-                  'drop-shadow(0 0 40px hsl(var(--primary) / 0.7)) drop-shadow(0 0 80px hsl(var(--secondary) / 0.5))',
-                  'drop-shadow(0 0 30px hsl(var(--primary) / 0.5)) drop-shadow(0 0 60px hsl(var(--secondary) / 0.3))',
-                ]
-              }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            >
-              {sessionName}
-            </motion.h1>
-          </motion.div>
-
-          {/* Séparateur lumineux animé */}
-          <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-            className="relative h-1 mx-auto max-w-md"
-          >
-            <motion.div 
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: 'linear-gradient(90deg, transparent, hsl(var(--primary)), hsl(var(--secondary)), transparent)',
-              }}
-              animate={{
-                opacity: [0.5, 1, 0.5],
-                boxShadow: [
-                  '0 0 20px hsl(var(--primary) / 0.5)',
-                  '0 0 40px hsl(var(--primary) / 0.8)',
-                  '0 0 20px hsl(var(--primary) / 0.5)',
-                ]
-              }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          </motion.div>
-
-          {/* Round number avec effet premium */}
-          {roundNumber && (
-            <motion.div
-              initial={{ x: -100, opacity: 0, scale: 0.5 }}
-              animate={{ 
-                x: 0, 
-                opacity: 1,
-                scale: 1
-              }}
-              transition={{ 
-                delay: 0.5,
-                type: "spring",
-                stiffness: 200
-              }}
-            >
-              <motion.div 
-                className="inline-block text-7xl font-black px-12 py-4 rounded-2xl relative"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--secondary) / 0.2))',
-                  backdropFilter: 'blur(10px)',
-                  border: '2px solid hsl(var(--primary) / 0.3)',
-                  boxShadow: '0 0 40px hsl(var(--primary) / 0.3), inset 0 0 40px hsl(var(--primary) / 0.1)',
-                }}
-                animate={{
-                  boxShadow: [
-                    '0 0 40px hsl(var(--primary) / 0.3), inset 0 0 40px hsl(var(--primary) / 0.1)',
-                    '0 0 60px hsl(var(--primary) / 0.5), inset 0 0 60px hsl(var(--primary) / 0.2)',
-                    '0 0 40px hsl(var(--primary) / 0.3), inset 0 0 40px hsl(var(--primary) / 0.1)',
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <span className="relative z-10 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                  MANCHE {roundNumber}
-                </span>
-              </motion.div>
-            </motion.div>
-          )}
-
-          {/* Round title avec effet spectaculaire */}
-          <motion.div
-            initial={{ y: 50, opacity: 0, scale: 0.8 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            transition={{ 
-              delay: 0.7,
-              type: "spring",
-              stiffness: 150
-            }}
-            className="relative py-8"
-          >
-            {/* Glow background */}
-            <motion.div 
-              className="absolute inset-0 blur-3xl rounded-full"
-              style={{
-                background: 'radial-gradient(ellipse, hsl(var(--primary) / 0.4), hsl(var(--secondary) / 0.3), transparent)',
-              }}
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.6, 0.8, 0.6]
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-            
-            {/* Title */}
-            <h2 className="relative text-8xl font-black tracking-tight uppercase leading-tight px-8"
-                style={{
-                  color: 'hsl(var(--foreground))',
-                  textShadow: '0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--secondary) / 0.3), 0 2px 4px rgba(0,0,0,0.5)',
-                }}>
-              {roundTitle}
-            </h2>
-
-            {/* Decorative corner elements */}
-            {[...Array(4)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-16 h-16 border-primary"
-                style={{
-                  [i < 2 ? 'top' : 'bottom']: 0,
-                  [i % 2 === 0 ? 'left' : 'right']: 0,
-                  borderTopWidth: i < 2 ? 3 : 0,
-                  borderBottomWidth: i >= 2 ? 3 : 0,
-                  borderLeftWidth: i % 2 === 0 ? 3 : 0,
-                  borderRightWidth: i % 2 === 1 ? 3 : 0,
-                  boxShadow: '0 0 20px hsl(var(--primary) / 0.5)',
-                }}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ 
-                  scale: 1, 
-                  opacity: [0.5, 1, 0.5]
-                }}
-                transition={{ 
-                  delay: 1 + i * 0.1,
-                  opacity: { duration: 2, repeat: Infinity }
-                }}
-              />
-            ))}
-          </motion.div>
-
-          {/* Subtitle avec effet élégant */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: [0, 1, 1, 0.7], y: 0 }}
-            transition={{ 
-              delay: 1.2,
-              opacity: { duration: 3, times: [0, 0.3, 0.7, 1] }
-            }}
-            className="text-3xl font-light tracking-wide"
+            key={`ray-${i}`}
+            className="absolute top-0 left-1/2 w-1 origin-top"
             style={{
-              color: 'hsl(var(--muted-foreground))',
-              textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              height: '100%',
+              background: `linear-gradient(to bottom, hsl(var(--primary) / 0.2), transparent 70%)`,
+              transform: `translateX(-50%) rotate(${-30 + i * 20}deg)`,
             }}
-          >
-            Préparez-vous...
-          </motion.p>
+            initial={{ opacity: 0, scaleY: 0 }}
+            animate={{
+              opacity: [0, 0.6, 0.6, 0],
+              scaleY: [0, 1, 1, 0],
+            }}
+            transition={{
+              duration: 3,
+              times: [0, 0.3, 0.7, 1],
+              delay: 0.5 + i * 0.1,
+            }}
+          />
+        ))}
+
+        {/* Contenu principal */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center max-w-5xl px-8">
+            {/* Badge "MANCHE" avec effet néon */}
+            {roundNumber && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.8, type: "spring", stiffness: 200 }}
+                className="mb-8"
+              >
+                <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 border-2 border-primary/30 backdrop-blur-xl">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                  <span className="text-2xl font-bold text-primary tracking-widest">
+                    MANCHE {roundNumber}
+                  </span>
+                  <Sparkles className="w-6 h-6 text-primary" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Titre de la manche - Animation élégante */}
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Ligne décorative du haut */}
+              <motion.div
+                className="h-1 mb-8 rounded-full bg-gradient-to-r from-transparent via-primary to-transparent"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ delay: 1.4, duration: 0.8 }}
+              />
+
+              {/* Titre principal */}
+              <h1
+                className="text-8xl font-black mb-8 leading-none tracking-tight"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 50%, hsl(var(--accent)) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  textShadow: '0 0 60px hsl(var(--primary) / 0.3)',
+                }}
+              >
+                {roundTitle}
+              </h1>
+
+              {/* Ligne décorative du bas */}
+              <motion.div
+                className="h-1 mt-8 rounded-full bg-gradient-to-r from-transparent via-primary to-transparent"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ delay: 1.6, duration: 0.8 }}
+              />
+            </motion.div>
+
+            {/* Sous-titre élégant */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 1, 0.7] }}
+              transition={{
+                delay: 1.8,
+                duration: 2,
+                times: [0, 0.3, 0.7, 1]
+              }}
+              className="mt-12"
+            >
+              <p className="text-3xl font-light tracking-wider text-muted-foreground">
+                Préparez-vous...
+              </p>
+            </motion.div>
+
+            {/* Nom de la session en bas */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 0.6, y: 0 }}
+              transition={{ delay: 2, duration: 0.6 }}
+              className="absolute bottom-12 left-0 right-0 text-center"
+            >
+              <p className="text-xl font-bold text-muted-foreground/60 tracking-[0.3em]">
+                {sessionName}
+              </p>
+            </motion.div>
+          </div>
         </div>
 
-        {/* Bottom elegant gradient */}
-        <div className="absolute bottom-0 left-0 right-0 h-96 pointer-events-none"
-             style={{
-               background: 'linear-gradient(to top, hsl(var(--primary) / 0.3), hsl(var(--secondary) / 0.2), transparent)',
-             }} />
-        
-        {/* Top elegant gradient */}
-        <div className="absolute top-0 left-0 right-0 h-96 pointer-events-none"
-             style={{
-               background: 'linear-gradient(to bottom, hsl(var(--background) / 0.8), transparent)',
-             }} />
-      </motion.div>
+        {/* Effet de vignette */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
+        </div>
+
+        {/* Particules flottantes subtiles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-primary/30"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0, 0.6, 0],
+                scale: [0, 1.5, 0],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
+        </div>
+      </div>
     </AnimatePresence>
   );
 };
