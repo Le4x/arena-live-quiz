@@ -62,18 +62,18 @@ const Regie = () => {
   const loadActiveSession = async () => {
     try {
       const { data, error } = await supabase
-        .from('sessions')
+        .from('game_sessions')
         .select('*')
-        .eq('is_active', true)
-        .maybeSingle(); // Utiliser maybeSingle au lieu de single
+        .eq('status', 'active')
+        .maybeSingle();
 
       if (error) {
-        console.error('Erreur chargement session:', error);
+        console.error('❌ Erreur chargement session:', error);
         return null;
       }
 
       if (!data) {
-        console.log('Aucune session active trouvée');
+        console.log('⚠️ Aucune session active trouvée');
         return null;
       }
 
@@ -82,7 +82,7 @@ const Regie = () => {
       setSessionId(data.id);
       return data;
     } catch (error) {
-      console.error('Exception chargement session:', error);
+      console.error('❌ Exception chargement session:', error);
       return null;
     }
   };
@@ -154,7 +154,7 @@ const Regie = () => {
       setRounds(data || []);
 
       // Charger les questions du round actuel
-      const session = currentSession || (await supabase.from('sessions').select('*').eq('id', id).maybeSingle()).data;
+      const session = currentSession || (await supabase.from('game_sessions').select('*').eq('id', id).maybeSingle()).data;
       if (session?.current_round_id) {
         loadQuestions(session.current_round_id);
 
