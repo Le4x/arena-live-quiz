@@ -37,9 +37,9 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
     
     if (data) {
       setJokerTypes(data);
-      // Initialiser la config avec 2 jokers de chaque type
+      // Initialiser la config avec 1 joker de chaque type (3 jokers au total)
       const config: { [key: string]: number } = {};
-      data.forEach(jt => config[jt.id] = 2);
+      data.forEach(jt => config[jt.id] = 1);
       setJokerConfig(config);
     }
   };
