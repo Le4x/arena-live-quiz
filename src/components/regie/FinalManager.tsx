@@ -58,8 +58,9 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       .from('finals')
       .select('*')
       .eq('game_session_id', sessionId)
+      .neq('status', 'completed') // Ne pas charger les finales terminées/désactivées
       .maybeSingle();
-    
+
     if (data) setFinal(data);
   };
 
@@ -233,17 +234,17 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       // Désactiver le mode final dans game_state
       await supabase
         .from('game_state')
-        .update({ 
+        .update({
           final_mode: false,
           final_id: null
         })
         .eq('game_session_id', sessionId);
 
-      // Mettre la finale en statut 'cancelled'
+      // Mettre la finale en statut 'completed' (cancelled n'existe pas dans la DB)
       await supabase
         .from('finals')
-        .update({ 
-          status: 'cancelled',
+        .update({
+          status: 'completed',
           completed_at: new Date().toISOString()
         })
         .eq('id', final.id);
