@@ -133,11 +133,46 @@ export interface TeamAnswer {
 export interface Final {
   id: string;
   game_session_id: string;
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'intro' | 'active' | 'completed';
   finalist_teams: string[];
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  // Nouveaux champs de personnalisation
+  name?: string;
+  finalist_count?: number;
+  selection_method?: 'auto' | 'manual';
+  min_score_threshold?: number;
+  point_multiplier?: number;
+  first_correct_bonus?: number;
+  speed_bonus_enabled?: boolean;
+  intro_duration?: number;
+  visual_theme?: 'gold' | 'silver' | 'bronze' | 'purple' | 'blue' | 'red' | 'rainbow';
+  elimination_mode?: boolean;
+  public_voting_enabled?: boolean;
+  custom_config?: Record<string, any>;
+}
+
+export interface FinalConfig {
+  name: string;
+  finalistCount: number;
+  selectionMethod: 'auto' | 'manual';
+  selectedTeams: string[];
+  minScoreThreshold: number;
+  pointMultiplier: number;
+  firstCorrectBonus: number;
+  speedBonusEnabled: boolean;
+  introDuration: number;
+  visualTheme: 'gold' | 'silver' | 'bronze' | 'purple' | 'blue' | 'red' | 'rainbow';
+  eliminationMode: boolean;
+  publicVotingEnabled: boolean;
+}
+
+export interface FinalJokerConfig {
+  jokerTypeId: string;
+  enabled: boolean;
+  quantityPerTeam: number;
+  unlockAfterQuestion: number;
 }
 
 export interface HelpRequest {
