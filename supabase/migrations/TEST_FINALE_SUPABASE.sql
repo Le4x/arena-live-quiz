@@ -85,7 +85,7 @@ BEGIN
   ) VALUES (
     v_game_session_id,
     'pending',
-    v_teams,
+    to_jsonb(v_teams),
     'TEST - Finale Personnalisée',
     array_length(v_teams, 1),
     'auto',
