@@ -17,8 +17,11 @@ BEGIN
 END $$;
 
 -- 2. NETTOYER LES DONNÉES DE TEST PRÉCÉDENTES
-DELETE FROM finals WHERE name LIKE '%TEST%';
-RAISE NOTICE '🧹 Nettoyage des anciennes données de test...';
+DO $$
+BEGIN
+  DELETE FROM finals WHERE name LIKE '%TEST%';
+  RAISE NOTICE '🧹 Nettoyage des anciennes données de test...';
+END $$;
 
 -- 3. CRÉER UNE FINALE DE TEST COMPLÈTE
 DO $$
