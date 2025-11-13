@@ -5,9 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Play, Settings, Users, XCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { Trophy, Play, Settings, Users, XCircle, Zap, Target, Award, Palette, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FinalStatsPanel } from "./FinalStatsPanel";
+import type { FinalConfig } from "@/types/game.types";
 
 interface FinalManagerProps {
   sessionId: string;
@@ -17,10 +21,26 @@ interface FinalManagerProps {
 export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
   const { toast } = useToast();
   const [jokerTypes, setJokerTypes] = useState<any[]>([]);
-  const [jokerConfig, setJokerConfig] = useState<{ [key: string]: number }>({});
+  const [jokerConfig, setJokerConfig] = useState<{ [key: string]: { enabled: boolean; quantity: number } }>({});
   const [final, setFinal] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Configuration de la finale
+  const [config, setConfig] = useState<FinalConfig>({
+    name: "Finale",
+    finalistCount: 8,
+    selectionMethod: 'auto',
+    selectedTeams: [],
+    minScoreThreshold: 0,
+    pointMultiplier: 1.0,
+    firstCorrectBonus: 0,
+    speedBonusEnabled: false,
+    introDuration: 10,
+    visualTheme: 'gold',
+    eliminationMode: false,
+    publicVotingEnabled: true,
+  });
 
   useEffect(() => {
     const initializeManager = async () => {
@@ -35,7 +55,6 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
   const cleanupOrphanedFinales = async () => {
     try {
-      // Vérifier s'il y a une finale active alors que le game_state dit final_mode=false
       const { data: gameState } = await supabase
         .from('game_state')
         .select('final_mode, final_id')
@@ -43,7 +62,6 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         .single();
 
       if (!gameState?.final_mode) {
-        // Nettoyer toutes les finales non-completed pour cette session
         await supabase
           .from('finals')
           .update({
@@ -66,13 +84,12 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       .select('*')
       .eq('is_active', true)
       .order('name');
-    
+
     if (data) {
       setJokerTypes(data);
-      // Initialiser la config avec 1 joker de chaque type (3 jokers au total)
-      const config: { [key: string]: number } = {};
-      data.forEach(jt => config[jt.id] = 1);
-      setJokerConfig(config);
+      const jConfig: { [key: string]: { enabled: boolean; quantity: number } } = {};
+      data.forEach(jt => jConfig[jt.id] = { enabled: true, quantity: 1 });
+      setJokerConfig(jConfig);
     }
   };
 
@@ -81,7 +98,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       .from('teams')
       .select('*')
       .order('score', { ascending: false });
-    
+
     if (data) setTeams(data);
   };
 
@@ -90,17 +107,29 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       .from('finals')
       .select('*')
       .eq('game_session_id', sessionId)
-      .neq('status', 'completed') // Ne pas charger les finales terminées/désactivées
+      .neq('status', 'completed')
       .maybeSingle();
 
     if (data) setFinal(data);
   };
 
   const createFinal = async () => {
-    if (teams.length < 8) {
+    // Validation
+    const eligibleTeams = teams.filter(t => t.score >= config.minScoreThreshold);
+
+    if (config.selectionMethod === 'auto' && eligibleTeams.length < config.finalistCount) {
       toast({
-        title: "Erreur",
-        description: "Il faut au moins 8 équipes pour lancer la finale",
+        title: "❌ Erreur",
+        description: `Il faut au moins ${config.finalistCount} équipes avec ${config.minScoreThreshold}+ points`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (config.selectionMethod === 'manual' && config.selectedTeams.length !== config.finalistCount) {
+      toast({
+        title: "❌ Erreur",
+        description: `Sélectionnez exactement ${config.finalistCount} équipes`,
         variant: "destructive"
       });
       return;
@@ -108,7 +137,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
     setLoading(true);
     try {
-      // Nettoyer d'abord tous les jokers orphelins de cette session
+      // Nettoyer les anciens jokers
       const { data: allFinalsInSession } = await supabase
         .from('finals')
         .select('id')
@@ -116,13 +145,19 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
       if (allFinalsInSession && allFinalsInSession.length > 0) {
         const finalIds = allFinalsInSession.map(f => f.id);
-        await supabase
-          .from('final_jokers')
-          .delete()
-          .in('final_id', finalIds);
+        await supabase.from('final_jokers').delete().in('final_id', finalIds);
+        await supabase.from('final_joker_config').delete().in('final_id', finalIds);
       }
 
-      // Vérifier si une finale existe déjà pour cette session
+      // Sélection des équipes finalistes
+      let finalistTeamIds: string[];
+      if (config.selectionMethod === 'auto') {
+        finalistTeamIds = eligibleTeams.slice(0, config.finalistCount).map(t => t.id);
+      } else {
+        finalistTeamIds = config.selectedTeams;
+      }
+
+      // Vérifier si une finale existe déjà
       const { data: existingFinal } = await supabase
         .from('finals')
         .select('*')
@@ -132,36 +167,48 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       let finalId: string;
 
       if (existingFinal) {
-        // Réutiliser la finale existante et la réinitialiser
-        const top8Teams = teams.slice(0, 8).map(t => t.id);
-        
+        // Réutiliser et mettre à jour
         await supabase
           .from('finals')
           .update({
             status: 'pending',
-            finalist_teams: top8Teams,
+            finalist_teams: finalistTeamIds,
             started_at: null,
-            completed_at: null
+            completed_at: null,
+            name: config.name,
+            finalist_count: config.finalistCount,
+            selection_method: config.selectionMethod,
+            min_score_threshold: config.minScoreThreshold,
+            point_multiplier: config.pointMultiplier,
+            first_correct_bonus: config.firstCorrectBonus,
+            speed_bonus_enabled: config.speedBonusEnabled,
+            intro_duration: config.introDuration,
+            visual_theme: config.visualTheme,
+            elimination_mode: config.eliminationMode,
+            public_voting_enabled: config.publicVotingEnabled,
           })
           .eq('id', existingFinal.id);
 
-        // Supprimer les anciens jokers
-        await supabase
-          .from('final_jokers')
-          .delete()
-          .eq('final_id', existingFinal.id);
-
         finalId = existingFinal.id;
       } else {
-        // Créer une nouvelle finale
-        const top8Teams = teams.slice(0, 8).map(t => t.id);
-
+        // Créer nouvelle finale
         const { data: newFinal, error: finalError } = await supabase
           .from('finals')
           .insert({
             game_session_id: sessionId,
             status: 'pending',
-            finalist_teams: top8Teams
+            finalist_teams: finalistTeamIds,
+            name: config.name,
+            finalist_count: config.finalistCount,
+            selection_method: config.selectionMethod,
+            min_score_threshold: config.minScoreThreshold,
+            point_multiplier: config.pointMultiplier,
+            first_correct_bonus: config.firstCorrectBonus,
+            speed_bonus_enabled: config.speedBonusEnabled,
+            intro_duration: config.introDuration,
+            visual_theme: config.visualTheme,
+            elimination_mode: config.eliminationMode,
+            public_voting_enabled: config.publicVotingEnabled,
           })
           .select()
           .single();
@@ -171,17 +218,16 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       }
 
       // Créer les jokers pour chaque équipe finaliste
-      const top8Teams = teams.slice(0, 8).map(t => t.id);
       const jokersToInsert = [];
-      
-      for (const teamId of top8Teams) {
-        for (const [jokerTypeId, quantity] of Object.entries(jokerConfig)) {
-          if (quantity > 0) {
+
+      for (const teamId of finalistTeamIds) {
+        for (const [jokerTypeId, jConfig] of Object.entries(jokerConfig)) {
+          if (jConfig.enabled && jConfig.quantity > 0) {
             jokersToInsert.push({
               final_id: finalId,
               team_id: teamId,
               joker_type_id: jokerTypeId,
-              quantity
+              quantity: jConfig.quantity
             });
           }
         }
@@ -196,15 +242,15 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
       }
 
       toast({
-        title: "🏆 Finale créée !",
-        description: `Les 8 finalistes ont été sélectionnés avec leurs jokers`
+        title: `🏆 ${config.name} créée !`,
+        description: `${config.finalistCount} finalistes sélectionnés avec leurs jokers`
       });
 
       loadFinal();
     } catch (error: any) {
       console.error('Error creating final:', error);
       toast({
-        title: "Erreur",
+        title: "❌ Erreur",
         description: error.message,
         variant: "destructive"
       });
@@ -217,16 +263,14 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
     if (!final) return;
 
     try {
-      // Mettre la finale en mode intro
       await supabase
         .from('finals')
         .update({ status: 'intro', started_at: new Date().toISOString() })
         .eq('id', final.id);
 
-      // Activer le mode final dans game_state
       await supabase
         .from('game_state')
-        .update({ 
+        .update({
           final_mode: true,
           final_id: final.id,
           show_welcome_screen: false,
@@ -277,7 +321,6 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
     if (!final) return;
 
     try {
-      // Désactiver le mode final dans game_state
       await supabase
         .from('game_state')
         .update({
@@ -286,7 +329,6 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         })
         .eq('game_session_id', sessionId);
 
-      // Mettre la finale en statut 'completed' (cancelled n'existe pas dans la DB)
       await supabase
         .from('finals')
         .update({
@@ -297,7 +339,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
       toast({
         title: "❌ Mode final désactivé",
-        description: "Le mode final a été désactivé et vous pouvez reprendre le jeu normal"
+        description: "Le mode final a été désactivé"
       });
 
       setFinal(null);
@@ -310,31 +352,231 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
     }
   };
 
-  const top8 = teams.slice(0, 8);
-  const finalists = final?.finalist_teams || [];
+  const toggleTeamSelection = (teamId: string) => {
+    setConfig(prev => ({
+      ...prev,
+      selectedTeams: prev.selectedTeams.includes(teamId)
+        ? prev.selectedTeams.filter(id => id !== teamId)
+        : [...prev.selectedTeams, teamId]
+    }));
+  };
+
+  const eligibleTeams = teams.filter(t => t.score >= config.minScoreThreshold);
+  const displayTeams = config.selectionMethod === 'auto'
+    ? eligibleTeams.slice(0, config.finalistCount)
+    : teams;
+
+  const themeColors = {
+    gold: { bg: 'from-yellow-500/10 to-orange-500/10', border: 'border-yellow-500/30', text: 'text-yellow-500' },
+    silver: { bg: 'from-gray-400/10 to-gray-600/10', border: 'border-gray-400/30', text: 'text-gray-400' },
+    bronze: { bg: 'from-orange-700/10 to-amber-800/10', border: 'border-orange-700/30', text: 'text-orange-700' },
+    purple: { bg: 'from-purple-500/10 to-pink-500/10', border: 'border-purple-500/30', text: 'text-purple-500' },
+    blue: { bg: 'from-blue-500/10 to-cyan-500/10', border: 'border-blue-500/30', text: 'text-blue-500' },
+    red: { bg: 'from-red-500/10 to-rose-600/10', border: 'border-red-500/30', text: 'text-red-500' },
+    rainbow: { bg: 'from-pink-500/10 via-purple-500/10 to-cyan-500/10', border: 'border-pink-500/30', text: 'text-pink-500' },
+  };
+
+  const currentTheme = themeColors[config.visualTheme];
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-500/30">
+    <Card className={`p-6 bg-gradient-to-br ${currentTheme.bg} border ${currentTheme.border}`}>
       <div className="flex items-center gap-3 mb-6">
-        <Trophy className="h-8 w-8 text-yellow-500" />
+        <Trophy className={`h-8 w-8 ${currentTheme.text}`} />
         <div>
-          <h2 className="text-2xl font-bold text-yellow-500">Mode Final</h2>
-          <p className="text-sm text-muted-foreground">Gérez la finale avec les 8 meilleures équipes</p>
+          <h2 className={`text-2xl font-bold ${currentTheme.text}`}>Mode Final - Configuration Complète</h2>
+          <p className="text-sm text-muted-foreground">Personnalisez tous les aspects de votre finale</p>
         </div>
       </div>
 
       {!final ? (
         <>
-          {/* Configuration des jokers */}
+          {/* Configuration générale */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Settings className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Configuration Générale</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Nom de la finale</Label>
+                <Input
+                  value={config.name}
+                  onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                  placeholder="Finale, Demi-Finale, etc."
+                />
+              </div>
+              <div>
+                <Label>Nombre de finalistes</Label>
+                <Select
+                  value={config.finalistCount.toString()}
+                  onValueChange={(v) => setConfig({ ...config, finalistCount: parseInt(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[4, 6, 8, 10, 12, 16].map(n => (
+                      <SelectItem key={n} value={n.toString()}>{n} équipes</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Méthode de sélection</Label>
+                <Select
+                  value={config.selectionMethod}
+                  onValueChange={(v: 'auto' | 'manual') => setConfig({ ...config, selectionMethod: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Automatique (Top N)</SelectItem>
+                    <SelectItem value="manual">Manuelle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Score minimum requis</Label>
+                <Input
+                  type="number"
+                  value={config.minScoreThreshold}
+                  onChange={(e) => setConfig({ ...config, minScoreThreshold: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Règles de scoring */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Règles de Scoring</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Multiplicateur de points</Label>
+                <Select
+                  value={config.pointMultiplier.toString()}
+                  onValueChange={(v) => setConfig({ ...config, pointMultiplier: parseFloat(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.5">×0.5 (Demi)</SelectItem>
+                    <SelectItem value="1">×1.0 (Normal)</SelectItem>
+                    <SelectItem value="1.5">×1.5</SelectItem>
+                    <SelectItem value="2">×2.0 (Double)</SelectItem>
+                    <SelectItem value="2.5">×2.5</SelectItem>
+                    <SelectItem value="3">×3.0 (Triple)</SelectItem>
+                    <SelectItem value="5">×5.0 (Mega)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Bonus 1ère bonne réponse</Label>
+                <Input
+                  type="number"
+                  value={config.firstCorrectBonus}
+                  onChange={(e) => setConfig({ ...config, firstCorrectBonus: parseInt(e.target.value) || 0 })}
+                  placeholder="Points bonus"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="speedBonus"
+                  checked={config.speedBonusEnabled}
+                  onCheckedChange={(checked) => setConfig({ ...config, speedBonusEnabled: !!checked })}
+                />
+                <Label htmlFor="speedBonus" className="cursor-pointer">
+                  Bonus de vitesse activé
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="eliminationMode"
+                  checked={config.eliminationMode}
+                  onCheckedChange={(checked) => setConfig({ ...config, eliminationMode: !!checked })}
+                />
+                <Label htmlFor="eliminationMode" className="cursor-pointer">
+                  Mode élimination progressive
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Apparence */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Apparence & Affichage</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Thème visuel</Label>
+                <Select
+                  value={config.visualTheme}
+                  onValueChange={(v: any) => setConfig({ ...config, visualTheme: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gold">🥇 Or</SelectItem>
+                    <SelectItem value="silver">🥈 Argent</SelectItem>
+                    <SelectItem value="bronze">🥉 Bronze</SelectItem>
+                    <SelectItem value="purple">💜 Violet</SelectItem>
+                    <SelectItem value="blue">💙 Bleu</SelectItem>
+                    <SelectItem value="red">❤️ Rouge</SelectItem>
+                    <SelectItem value="rainbow">🌈 Arc-en-ciel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Durée de l'intro (secondes)</Label>
+                <Input
+                  type="number"
+                  value={config.introDuration}
+                  onChange={(e) => setConfig({ ...config, introDuration: parseInt(e.target.value) || 10 })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="publicVoting"
+                  checked={config.publicVotingEnabled}
+                  onCheckedChange={(checked) => setConfig({ ...config, publicVotingEnabled: !!checked })}
+                />
+                <Label htmlFor="publicVoting" className="cursor-pointer">
+                  Vote du public activé
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Configuration des jokers */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="h-5 w-5" />
               <h3 className="text-lg font-semibold">Configuration des Jokers</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {jokerTypes.map(jt => (
                 <div key={jt.id} className="flex items-center gap-3 p-3 bg-card/50 rounded-lg border border-border">
-                  <span className="text-3xl">{jt.icon}</span>
+                  <Checkbox
+                    checked={jokerConfig[jt.id]?.enabled ?? true}
+                    onCheckedChange={(checked) => setJokerConfig({
+                      ...jokerConfig,
+                      [jt.id]: { ...jokerConfig[jt.id], enabled: !!checked }
+                    })}
+                  />
+                  <span className="text-2xl">{jt.icon}</span>
                   <div className="flex-1">
                     <p className="font-semibold text-sm">{jt.name.replace('_', ' ')}</p>
                     <p className="text-xs text-muted-foreground">{jt.description}</p>
@@ -342,70 +584,99 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
                   <Input
                     type="number"
                     min="0"
-                    max="5"
-                    value={jokerConfig[jt.id] || 0}
+                    max="10"
+                    value={jokerConfig[jt.id]?.quantity || 1}
                     onChange={(e) => setJokerConfig({
                       ...jokerConfig,
-                      [jt.id]: parseInt(e.target.value) || 0
+                      [jt.id]: { ...jokerConfig[jt.id], quantity: parseInt(e.target.value) || 0 }
                     })}
                     className="w-16 text-center"
+                    disabled={!jokerConfig[jt.id]?.enabled}
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Top 8 Preview */}
+          <Separator className="my-6" />
+
+          {/* Sélection des équipes */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Users className="h-5 w-5" />
-              <h3 className="text-lg font-semibold">Top 8 Actuel</h3>
+              <h3 className="text-lg font-semibold">
+                {config.selectionMethod === 'auto' ? 'Aperçu des finalistes' : 'Sélection manuelle'}
+              </h3>
               <Badge variant="outline" className="ml-auto">
-                {teams.length} équipes au total
+                {eligibleTeams.length} équipes éligibles ({config.minScoreThreshold}+ pts)
               </Badge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {top8.map((team, index) => (
-                <div
-                  key={team.id}
-                  className="flex items-center gap-2 p-2 bg-card/50 rounded border border-border"
-                >
-                  <Badge className="bg-yellow-500 text-black font-bold">#{index + 1}</Badge>
+              {displayTeams.map((team, index) => {
+                const isSelected = config.selectionMethod === 'auto'
+                  ? index < config.finalistCount
+                  : config.selectedTeams.includes(team.id);
+                const isAutoQualified = config.selectionMethod === 'auto' && index < config.finalistCount;
+
+                return (
                   <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: team.color }}
-                  />
-                  <span className="text-sm font-semibold truncate">{team.name}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{team.score}pts</span>
-                </div>
-              ))}
+                    key={team.id}
+                    className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-primary/20 border-primary'
+                        : 'bg-card/50 border-border hover:bg-card/80'
+                    }`}
+                    onClick={() => config.selectionMethod === 'manual' && toggleTeamSelection(team.id)}
+                  >
+                    {config.selectionMethod === 'manual' && (
+                      <Checkbox checked={isSelected} />
+                    )}
+                    {isAutoQualified && (
+                      <Badge className="bg-green-500 text-black font-bold text-xs px-1">
+                        #{index + 1}
+                      </Badge>
+                    )}
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: team.color }}
+                    />
+                    <span className="text-sm font-semibold truncate flex-1">{team.name}</span>
+                    <span className="text-xs text-muted-foreground">{team.score}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Bouton créer finale */}
           <Button
             onClick={createFinal}
-            disabled={loading || teams.length < 8}
+            disabled={loading || eligibleTeams.length < config.finalistCount}
             size="lg"
-            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold text-lg h-14"
+            className={`w-full bg-gradient-to-r ${currentTheme.bg.replace('/10', '')} hover:opacity-80 text-white font-bold text-lg h-14`}
           >
             <Trophy className="mr-2 h-6 w-6" />
-            {loading ? "Création..." : "🏆 Créer la Finale"}
+            {loading ? "Création..." : `🏆 Créer ${config.name}`}
           </Button>
         </>
       ) : (
         <>
           {/* Finale existante */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-yellow-500/20 rounded-lg border-2 border-yellow-500">
+            <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${currentTheme.border} bg-opacity-20`}>
               <div className="flex-1">
-                <p className="font-bold text-lg">Finale créée</p>
+                <p className="font-bold text-lg">{final.name || 'Finale'} créée</p>
                 <p className="text-sm text-muted-foreground">
-                  8 finalistes sélectionnés - Statut: <Badge>{final.status}</Badge>
+                  {final.finalist_count || final.finalist_teams?.length || 8} finalistes - Statut: <Badge>{final.status}</Badge>
                 </p>
+                {final.point_multiplier && final.point_multiplier !== 1 && (
+                  <p className="text-xs text-amber-500 font-semibold mt-1">
+                    ⚡ Points ×{final.point_multiplier}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3">
-                <Trophy className="h-12 w-12 text-yellow-500" />
+                <Trophy className={`h-12 w-12 ${currentTheme.text}`} />
                 <Button
                   variant="outline"
                   size="sm"
@@ -449,9 +720,8 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
                   </p>
                 </div>
 
-                {/* Statistiques en temps réel */}
-                <FinalStatsPanel 
-                  finalId={final.id} 
+                <FinalStatsPanel
+                  finalId={final.id}
                   currentQuestionInstanceId={gameState?.current_question_instance_id}
                 />
               </>
