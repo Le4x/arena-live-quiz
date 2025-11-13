@@ -10,7 +10,14 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 
 **Dans Supabase Dashboard → SQL Editor → New Query**
 
-1. **Ouvrez** : `supabase/migrations/INSTALL_FINALE_ZERO_CONFIG.sql` ⭐ **SCRIPT ULTIME**
+**Option A - Recommandée (Plus simple) :**
+1. **Ouvrez** : `supabase/migrations/INSTALL_QUICK_FIX.sql` ⚡ **NOUVEAU ! 140 lignes**
+2. **Copiez TOUT** le contenu
+3. **Collez** dans SQL Editor
+4. **Cliquez** sur **RUN** (ou F5)
+
+**Option B - Complète (Plus de détails) :**
+1. **Ouvrez** : `supabase/migrations/INSTALL_FINALE_ZERO_CONFIG.sql` 🌟 **293 lignes**
 2. **Copiez TOUT** le contenu
 3. **Collez** dans SQL Editor
 4. **Cliquez** sur **RUN** (ou F5)
@@ -83,7 +90,8 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 ## ⚠️ FICHIERS IMPORTANTS
 
 ### Pour Supabase SQL Editor :
-- 🌟 **`INSTALL_FINALE_ZERO_CONFIG.sql`** ← **UTILISEZ CELUI-CI** (Fonctionne même avec base vide !)
+- ⚡ **`INSTALL_QUICK_FIX.sql`** ← **NOUVEAU ! VERSION SIMPLIFIÉE ET TESTÉE** (140 lignes)
+- 🌟 `INSTALL_FINALE_ZERO_CONFIG.sql` ← Version complète (293 lignes)
 - ⭐ `SETUP_COMPLETE_FINALE.sql` ← Alternative (nécessite session + équipes existantes)
 - `TEST_FINALE_SIMPLE.sql` ← Si vous avez déjà tout configuré
 - `20251113000001_finale_customization.sql` ← Migration manuelle (optionnel)
@@ -94,7 +102,9 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 ### Documentation :
 - 📋 `PREREQUISITES_FINALE.md` ← Liste complète des prérequis et vérifications
 
-**Recommandation :** Utilisez **`INSTALL_FINALE_ZERO_CONFIG.sql`** - il crée TOUT automatiquement, même les équipes et la session !
+**Recommandation :** Utilisez **`INSTALL_QUICK_FIX.sql`** (plus simple, 140 lignes) ou **`INSTALL_FINALE_ZERO_CONFIG.sql`** (plus détaillé, 293 lignes) - ils créent TOUT automatiquement, même les équipes et la session !
+
+⚠️ **Important :** Si vous obtenez l'erreur `column "finalist_teams" is of type jsonb but expression is of type uuid[]`, c'est que vous avez copié-collé une ancienne version du script. Utilisez **`INSTALL_QUICK_FIX.sql`** qui est la version la plus récente et testée.
 
 ---
 
