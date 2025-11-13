@@ -23,10 +23,42 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadJokerTypes();
-    loadTeams();
-    loadFinal();
+    const initializeManager = async () => {
+      await cleanupOrphanedFinales();
+      loadJokerTypes();
+      loadTeams();
+      loadFinal();
+    };
+
+    initializeManager();
   }, [sessionId]);
+
+  const cleanupOrphanedFinales = async () => {
+    try {
+      // Vérifier s'il y a une finale active alors que le game_state dit final_mode=false
+      const { data: gameState } = await supabase
+        .from('game_state')
+        .select('final_mode, final_id')
+        .eq('game_session_id', sessionId)
+        .single();
+
+      if (!gameState?.final_mode) {
+        // Nettoyer toutes les finales non-completed pour cette session
+        await supabase
+          .from('finals')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('game_session_id', sessionId)
+          .neq('status', 'completed');
+
+        console.log('🧹 Finales orphelines nettoyées');
+      }
+    } catch (error) {
+      console.error('Erreur lors du nettoyage:', error);
+    }
+  };
 
   const loadJokerTypes = async () => {
     const { data } = await supabase
@@ -76,6 +108,20 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
 
     setLoading(true);
     try {
+      // Nettoyer d'abord tous les jokers orphelins de cette session
+      const { data: allFinalsInSession } = await supabase
+        .from('finals')
+        .select('id')
+        .eq('game_session_id', sessionId);
+
+      if (allFinalsInSession && allFinalsInSession.length > 0) {
+        const finalIds = allFinalsInSession.map(f => f.id);
+        await supabase
+          .from('final_jokers')
+          .delete()
+          .in('final_id', finalIds);
+      }
+
       // Vérifier si une finale existe déjà pour cette session
       const { data: existingFinal } = await supabase
         .from('finals')
