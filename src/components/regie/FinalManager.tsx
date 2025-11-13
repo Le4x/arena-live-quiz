@@ -103,14 +103,20 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
   };
 
   const loadFinal = async () => {
-    const { data } = await supabase
+    console.log('🔍 FinalManager: Loading final for session', sessionId);
+    const { data, error } = await supabase
       .from('finals')
       .select('*')
       .eq('game_session_id', sessionId)
       .neq('status', 'completed')
       .maybeSingle();
 
-    if (data) setFinal(data);
+    if (error) {
+      console.error('❌ Error loading final:', error);
+    }
+
+    console.log('📊 FinalManager: Final loaded:', data);
+    setFinal(data || null);
   };
 
   const createFinal = async () => {
@@ -246,7 +252,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         description: `${config.finalistCount} finalistes sélectionnés avec leurs jokers`
       });
 
-      loadFinal();
+      await loadFinal();
     } catch (error: any) {
       console.error('Error creating final:', error);
       toast({
@@ -283,7 +289,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         description: "L'écran d'introduction de la finale est affiché"
       });
 
-      loadFinal();
+      await loadFinal();
     } catch (error: any) {
       toast({
         title: "Erreur",
@@ -307,7 +313,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
         description: "Le mode final est maintenant actif"
       });
 
-      loadFinal();
+      await loadFinal();
     } catch (error: any) {
       toast({
         title: "Erreur",
@@ -387,6 +393,14 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
           <p className="text-sm text-muted-foreground">Personnalisez tous les aspects de votre finale</p>
         </div>
       </div>
+
+      {!sessionId && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
+          <p className="text-sm text-red-500 font-semibold">
+            ⚠️ Aucune session de jeu active détectée. Créez ou activez une session de jeu dans la Régie.
+          </p>
+        </div>
+      )}
 
       {!final ? (
         <>
