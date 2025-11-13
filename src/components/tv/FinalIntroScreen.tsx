@@ -91,20 +91,37 @@ export const FinalIntroScreen = ({ final }: FinalIntroScreenProps) => {
   const loadFinalists = async () => {
     if (!final?.finalist_teams || final.finalist_teams.length === 0) return;
 
-    const { data } = await supabase
+    // Charger les équipes
+    const { data: teamsData } = await supabase
       .from('teams')
-      .select('*, final_jokers!inner(quantity, joker_types(icon))')
+      .select('*')
       .in('id', final.finalist_teams)
-      .eq('final_jokers.final_id', final.id)
       .order('score', { ascending: false });
 
-    if (data) setTeams(data);
+    if (!teamsData) return;
+
+    // Charger les jokers séparément
+    const { data: jokersData } = await supabase
+      .from('final_jokers')
+      .select('team_id, quantity, joker_type_id')
+      .eq('final_id', final.id);
+
+    // Combiner les données
+    const teamsWithJokers = teamsData.map(team => ({
+      ...team,
+      total_jokers: jokersData
+        ? jokersData
+            .filter(j => j.team_id === team.id)
+            .reduce((sum, j) => sum + (j.quantity || 0), 0)
+        : 0
+    }));
+
+    setTeams(teamsWithJokers);
   };
 
   // Calculer le nombre total de jokers par équipe
   const getTotalJokers = (team: any) => {
-    if (!team.final_jokers || team.final_jokers.length === 0) return 0;
-    return team.final_jokers.reduce((sum: number, fj: any) => sum + (fj.quantity || 0), 0);
+    return team.total_jokers || 0;
   };
 
   return (
