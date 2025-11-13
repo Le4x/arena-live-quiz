@@ -72,11 +72,21 @@ BEGIN
     RAISE NOTICE '✅ Session ACTIVE trouvée: %', v_active_session_id;
 
     -- Chercher une finale pour cette session
-    SELECT COUNT(*), MAX(id), MAX(name)
-    INTO v_finale_count, v_finale_id, v_finale_name
+    SELECT COUNT(*)
+    INTO v_finale_count
     FROM finals
     WHERE game_session_id = v_active_session_id
     AND status != 'completed';
+
+    IF v_finale_count > 0 THEN
+      SELECT id, name
+      INTO v_finale_id, v_finale_name
+      FROM finals
+      WHERE game_session_id = v_active_session_id
+      AND status != 'completed'
+      ORDER BY created_at DESC
+      LIMIT 1;
+    END IF;
 
     IF v_finale_count = 0 THEN
       RAISE NOTICE '';
