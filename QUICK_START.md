@@ -4,45 +4,52 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 
 ---
 
-## ⚡ EN 3 ÉTAPES (10 minutes max)
+## ⚡ EN 2 ÉTAPES (5 minutes max)
 
-### ÉTAPE 1️⃣ : Migration principale (2 min)
+### ÉTAPE 1️⃣ : Setup complet (TOUT EN UN) ⭐
 
 **Dans Supabase Dashboard → SQL Editor → New Query**
 
-1. **Ouvrez** : `supabase/migrations/20251113000001_finale_customization.sql`
-2. **Copiez tout** le contenu
+1. **Ouvrez** : `supabase/migrations/SETUP_COMPLETE_FINALE.sql` ⭐ **SCRIPT ULTIME**
+2. **Copiez TOUT** le contenu
 3. **Collez** dans SQL Editor
 4. **Cliquez** sur **RUN** (ou F5)
-5. ✅ Vous devriez voir : `Success. No rows returned`
-
----
-
-### ÉTAPE 2️⃣ : Créer une finale de test (3 min)
-
-**Toujours dans SQL Editor → New Query**
-
-1. **Ouvrez** : `supabase/migrations/TEST_FINALE_SIMPLE.sql` ⚠️ **UTILISEZ CE FICHIER**
-2. **Copiez tout** le contenu
-3. **Collez** dans SQL Editor
-4. **RUN**
 5. ✅ Vous devriez voir dans les NOTICES :
    ```
-   ✅ Colonnes de personnalisation détectées
+   🚀 Début du setup complet...
+   ✅ Table joker_types vérifiée
+   ✅ Table finals vérifiée
+   ✅ Table final_jokers vérifiée
+   ✅ Types de jokers créés
+   🧹 Nettoyage effectué
    ✅ Session trouvée: [UUID]
-   ✅ Jokers trouvés
+   ✅ Jokers récupérés
    ✅ 8 équipes sélectionnées
    ✅ Finale créée: [UUID]
    ✅ Jokers créés pour toutes les équipes
 
-   🎉 FINALE DE TEST CRÉÉE AVEC SUCCÈS !
+   🎉 SETUP COMPLET TERMINÉ !
+
+   📍 PROCHAINES ÉTAPES:
+   1. Ouvrez la Régie
+   2. Scrollez vers "Mode Final"
+   3. Lancez l'introduction
+   4. Activez la finale
+   5. Testez les jokers côté client !
    ```
 
-**En bas, dans les résultats, vous verrez un tableau avec votre finale.**
+**En bas, dans Results, vous verrez un tableau avec votre finale.**
+
+**Ce script fait TOUT :**
+- ✅ Crée les tables (joker_types, finals, final_jokers)
+- ✅ Crée les 3 types de jokers (fifty_fifty, team_call, public_vote)
+- ✅ Crée une finale de test avec 8 équipes
+- ✅ Configure les jokers (2× ➗, 1× 👥, 3× 🗳️)
+- ✅ Fonctionne même si votre base est vide !
 
 ---
 
-### ÉTAPE 3️⃣ : Tester dans l'app (5 min)
+### ÉTAPE 2️⃣ : Tester dans l'app (3 min)
 
 1. **Ouvrez la Régie** : `http://localhost:5173/regie`
 2. **Scrollez** vers le bas jusqu'à **"Mode Final - Configuration Complète"**
@@ -74,13 +81,14 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 ## ⚠️ FICHIERS IMPORTANTS
 
 ### Pour Supabase SQL Editor :
-- ✅ `TEST_FINALE_SIMPLE.sql` ← **UTILISEZ CELUI-CI** (Version ultra-simple, tout dans 1 bloc)
-- `TEST_FINALE_SUPABASE.sql` ← Alternative (peut avoir des problèmes sur certaines configs)
+- ⭐ **`SETUP_COMPLETE_FINALE.sql`** ← **UTILISEZ CELUI-CI** (Fait TOUT en 1 seul script !)
+- `TEST_FINALE_SIMPLE.sql` ← Alternative (si vous avez déjà les tables)
+- `20251113000001_finale_customization.sql` ← Migration manuelle (optionnel)
 
 ### Pour psql (ligne de commande) :
 - `TEST_FINALE_COMPLETE.sql` ← Seulement si vous utilisez psql
 
-**Recommandation :** Utilisez toujours `TEST_FINALE_SIMPLE.sql` dans Supabase SQL Editor.
+**Recommandation :** Utilisez **`SETUP_COMPLETE_FINALE.sql`** - il fait tout automatiquement !
 
 ---
 
