@@ -10,7 +10,7 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 
 **Dans Supabase Dashboard → SQL Editor → New Query**
 
-1. **Ouvrez** : `supabase/migrations/SETUP_COMPLETE_FINALE.sql` ⭐ **SCRIPT ULTIME**
+1. **Ouvrez** : `supabase/migrations/INSTALL_FINALE_ZERO_CONFIG.sql` ⭐ **SCRIPT ULTIME**
 2. **Copiez TOUT** le contenu
 3. **Collez** dans SQL Editor
 4. **Cliquez** sur **RUN** (ou F5)
@@ -40,12 +40,14 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 
 **En bas, dans Results, vous verrez un tableau avec votre finale.**
 
-**Ce script fait TOUT :**
+**Ce script fait ABSOLUMENT TOUT :**
 - ✅ Crée les tables (joker_types, finals, final_jokers)
 - ✅ Crée les 3 types de jokers (fifty_fifty, team_call, public_vote)
+- ✅ Crée automatiquement une session de jeu si aucune n'existe
+- ✅ Crée automatiquement 8 équipes avec scores si moins de 4 équipes
 - ✅ Crée une finale de test avec 8 équipes
 - ✅ Configure les jokers (2× ➗, 1× 👥, 3× 🗳️)
-- ✅ Fonctionne même si votre base est vide !
+- ✅ **Fonctionne même avec une base de données COMPLÈTEMENT VIDE !**
 
 ---
 
@@ -81,14 +83,18 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 ## ⚠️ FICHIERS IMPORTANTS
 
 ### Pour Supabase SQL Editor :
-- ⭐ **`SETUP_COMPLETE_FINALE.sql`** ← **UTILISEZ CELUI-CI** (Fait TOUT en 1 seul script !)
-- `TEST_FINALE_SIMPLE.sql` ← Alternative (si vous avez déjà les tables)
+- 🌟 **`INSTALL_FINALE_ZERO_CONFIG.sql`** ← **UTILISEZ CELUI-CI** (Fonctionne même avec base vide !)
+- ⭐ `SETUP_COMPLETE_FINALE.sql` ← Alternative (nécessite session + équipes existantes)
+- `TEST_FINALE_SIMPLE.sql` ← Si vous avez déjà tout configuré
 - `20251113000001_finale_customization.sql` ← Migration manuelle (optionnel)
 
 ### Pour psql (ligne de commande) :
 - `TEST_FINALE_COMPLETE.sql` ← Seulement si vous utilisez psql
 
-**Recommandation :** Utilisez **`SETUP_COMPLETE_FINALE.sql`** - il fait tout automatiquement !
+### Documentation :
+- 📋 `PREREQUISITES_FINALE.md` ← Liste complète des prérequis et vérifications
+
+**Recommandation :** Utilisez **`INSTALL_FINALE_ZERO_CONFIG.sql`** - il crée TOUT automatiquement, même les équipes et la session !
 
 ---
 
@@ -143,14 +149,11 @@ Vote public: DÉSACTIVÉ
 
 ## ❌ PROBLÈMES COURANTS
 
-### "Aucune session de jeu active"
-→ Créez une session de jeu active dans la Régie
-
-### "Pas assez d'équipes"
-→ Créez au moins 4 équipes avec des scores
+### "Aucune session de jeu active" ou "Pas assez d'équipes"
+→ ✅ **RÉSOLU !** Utilisez `INSTALL_FINALE_ZERO_CONFIG.sql` qui crée tout automatiquement
 
 ### "Erreur SQL syntax"
-→ Vérifiez que vous utilisez **TEST_FINALE_SUPABASE.sql** (pas TEST_FINALE_COMPLETE.sql)
+→ Vérifiez que vous utilisez **INSTALL_FINALE_ZERO_CONFIG.sql** dans Supabase SQL Editor (pas psql)
 
 ### "La finale ne s'affiche pas"
 → Actualisez la page de la Régie (F5)
