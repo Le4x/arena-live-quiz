@@ -54,28 +54,11 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
   }, [sessionId]);
 
   const cleanupOrphanedFinales = async () => {
-    try {
-      const { data: gameState } = await supabase
-        .from('game_state')
-        .select('final_mode, final_id')
-        .eq('game_session_id', sessionId)
-        .single();
-
-      if (!gameState?.final_mode) {
-        await supabase
-          .from('finals')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString()
-          })
-          .eq('game_session_id', sessionId)
-          .neq('status', 'completed');
-
-        console.log('🧹 Finales orphelines nettoyées');
-      }
-    } catch (error) {
-      console.error('Erreur lors du nettoyage:', error);
-    }
+    // ⚠️ NE PAS NETTOYER AUTOMATIQUEMENT AU CHARGEMENT
+    // Cette fonction était trop agressive et marquait les nouvelles finales comme 'completed'
+    // avant même qu'elles soient lancées.
+    // Le nettoyage se fait maintenant uniquement lors de la désactivation explicite.
+    console.log('ℹ️ Cleanup désactivé - les finales persistent jusqu\'à désactivation manuelle');
   };
 
   const loadJokerTypes = async () => {
