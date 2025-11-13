@@ -22,7 +22,7 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 
 **Toujours dans SQL Editor → New Query**
 
-1. **Ouvrez** : `supabase/migrations/TEST_FINALE_SUPABASE.sql` ⚠️ **IMPORTANT: Version SUPABASE**
+1. **Ouvrez** : `supabase/migrations/TEST_FINALE_SIMPLE.sql` ⚠️ **UTILISEZ CE FICHIER**
 2. **Copiez tout** le contenu
 3. **Collez** dans SQL Editor
 4. **RUN**
@@ -74,12 +74,13 @@ Guide ultra-rapide pour activer le système de finale personnalisable.
 ## ⚠️ FICHIERS IMPORTANTS
 
 ### Pour Supabase SQL Editor :
-- ✅ `TEST_FINALE_SUPABASE.sql` ← **UTILISEZ CELUI-CI**
+- ✅ `TEST_FINALE_SIMPLE.sql` ← **UTILISEZ CELUI-CI** (Version ultra-simple, tout dans 1 bloc)
+- `TEST_FINALE_SUPABASE.sql` ← Alternative (peut avoir des problèmes sur certaines configs)
 
 ### Pour psql (ligne de commande) :
 - `TEST_FINALE_COMPLETE.sql` ← Seulement si vous utilisez psql
 
-**La différence ?** Supabase SQL Editor ne supporte pas les commandes `\echo` de psql.
+**Recommandation :** Utilisez toujours `TEST_FINALE_SIMPLE.sql` dans Supabase SQL Editor.
 
 ---
 
