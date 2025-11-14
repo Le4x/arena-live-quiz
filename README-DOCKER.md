@@ -27,11 +27,19 @@ Le Dockerfile a été optimisé pour gérer les problèmes de timeout réseau lo
 # Build et démarrage
 docker-compose up -d
 
+# L'application sera accessible sur http://localhost:3000
+
 # Voir les logs
 docker-compose logs -f
 
 # Arrêt
 docker-compose down
+```
+
+**Note** : Le port par défaut est 3000. Pour changer le port, modifier la ligne `ports` dans `docker-compose.yml` :
+```yaml
+ports:
+  - "VOTRE_PORT:80"  # Exemple: "8080:80" pour le port 8080
 ```
 
 ### Option 2 : Docker seul
@@ -43,7 +51,7 @@ docker build -t arena-live-quiz:latest .
 # Run
 docker run -d \
   --name arena-live-quiz \
-  -p 80:80 \
+  -p 3000:80 \
   --restart unless-stopped \
   arena-live-quiz:latest
 
@@ -86,6 +94,22 @@ docker rm arena-live-quiz
    ```
 
 ### Erreurs courantes
+
+#### Port déjà utilisé (address already in use)
+```bash
+# Erreur: "failed to bind host port 0.0.0.0:3000/tcp: address already in use"
+
+# Solution 1 : Changer le port dans docker-compose.yml
+# Modifier la ligne ports: de "3000:80" à "8080:80" (ou un autre port libre)
+
+# Solution 2 : Arrêter le service qui utilise le port
+docker ps -a  # Trouver le conteneur qui utilise le port
+docker stop <container_name>  # Arrêter le conteneur
+
+# Solution 3 : Trouver et arrêter le processus
+lsof -i :3000  # Identifier le processus
+kill -9 <PID>  # Arrêter le processus
+```
 
 #### ECONNRESET
 ```bash
@@ -136,7 +160,7 @@ Pour ajouter HTTPS, utiliser un reverse proxy comme Nginx ou Traefik en amont.
 L'application expose un endpoint de santé :
 
 ```bash
-curl http://localhost/health
+curl http://localhost:3000/health
 # Réponse attendue : "healthy"
 ```
 

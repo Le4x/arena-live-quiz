@@ -12,7 +12,7 @@ services:
     image: arena-live-quiz:latest
     container_name: arena-live-quiz-app
     ports:
-      - "80:80"
+      - "3000:80"
     restart: unless-stopped
     environment:
       - NODE_ENV=production
