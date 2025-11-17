@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,7 +32,8 @@ const Regie = () => {
   const { toast } = useToast();
   const audioEngine = getAudioEngine();
   const previousBuzzersCount = useRef(0);
-  
+  const [searchParams] = useSearchParams();
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [gameState, setGameState] = useState<any>(null);
@@ -167,29 +169,42 @@ const Regie = () => {
 
   const loadActiveSession = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('game_sessions').select('*').eq('status', 'active').single();
-      if (error) {
-        console.error('❌ Erreur chargement session active:', error);
+      // Get session ID from URL parameter
+      const urlSessionId = searchParams.get('session');
+
+      if (!urlSessionId) {
+        console.error('❌ Aucun ID de session dans l\'URL');
         return;
       }
+
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('id', urlSessionId)
+        .single();
+
+      if (error) {
+        console.error('❌ Erreur chargement session:', error);
+        return;
+      }
+
       if (data) {
         setSessionId(data.id);
         setCurrentSession(data);
-        
-        // S'assurer que le game_state est lié à cette session
-        await supabase.from('game_state').update({
-          game_session_id: data.id
-        }).eq('id', '00000000-0000-0000-0000-000000000001');
+        console.log('✅ Session chargée:', data.name, `(${data.access_code})`);
+
+        // Ensure game_state exists for this session (via trigger)
+        // The trigger will auto-create if needed
       }
     } catch (error) {
       console.error('❌ Exception lors du chargement de la session:', error);
-      toast({ 
-        title: '⚠️ Erreur de connexion', 
+      toast({
+        title: '⚠️ Erreur de connexion',
         description: 'Impossible de charger la session',
         variant: 'destructive'
       });
     }
-  }, [toast]);
+  }, [searchParams, toast]);
 
   const loadGameState = useCallback(async () => {
     if (!sessionId) return;
