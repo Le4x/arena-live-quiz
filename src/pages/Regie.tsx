@@ -656,7 +656,7 @@ const Regie = () => {
       timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);
 
-    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
+    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId, timerDuration);
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack && audioPreloaded) {
@@ -952,7 +952,9 @@ const Regie = () => {
           }
 
           // Envoyer l'événement de reveal à chaque équipe
+          console.log('🎭 Régie: Envoi REVEAL_ANSWER à teamId:', answer.team_id, 'isCorrect:', isCorrect, 'correctAnswer:', currentQ.correct_answer);
           await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
+          console.log('✅ Régie: REVEAL_ANSWER envoyé pour teamId:', answer.team_id);
         }
 
         const correctAnswers = answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim());
@@ -989,8 +991,10 @@ const Regie = () => {
             }
 
             // Envoyer l'événement de reveal à chaque équipe
+            console.log('🎭 Régie: Envoi REVEAL_ANSWER (texte libre) à teamId:', answer.team_id, 'isCorrect:', isCorrect, 'correctAnswer:', currentQ.correct_answer);
             await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
-            
+            console.log('✅ Régie: REVEAL_ANSWER envoyé pour teamId:', answer.team_id);
+
             if (isCorrect) correctCount++;
           } else {
             pendingCount++;

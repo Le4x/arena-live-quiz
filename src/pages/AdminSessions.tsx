@@ -87,7 +87,7 @@ const AdminSessions = () => {
       // Activer la session sélectionnée
       const { error } = await supabase
         .from('game_sessions')
-        .update({ 
+        .update({
           status: 'active',
           started_at: new Date().toISOString()
         })
@@ -105,6 +105,124 @@ const AdminSessions = () => {
       toast({
         title: "Erreur",
         description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDuplicate = async (session: any) => {
+    try {
+      toast({
+        title: "Duplication en cours...",
+        description: "Création de la copie de la session"
+      });
+
+      // Parse selected_rounds
+      const selectedRounds = session.selected_rounds ?
+        (typeof session.selected_rounds === 'string' ? JSON.parse(session.selected_rounds) : session.selected_rounds)
+        : [];
+
+      // Map old round IDs to new round IDs
+      const roundIdMap: Record<string, string> = {};
+
+      // Duplicate each round and its questions
+      for (const oldRoundId of selectedRounds) {
+        // Fetch the original round
+        const { data: originalRound, error: roundFetchError } = await supabase
+          .from('rounds')
+          .select('*')
+          .eq('id', oldRoundId)
+          .single();
+
+        if (roundFetchError) {
+          console.error('Error fetching round:', roundFetchError);
+          continue;
+        }
+
+        // Create new round (without id, let DB generate it)
+        const { data: newRound, error: roundInsertError } = await supabase
+          .from('rounds')
+          .insert({
+            title: originalRound.title,
+            type: originalRound.type,
+            status: 'pending',
+            jingle_url: originalRound.jingle_url,
+            timer_duration: originalRound.timer_duration
+          })
+          .select()
+          .single();
+
+        if (roundInsertError || !newRound) {
+          console.error('Error creating round:', roundInsertError);
+          continue;
+        }
+
+        roundIdMap[oldRoundId] = newRound.id;
+
+        // Fetch all questions for this round
+        const { data: questions, error: questionsFetchError } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('round_id', oldRoundId);
+
+        if (questionsFetchError) {
+          console.error('Error fetching questions:', questionsFetchError);
+          continue;
+        }
+
+        // Duplicate each question
+        if (questions && questions.length > 0) {
+          const newQuestions = questions.map(q => ({
+            round_id: newRound.id,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            correct_answer: q.correct_answer,
+            options: q.options,
+            audio_url: q.audio_url,
+            image_url: q.image_url,
+            points: q.points,
+            penalty_points: q.penalty_points,
+            display_order: q.display_order,
+            stop_time: q.stop_time,
+            lyrics: q.lyrics,
+            cue_points: q.cue_points
+          }));
+
+          const { error: questionsInsertError } = await supabase
+            .from('questions')
+            .insert(newQuestions);
+
+          if (questionsInsertError) {
+            console.error('Error creating questions:', questionsInsertError);
+          }
+        }
+      }
+
+      // Create the new session with updated round IDs
+      const newSelectedRounds = selectedRounds.map((oldId: string) => roundIdMap[oldId] || oldId);
+
+      const { error: sessionInsertError } = await supabase
+        .from('game_sessions')
+        .insert({
+          name: `Copie de ${session.name}`,
+          status: 'draft',
+          selected_rounds: newSelectedRounds,
+          has_final: session.has_final,
+          logo_url: session.logo_url
+        });
+
+      if (sessionInsertError) throw sessionInsertError;
+
+      toast({
+        title: "Session dupliquée",
+        description: "La copie a été créée avec succès"
+      });
+      loadSessions();
+    } catch (error: any) {
+      console.error('Error duplicating session:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de dupliquer la session",
         variant: "destructive"
       });
     }
@@ -175,6 +293,7 @@ const AdminSessions = () => {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onActivate={handleActivate}
+                      onDuplicate={handleDuplicate}
                     />
                   ))}
                 </div>
@@ -195,6 +314,7 @@ const AdminSessions = () => {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onActivate={handleActivate}
+                      onDuplicate={handleDuplicate}
                     />
                   ))}
                 </div>
@@ -215,6 +335,7 @@ const AdminSessions = () => {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onActivate={handleActivate}
+                      onDuplicate={handleDuplicate}
                     />
                   ))}
                 </div>

@@ -37,12 +37,14 @@ const Client = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showReveal, setShowReveal] = useState(false);
+  const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [isBlockedForQuestion, setIsBlockedForQuestion] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(30);
   const [timerDuration, setTimerDuration] = useState(30);
+  const [timerStartedAtClient, setTimerStartedAtClient] = useState<number | null>(null); // Timestamp client pour éviter le décalage
   const [allTeams, setAllTeams] = useState<any[]>([]);
   const [teamRank, setTeamRank] = useState<number>(0);
   const [isRequestingHelp, setIsRequestingHelp] = useState(false);
@@ -117,7 +119,7 @@ const Client = () => {
         title: "🔄 Reconnecté",
         description: "Connexion rétablie"
       });
-    }, 1000), // Attendre 1s avant de déclencher la reconnexion
+    }, 300), // ⚡ OPTIMISATION: Réaction ultra-rapide (300ms au lieu de 1000ms)
     [teamId]
   );
 
@@ -289,50 +291,69 @@ const Client = () => {
     });
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
-      console.log('🎯 Nouvelle question', event);
+      // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
-      
+
+      // 🔥 Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
+      const now = Date.now();
+      const duration = event.data.timerDuration || 30;
+      setTimerStartedAtClient(now);
+      setTimerDuration(duration);
+      setIsTimerActive(true);
+      setTimerRemaining(duration);
+
       // Charger immédiatement la nouvelle question
       loadGameState();
-      
+
       // Réinitialiser tous les états pour la nouvelle question
       setHasBuzzed(false);
       setAnswer("");
       setHasAnswered(false);
       setAnswerResult(null);
       setShowReveal(false);
+      setCorrectAnswer(null); // Réinitialiser la réponse correcte
       setIsBlockedForQuestion(false);
       setEliminatedOptions([]);
       setFirstBuzzerTeam(null); // Réinitialiser le premier buzzer
       hasShownTimeoutToast.current = false;
-      
+
       // Vérifier immédiatement après 100ms si l'équipe a déjà buzzé (au cas où)
       setTimeout(() => checkIfTeamBuzzed(), 100);
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
-      console.log('🎭 Client: Reveal reçu', event);
-      
+      // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
+
       // Vérifier si ce reveal est pour cette équipe
       if (event.data?.teamId === teamId) {
+        // Arrêter le timer
+        setIsTimerActive(false);
+        setTimerStartedAtClient(null);
+        setTimerRemaining(0);
+
         // Annuler tout timeout précédent
         if (revealTimeoutRef.current) {
           clearTimeout(revealTimeoutRef.current);
         }
-        
+
         setShowReveal(true);
         const isCorrect = event.data?.isCorrect;
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
+
+        // Stocker la réponse correcte pour l'afficher
+        if (event.data?.correctAnswer) {
+          setCorrectAnswer(event.data.correctAnswer);
+        }
+
         playSound(isCorrect ? 'correct' : 'incorrect');
-        
-        // Durée plus longue pour les bonnes réponses
-        const revealDuration = isCorrect ? 8000 : 5000;
-        console.log(`🎭 Client: Animation reveal démarrée, durée ${revealDuration}ms`);
-        
-        // Cacher le reveal après la durée appropriée
+
+        // Durée fixe de 5 secondes pour toutes les révélations
+        const revealDuration = 5000;
+
+        // Cacher le reveal après 5 secondes
         revealTimeoutRef.current = setTimeout(() => {
-          console.log('🎭 Client: Animation reveal terminée');
           setShowReveal(false);
+          setCorrectAnswer(null);
           revealTimeoutRef.current = null;
         }, revealDuration);
       }
@@ -451,27 +472,38 @@ const Client = () => {
     }
   }, [currentQuestion?.id, gameState?.current_question_instance_id, team, showReveal]);
 
-  // Calcul du timer en temps réel basé sur timer_started_at
+  // Synchronisation avec game_state.timer_active (si la régie arrête le timer)
   useEffect(() => {
-    if (!team || !currentQuestion || !gameState?.timer_started_at || !gameState?.timer_duration) {
+    if (gameState?.timer_active === false && timerStartedAtClient) {
+      // Protection : ignorer les faux positifs si le timer vient d'être démarré (< 2 sec)
+      // Cela laisse le temps à game_state de se synchroniser après START_QUESTION
+      const timerAge = Date.now() - timerStartedAtClient;
+      if (timerAge < 2000) {
+        console.log('⏱️ Timer trop récent, ignorer game_state.timer_active=false (age:', timerAge, 'ms)');
+        return;
+      }
+
+      console.log('⏱️ Timer arrêté par la régie via game_state');
       setIsTimerActive(false);
+      setTimerStartedAtClient(null);
       setTimerRemaining(0);
-      hasShownTimeoutToast.current = false; // Reset quand pas de timer
+    }
+  }, [gameState?.timer_active, timerStartedAtClient]);
+
+  // Calcul du timer en temps réel basé sur timerStartedAtClient (évite le décalage de 5-6 sec)
+  useEffect(() => {
+    if (!team || !currentQuestion || !timerStartedAtClient) {
+      // Pas de timer actif
       return;
     }
 
-    // Reset le flag quand un nouveau timer démarre
-    hasShownTimeoutToast.current = false;
-
     const updateTimer = () => {
-      const startedAt = new Date(gameState.timer_started_at).getTime();
       const now = Date.now();
-      const elapsed = Math.floor((now - startedAt) / 1000);
-      const remaining = Math.max(0, gameState.timer_duration - elapsed);
-      
+      const elapsed = Math.floor((now - timerStartedAtClient) / 1000);
+      const remaining = Math.max(0, timerDuration - elapsed);
+
       setTimerRemaining(remaining);
-      setTimerDuration(gameState.timer_duration);
-      
+
       const wasActive = isTimerActive;
       const isNowActive = remaining > 0;
       setIsTimerActive(isNowActive);
@@ -479,8 +511,8 @@ const Client = () => {
       // Ne déclencher la notification qu'une seule fois lors de la transition
       if (remaining === 0 && wasActive && !hasShownTimeoutToast.current) {
         hasShownTimeoutToast.current = true;
-        toast({ 
-          title: '⏱️ Temps écoulé !', 
+        toast({
+          title: '⏱️ Temps écoulé !',
           description: 'Les réponses ne sont plus acceptées',
           variant: 'destructive'
         });
@@ -493,9 +525,9 @@ const Client = () => {
 
     // Mise à jour toutes les secondes
     const interval = setInterval(updateTimer, 1000);
-    
+
     return () => clearInterval(interval);
-  }, [gameState?.timer_started_at, gameState?.timer_duration, currentQuestion, team]);
+  }, [timerStartedAtClient, timerDuration, currentQuestion, team, isTimerActive]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
@@ -549,8 +581,47 @@ const Client = () => {
   };
 
   const checkAnswerResult = async () => {
-    // Ne rien faire ici - le reveal se fera via l'événement REVEAL_ANSWER
-    return;
+    // Fallback: Vérifier si la réponse a été validée dans la DB
+    // (au cas où l'événement REVEAL_ANSWER serait manqué)
+    if (!team || !currentQuestion?.id || !currentQuestionInstanceId) return;
+
+    try {
+      const { data: answer } = await supabase
+        .from('team_answers')
+        .select('*')
+        .eq('team_id', team.id)
+        .eq('question_instance_id', currentQuestionInstanceId)
+        .eq('game_session_id', gameState.game_session_id)
+        .maybeSingle();
+
+      // Si une réponse validée existe et qu'on n'affiche pas déjà le reveal
+      if (answer && answer.is_correct !== null && !showReveal) {
+        console.log('🔄 Fallback: Affichage du résultat depuis la DB', answer);
+
+        setAnswerResult(answer.is_correct ? 'correct' : 'incorrect');
+
+        // Charger aussi la réponse correcte depuis la question
+        if (currentQuestion?.correct_answer) {
+          setCorrectAnswer(currentQuestion.correct_answer);
+        }
+
+        setShowReveal(true);
+        playSound(answer.is_correct ? 'correct' : 'incorrect');
+
+        // Auto-masquer après 5 secondes
+        const revealDuration = 5000;
+        if (revealTimeoutRef.current) {
+          clearTimeout(revealTimeoutRef.current);
+        }
+        revealTimeoutRef.current = setTimeout(() => {
+          setShowReveal(false);
+          setCorrectAnswer(null);
+          revealTimeoutRef.current = null;
+        }, revealDuration);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification du résultat:', error);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -702,47 +773,37 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    console.log('🔄 [Client] loadGameState appelé');
-    const { data, error } = await supabase
+    // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
+    const { data } = await supabase
       .from('game_state')
       .select('*')
       .maybeSingle();
-    
-    console.log('🔄 [Client] game_state chargé:', data, 'erreur:', error);
-    
+
     if (data) {
       setGameState(data);
-      console.log('🔄 [Client] current_question_id:', data.current_question_id);
-      
+
       // Charger la question séparément si elle existe
       if (data.current_question_id) {
-        console.log('🔄 [Client] Chargement question:', data.current_question_id);
-        const { data: questionData, error: qError } = await supabase
+        const { data: questionData } = await supabase
           .from('questions')
           .select('*')
           .eq('id', data.current_question_id)
           .single();
-        
-        console.log('🔄 [Client] question chargée:', questionData, 'erreur:', qError);
-        
+
         if (questionData) {
-          console.log('✅ [Client] Question définie:', questionData);
           setCurrentQuestion(questionData);
         } else {
-          console.log('❌ [Client] Pas de questionData');
           setCurrentQuestion(null);
         }
       } else {
-        console.log('⚠️ [Client] Pas de current_question_id dans game_state');
         setCurrentQuestion(null);
       }
-      
+
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
         loadFinal(data.final_id);
       }
     } else {
-      console.log('❌ [Client] Pas de game_state');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
@@ -1041,15 +1102,12 @@ const Client = () => {
       excludedTeams: gameState?.excluded_teams
     });
 
+    // ⚡ PERFORMANCE: Validation minimale côté client
     if (!team || !currentQuestion || !currentQuestionInstanceId || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
-      console.log('❌ Buzzer bloqué - conditions non remplies');
-      triggerHaptic('error');
       return;
     }
 
     if (hasBuzzed) {
-      console.log('❌ Buzzer bloqué - déjà buzzé');
-      triggerHaptic('error');
       toast({
         title: "⚠️ Déjà buzzé",
         description: "Vous avez déjà buzzé pour cette question",
@@ -1061,14 +1119,11 @@ const Client = () => {
     // Visual feedback - show buzzing state
     setIsBuzzing(true);
 
-    // Vérifier si l'équipe est exclue - excluded_teams est un array d'UUID strings
+    // Vérifier si l'équipe est exclue
     const excludedTeams = (gameState.excluded_teams || []) as string[];
     const isBlocked = excludedTeams.includes(team.id);
-    
-    console.log('🚫 Check exclusion in buzzer:', { teamId: team.id, excludedTeams, isBlocked });
-    
+
     if (isBlocked) {
-      console.log('❌ Buzzer bloqué - équipe exclue');
       toast({
         title: "🚫 Buzzer désactivé",
         description: "Vous êtes bloqué et ne pouvez plus buzzer pour cette question",
@@ -1077,29 +1132,8 @@ const Client = () => {
       return;
     }
 
-    // Double vérification dans la DB avant d'insérer
-    const { data: existingBuzz } = await supabase
-      .from('buzzer_attempts')
-      .select('id')
-      .eq('team_id', team.id)
-      .eq('question_instance_id', currentQuestionInstanceId)
-      .eq('game_session_id', gameState.game_session_id)
-      .maybeSingle();
-
-    if (existingBuzz) {
-      console.log('❌ Buzzer bloqué - déjà buzzé dans la DB');
-      setHasBuzzed(true);
-      setIsBuzzing(false);
-      triggerHaptic('error');
-      toast({
-        title: "⚠️ Déjà buzzé",
-        description: "Vous avez déjà buzzé pour cette question",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    console.log('✅ Insertion du buzzer...');
+    // ⚡ OPTIMISATION: Pas de read défensif - la contrainte unique DB gère les doublons
+    // Insert direct = -100-200ms de latence
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
@@ -1115,9 +1149,9 @@ const Client = () => {
     setIsBuzzing(false);
 
     if (error) {
-      console.error('❌ Erreur buzzer:', error);
-      triggerHaptic('error');
+      // ⚡ PERFORMANCE: Error handling optimisé
       if (error.code === '23505') {
+        // Contrainte unique - déjà buzzé
         setHasBuzzed(true);
         toast({
           title: "⚠️ Déjà buzzé",
@@ -1138,13 +1172,13 @@ const Client = () => {
         });
       }
     } else {
-      console.log('✅ Buzzer enregistré avec succès');
+      // ⚡ Succès - réaction immédiate
       setHasBuzzed(true);
       triggerHaptic('success');
       playSound('buzz');
       toast({
         title: "✅ Buzzé !",
-        description: "Votre buzzer a été enregistré avec succès",
+        description: "Votre buzzer a été enregistré",
       });
     }
   };
@@ -1202,6 +1236,7 @@ const Client = () => {
     } else {
       console.log('✅ Client - Réponse enregistrée:', data);
       setHasAnswered(true);
+      playSound('buzz'); // Son de confirmation
       toast({
         title: "Réponse enregistrée !",
         description: "En attente de la révélation...",
@@ -1584,40 +1619,51 @@ const Client = () => {
             
             {showReveal && answerResult && (
               <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
-                answerResult === 'correct' 
-                  ? 'from-green-500/98 to-emerald-600/98' 
-                  : 'from-red-500/98 to-rose-600/98'
-              } rounded-lg animate-scale-in z-50 backdrop-blur-md shadow-2xl border-4 ${
-                answerResult === 'correct' ? 'border-green-300' : 'border-red-300'
+                answerResult === 'correct'
+                  ? 'from-emerald-500 via-green-500 to-teal-600'
+                  : 'from-red-600 via-rose-500 to-pink-600'
+              } rounded-lg z-50 shadow-2xl border-4 ${
+                answerResult === 'correct' ? 'border-emerald-300' : 'border-red-300'
               }`}
               style={{
-                animation: 'scale-in 0.5s ease-out, pulse 2s ease-in-out infinite'
+                animation: 'scale-in 0.5s ease-out'
               }}>
                 <div className="text-center p-6 sm:p-8">
-                  <div className="animate-bounce mb-4">
+                  <div className="mb-6">
                     {answerResult === 'correct' ? (
-                      <Check className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                             style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                      <Check className="w-28 h-28 sm:w-44 sm:h-44 mx-auto text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.9)]"
+                             style={{ filter: 'drop-shadow(0 0 40px white)' }} />
                     ) : (
-                      <X className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                         style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                      <X className="w-28 h-28 sm:w-44 sm:h-44 mx-auto text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.9)]"
+                         style={{ filter: 'drop-shadow(0 0 40px white)' }} />
                     )}
                   </div>
                   {answerResult === 'correct' ? (
                     <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                      <p className="text-5xl sm:text-7xl font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.6)] mb-4">
                         BONNE RÉPONSE !
                       </p>
                       <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
                         🎉 Félicitations ! 🎉
                       </p>
+                      {correctAnswer && (
+                        <p className="text-base sm:text-xl text-white/90 font-semibold mt-3 sm:mt-6 px-4 py-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                          ✓ {correctAnswer}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                      <p className="text-5xl sm:text-7xl font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.6)] mb-4">
                         MAUVAISE RÉPONSE
                       </p>
-                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
+                      {correctAnswer && (
+                        <p className="text-lg sm:text-2xl text-white/95 font-bold mt-3 sm:mt-6 px-4 py-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                          La bonne réponse était : <br/>
+                          <span className="text-xl sm:text-3xl mt-2 inline-block">✓ {correctAnswer}</span>
+                        </p>
+                      )}
+                      <p className="text-lg sm:text-2xl text-white/95 font-bold mt-3 sm:mt-4 animate-fade-in">
                         💪 Continuez à jouer !
                       </p>
                     </>
@@ -1724,9 +1770,19 @@ const Client = () => {
                   }
                 })()}
                 {hasAnswered && !showReveal && (
-                  <div className="text-center text-green-500 font-bold text-sm sm:text-base">
-                    ✓ Réponse enregistrée
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center bg-green-500/20 border-2 border-green-500 rounded-lg p-3 sm:p-4 mt-4"
+                  >
+                    <p className="text-green-500 font-bold text-base sm:text-lg flex items-center justify-center gap-2">
+                      <Check className="w-5 h-5" />
+                      Réponse enregistrée !
+                    </p>
+                    <p className="text-green-600/80 text-xs sm:text-sm mt-1">
+                      En attente de la révélation...
+                    </p>
+                  </motion.div>
                 )}
                 {!isTimerActive && !hasAnswered && (
                   <div className="text-center text-destructive font-bold text-sm sm:text-base">
@@ -1773,14 +1829,19 @@ const Client = () => {
                      'Cliquez pour valider votre réponse'}
                   </TooltipContent>
                 </Tooltip>
-                {hasAnswered && (
+                {hasAnswered && !showReveal && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-green-500 font-bold text-sm sm:text-base flex items-center justify-center gap-2"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center bg-green-500/20 border-2 border-green-500 rounded-lg p-3 sm:p-4"
                   >
-                    <Check className="h-5 w-5" />
-                    Réponse enregistrée
+                    <p className="text-green-500 font-bold text-base sm:text-lg flex items-center justify-center gap-2">
+                      <Check className="w-5 h-5" />
+                      Réponse enregistrée !
+                    </p>
+                    <p className="text-green-600/80 text-xs sm:text-sm mt-1">
+                      En attente de la révélation...
+                    </p>
                   </motion.div>
                 )}
                 {!isTimerActive && !hasAnswered && (

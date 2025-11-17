@@ -10,6 +10,8 @@ import AdminSounds from "./pages/AdminSounds";
 import AdminSessions from "./pages/AdminSessions";
 import AdminTeams from "./pages/AdminTeams";
 import AdminSponsors from "./pages/AdminSponsors";
+import AdminMedia from "./pages/AdminMedia";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Monitoring } from "./pages/Monitoring";
@@ -22,11 +24,11 @@ const App = () => (
   <AppProviders>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/regie" element={<ProtectedRoute><Regie /></ProtectedRoute>} />
-        <Route path="/screen" element={<Screen />} />
+        <Route path="/screen" element={<ProtectedRoute><Screen /></ProtectedRoute>} />
         <Route path="/client" element={<Client />} />
         <Route path="/client/:teamId" element={<Client />} />
         <Route path="/admin/setup" element={<ProtectedRoute><AdminSetup /></ProtectedRoute>} />
@@ -34,6 +36,8 @@ const App = () => (
         <Route path="/admin/sessions" element={<ProtectedRoute><AdminSessions /></ProtectedRoute>} />
         <Route path="/admin/teams" element={<ProtectedRoute><AdminTeams /></ProtectedRoute>} />
         <Route path="/admin/sponsors/:sessionId" element={<ProtectedRoute><AdminSponsors /></ProtectedRoute>} />
+        <Route path="/admin/media" element={<ProtectedRoute><AdminMedia /></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
         <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
         {/* Session Management Routes */}
         <Route path="/sessions" element={<ProtectedRoute><SessionsManager /></ProtectedRoute>} />
