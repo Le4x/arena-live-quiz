@@ -62,15 +62,28 @@ export function useClientSessions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('game_sessions')
-        .select(`
-          *,
-          teams:teams(count)
-        `)
+        .select('*')
         .order('event_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as (ClientSessionData & { teams: { count: number }[] })[];
+
+      // Get team counts separately for each session
+      const sessionsWithCounts = await Promise.all(
+        (data || []).map(async (session) => {
+          const { count } = await supabase
+            .from('teams')
+            .select('*', { count: 'exact', head: true })
+            .eq('game_session_id', session.id);
+
+          return {
+            ...session,
+            teams: [{ count: count || 0 }],
+          };
+        })
+      );
+
+      return sessionsWithCounts as (ClientSessionData & { teams: { count: number }[] })[];
     },
   });
 
