@@ -19,11 +19,11 @@ const App = () => (
   <AppProviders>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/regie" element={<ProtectedRoute><Regie /></ProtectedRoute>} />
-        <Route path="/screen" element={<Screen />} />
+        <Route path="/screen" element={<ProtectedRoute><Screen /></ProtectedRoute>} />
         <Route path="/client" element={<Client />} />
         <Route path="/client/:teamId" element={<Client />} />
         <Route path="/admin/setup" element={<ProtectedRoute><AdminSetup /></ProtectedRoute>} />
