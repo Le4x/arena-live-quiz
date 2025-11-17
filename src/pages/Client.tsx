@@ -113,7 +113,7 @@ const Client = () => {
         title: "🔄 Reconnecté",
         description: "Connexion rétablie"
       });
-    }, 1000), // Attendre 1s avant de déclencher la reconnexion
+    }, 300), // ⚡ OPTIMISATION: Réaction ultra-rapide (300ms au lieu de 1000ms)
     [teamId]
   );
 
@@ -285,21 +285,16 @@ const Client = () => {
     });
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
-      console.log('🎯 START_QUESTION reçu !', event);
-      console.log('📊 Données:', event.data);
+      // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
 
-      // 🔥 NOUVEAU : Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
+      // 🔥 Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
       const now = Date.now();
-      const duration = event.data.timerDuration || 30; // Utiliser la durée de l'événement
+      const duration = event.data.timerDuration || 30;
       setTimerStartedAtClient(now);
       setTimerDuration(duration);
       setIsTimerActive(true);
       setTimerRemaining(duration);
-      console.log('✅ Timer démarré côté client !');
-      console.log('   - Timestamp:', new Date(now).toISOString());
-      console.log('   - Durée:', duration, 'secondes');
-      console.log('   - isTimerActive:', true);
 
       // Charger immédiatement la nouvelle question
       loadGameState();
@@ -321,15 +316,10 @@ const Client = () => {
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
-      console.log('🎭 Client: Reveal reçu', event);
-      console.log('🎭 Client: Mon teamId:', teamId);
-      console.log('🎭 Client: teamId de l\'événement:', event.data?.teamId);
-      console.log('🎭 Client: Correspondance?', event.data?.teamId === teamId);
+      // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
 
       // Vérifier si ce reveal est pour cette équipe
       if (event.data?.teamId === teamId) {
-        console.log('✅ Client: Reveal confirmé pour cette équipe !');
-
         // Arrêter le timer
         setIsTimerActive(false);
         setTimerStartedAtClient(null);
@@ -353,17 +343,13 @@ const Client = () => {
 
         // Durée fixe de 5 secondes pour toutes les révélations
         const revealDuration = 5000;
-        console.log(`🎭 Client: Animation reveal démarrée, durée ${revealDuration}ms`);
 
-        // Cacher le reveal après la durée appropriée
+        // Cacher le reveal après 5 secondes
         revealTimeoutRef.current = setTimeout(() => {
-          console.log('🎭 Client: Animation reveal terminée');
           setShowReveal(false);
-          setCorrectAnswer(null); // Nettoyer la réponse correcte
+          setCorrectAnswer(null);
           revealTimeoutRef.current = null;
         }, revealDuration);
-      } else {
-        console.log('❌ Client: Reveal ignoré (pas pour cette équipe)');
       }
     });
 
@@ -781,47 +767,37 @@ const Client = () => {
   };
 
   const loadGameState = async () => {
-    console.log('🔄 [Client] loadGameState appelé');
-    const { data, error } = await supabase
+    // ⚡ PERFORMANCE: Logs supprimés pour latence minimale
+    const { data } = await supabase
       .from('game_state')
       .select('*')
       .maybeSingle();
-    
-    console.log('🔄 [Client] game_state chargé:', data, 'erreur:', error);
-    
+
     if (data) {
       setGameState(data);
-      console.log('🔄 [Client] current_question_id:', data.current_question_id);
-      
+
       // Charger la question séparément si elle existe
       if (data.current_question_id) {
-        console.log('🔄 [Client] Chargement question:', data.current_question_id);
-        const { data: questionData, error: qError } = await supabase
+        const { data: questionData } = await supabase
           .from('questions')
           .select('*')
           .eq('id', data.current_question_id)
           .single();
-        
-        console.log('🔄 [Client] question chargée:', questionData, 'erreur:', qError);
-        
+
         if (questionData) {
-          console.log('✅ [Client] Question définie:', questionData);
           setCurrentQuestion(questionData);
         } else {
-          console.log('❌ [Client] Pas de questionData');
           setCurrentQuestion(null);
         }
       } else {
-        console.log('⚠️ [Client] Pas de current_question_id dans game_state');
         setCurrentQuestion(null);
       }
-      
+
       // Charger la finale si mode final actif
       if (data.final_mode && data.final_id) {
         loadFinal(data.final_id);
       }
     } else {
-      console.log('❌ [Client] Pas de game_state');
       setGameState(null);
       setCurrentQuestion(null);
       setIsTimerActive(false);
@@ -1117,13 +1093,12 @@ const Client = () => {
       excludedTeams: gameState?.excluded_teams
     });
 
+    // ⚡ PERFORMANCE: Validation minimale côté client
     if (!team || !currentQuestion || !currentQuestionInstanceId || !gameState?.is_buzzer_active || !gameState?.game_session_id) {
-      console.log('❌ Buzzer bloqué - conditions non remplies');
       return;
     }
 
     if (hasBuzzed) {
-      console.log('❌ Buzzer bloqué - déjà buzzé');
       toast({
         title: "⚠️ Déjà buzzé",
         description: "Vous avez déjà buzzé pour cette question",
@@ -1132,14 +1107,11 @@ const Client = () => {
       return;
     }
 
-    // Vérifier si l'équipe est exclue - excluded_teams est un array d'UUID strings
+    // Vérifier si l'équipe est exclue
     const excludedTeams = (gameState.excluded_teams || []) as string[];
     const isBlocked = excludedTeams.includes(team.id);
-    
-    console.log('🚫 Check exclusion in buzzer:', { teamId: team.id, excludedTeams, isBlocked });
-    
+
     if (isBlocked) {
-      console.log('❌ Buzzer bloqué - équipe exclue');
       toast({
         title: "🚫 Buzzer désactivé",
         description: "Vous êtes bloqué et ne pouvez plus buzzer pour cette question",
@@ -1148,27 +1120,8 @@ const Client = () => {
       return;
     }
 
-    // Double vérification dans la DB avant d'insérer
-    const { data: existingBuzz } = await supabase
-      .from('buzzer_attempts')
-      .select('id')
-      .eq('team_id', team.id)
-      .eq('question_instance_id', currentQuestionInstanceId)
-      .eq('game_session_id', gameState.game_session_id)
-      .maybeSingle();
-
-    if (existingBuzz) {
-      console.log('❌ Buzzer bloqué - déjà buzzé dans la DB');
-      setHasBuzzed(true);
-      toast({
-        title: "⚠️ Déjà buzzé",
-        description: "Vous avez déjà buzzé pour cette question",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    console.log('✅ Insertion du buzzer...');
+    // ⚡ OPTIMISATION: Pas de read défensif - la contrainte unique DB gère les doublons
+    // Insert direct = -100-200ms de latence
     const { error } = await supabase
       .from('buzzer_attempts')
       .insert([
@@ -1182,8 +1135,9 @@ const Client = () => {
       ]);
 
     if (error) {
-      console.error('❌ Erreur buzzer:', error);
+      // ⚡ PERFORMANCE: Error handling optimisé
       if (error.code === '23505') {
+        // Contrainte unique - déjà buzzé
         setHasBuzzed(true);
         toast({
           title: "⚠️ Déjà buzzé",
@@ -1204,12 +1158,12 @@ const Client = () => {
         });
       }
     } else {
-      console.log('✅ Buzzer enregistré avec succès');
+      // ⚡ Succès - réaction immédiate
       setHasBuzzed(true);
       playSound('buzz');
       toast({
         title: "✅ Buzzé !",
-        description: "Votre buzzer a été enregistré avec succès",
+        description: "Votre buzzer a été enregistré",
       });
     }
   };
