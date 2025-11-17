@@ -925,7 +925,9 @@ const Regie = () => {
           }
 
           // Envoyer l'événement de reveal à chaque équipe
+          console.log('🎭 Régie: Envoi REVEAL_ANSWER à teamId:', answer.team_id, 'isCorrect:', isCorrect, 'correctAnswer:', currentQ.correct_answer);
           await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
+          console.log('✅ Régie: REVEAL_ANSWER envoyé pour teamId:', answer.team_id);
         }
         toast({ title: '👁️ Réponse révélée et points attribués', description: `${answers.filter(a => a.answer.toLowerCase().trim() === currentQ.correct_answer?.toLowerCase().trim()).length} bonne(s) réponse(s)` });
       }
@@ -956,8 +958,10 @@ const Regie = () => {
             }
 
             // Envoyer l'événement de reveal à chaque équipe
+            console.log('🎭 Régie: Envoi REVEAL_ANSWER (texte libre) à teamId:', answer.team_id, 'isCorrect:', isCorrect, 'correctAnswer:', currentQ.correct_answer);
             await gameEvents.revealAnswer(answer.team_id, isCorrect, currentQ.correct_answer);
-            
+            console.log('✅ Régie: REVEAL_ANSWER envoyé pour teamId:', answer.team_id);
+
             if (isCorrect) correctCount++;
           } else {
             pendingCount++;

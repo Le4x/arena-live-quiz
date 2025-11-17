@@ -40,6 +40,7 @@ const Client = () => {
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(30);
   const [timerDuration, setTimerDuration] = useState(30);
+  const [timerStartedAtClient, setTimerStartedAtClient] = useState<number | null>(null); // Timestamp client pour éviter le décalage
   const [allTeams, setAllTeams] = useState<any[]>([]);
   const [teamRank, setTeamRank] = useState<number>(0);
   const [isRequestingHelp, setIsRequestingHelp] = useState(false);
@@ -287,6 +288,14 @@ const Client = () => {
       console.log('🎯 Nouvelle question', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
 
+      // 🔥 NOUVEAU : Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
+      const now = Date.now();
+      setTimerStartedAtClient(now);
+      setTimerDuration(30); // Durée par défaut
+      setIsTimerActive(true);
+      setTimerRemaining(30);
+      console.log('⏱️ Timer démarré côté client à:', new Date(now).toISOString());
+
       // Charger immédiatement la nouvelle question
       loadGameState();
 
@@ -308,9 +317,19 @@ const Client = () => {
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
       console.log('🎭 Client: Reveal reçu', event);
+      console.log('🎭 Client: Mon teamId:', teamId);
+      console.log('🎭 Client: teamId de l\'événement:', event.data?.teamId);
+      console.log('🎭 Client: Correspondance?', event.data?.teamId === teamId);
 
       // Vérifier si ce reveal est pour cette équipe
       if (event.data?.teamId === teamId) {
+        console.log('✅ Client: Reveal confirmé pour cette équipe !');
+
+        // Arrêter le timer
+        setIsTimerActive(false);
+        setTimerStartedAtClient(null);
+        setTimerRemaining(0);
+
         // Annuler tout timeout précédent
         if (revealTimeoutRef.current) {
           clearTimeout(revealTimeoutRef.current);
@@ -338,6 +357,8 @@ const Client = () => {
           setCorrectAnswer(null); // Nettoyer la réponse correcte
           revealTimeoutRef.current = null;
         }, revealDuration);
+      } else {
+        console.log('❌ Client: Reveal ignoré (pas pour cette équipe)');
       }
     });
 
@@ -454,27 +475,30 @@ const Client = () => {
     }
   }, [currentQuestion?.id, gameState?.current_question_instance_id, team, showReveal]);
 
-  // Calcul du timer en temps réel basé sur timer_started_at
+  // Synchronisation avec game_state.timer_active (si la régie arrête le timer)
   useEffect(() => {
-    if (!team || !currentQuestion || !gameState?.timer_started_at || !gameState?.timer_duration) {
+    if (gameState?.timer_active === false && timerStartedAtClient) {
+      console.log('⏱️ Timer arrêté par la régie via game_state');
       setIsTimerActive(false);
+      setTimerStartedAtClient(null);
       setTimerRemaining(0);
-      hasShownTimeoutToast.current = false; // Reset quand pas de timer
+    }
+  }, [gameState?.timer_active, timerStartedAtClient]);
+
+  // Calcul du timer en temps réel basé sur timerStartedAtClient (évite le décalage de 5-6 sec)
+  useEffect(() => {
+    if (!team || !currentQuestion || !timerStartedAtClient) {
+      // Pas de timer actif
       return;
     }
 
-    // Reset le flag quand un nouveau timer démarre
-    hasShownTimeoutToast.current = false;
-
     const updateTimer = () => {
-      const startedAt = new Date(gameState.timer_started_at).getTime();
       const now = Date.now();
-      const elapsed = Math.floor((now - startedAt) / 1000);
-      const remaining = Math.max(0, gameState.timer_duration - elapsed);
-      
+      const elapsed = Math.floor((now - timerStartedAtClient) / 1000);
+      const remaining = Math.max(0, timerDuration - elapsed);
+
       setTimerRemaining(remaining);
-      setTimerDuration(gameState.timer_duration);
-      
+
       const wasActive = isTimerActive;
       const isNowActive = remaining > 0;
       setIsTimerActive(isNowActive);
@@ -482,8 +506,8 @@ const Client = () => {
       // Ne déclencher la notification qu'une seule fois lors de la transition
       if (remaining === 0 && wasActive && !hasShownTimeoutToast.current) {
         hasShownTimeoutToast.current = true;
-        toast({ 
-          title: '⏱️ Temps écoulé !', 
+        toast({
+          title: '⏱️ Temps écoulé !',
           description: 'Les réponses ne sont plus acceptées',
           variant: 'destructive'
         });
@@ -496,9 +520,9 @@ const Client = () => {
 
     // Mise à jour toutes les secondes
     const interval = setInterval(updateTimer, 1000);
-    
+
     return () => clearInterval(interval);
-  }, [gameState?.timer_started_at, gameState?.timer_duration, currentQuestion, team]);
+  }, [timerStartedAtClient, timerDuration, currentQuestion, team, isTimerActive]);
 
   useEffect(() => {
     // Vérifier le statut du buzzer après la mise à jour de l'instance ID
