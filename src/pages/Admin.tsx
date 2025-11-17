@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Settings, Music, Users, PlaySquare, GamepadIcon } from "lucide-react";
+import { Settings, Music, Users, PlaySquare, GamepadIcon, Image } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Admin = () => {
@@ -25,7 +25,7 @@ const Admin = () => {
         </header>
 
         {/* Navigation rapide */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card 
             className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 cursor-pointer hover:bg-card/90 transition-all"
             onClick={() => navigate('/admin/sessions')}
@@ -56,7 +56,7 @@ const Admin = () => {
             </div>
           </Card>
 
-          <Card 
+          <Card
             className="p-6 bg-card/80 backdrop-blur-sm border-secondary/20 cursor-pointer hover:bg-card/90 transition-all"
             onClick={() => navigate('/admin/sounds')}
           >
@@ -71,7 +71,22 @@ const Admin = () => {
             </div>
           </Card>
 
-          <Card 
+          <Card
+            className="p-6 bg-card/80 backdrop-blur-sm border-purple-500/20 cursor-pointer hover:bg-card/90 transition-all"
+            onClick={() => navigate('/admin/media')}
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-full bg-purple-500/10">
+                <Image className="h-8 w-8 text-purple-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Bibliothèque média</h3>
+                <p className="text-sm text-muted-foreground">Images et audio centralisés</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card
             className="p-6 bg-card/80 backdrop-blur-sm border-accent/20 cursor-pointer hover:bg-card/90 transition-all"
             onClick={() => navigate('/admin/teams')}
           >

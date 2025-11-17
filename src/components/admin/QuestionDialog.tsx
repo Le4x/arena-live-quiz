@@ -148,6 +148,7 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
   };
 
   const handleSave = async () => {
+    // Validation de base
     if (!roundId || !questionText.trim()) {
       toast({
         title: "Erreur",
@@ -157,14 +158,78 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       return;
     }
 
-    // Vérifier qu'il y a au moins 2 options remplies pour les QCM
+    // Validation des points
+    if (points <= 0) {
+      toast({
+        title: "Erreur",
+        description: "Les points doivent être supérieurs à 0",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validation spécifique aux blind tests
+    if (questionType === 'blind_test') {
+      if (!selectedSoundId && !audioUrl.trim()) {
+        toast({
+          title: "Erreur",
+          description: "Un blind test nécessite un extrait audio",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!correctAnswer.trim()) {
+        toast({
+          title: "Erreur",
+          description: "La réponse correcte est requise",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Validation spécifique aux QCM
     if (questionType === 'qcm') {
-      const filledOptionsCount = Object.values(options).filter(v => v.trim() !== '').length;
+      const filledOptions = Object.entries(options).filter(([_, v]) => v.trim() !== '');
+      const filledOptionsCount = filledOptions.length;
+
       if (filledOptionsCount < 2) {
-        toast({ 
-          title: "Erreur", 
-          description: "Un QCM doit avoir au moins 2 options de réponse", 
-          variant: "destructive" 
+        toast({
+          title: "Erreur",
+          description: "Un QCM doit avoir au moins 2 options de réponse",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!correctAnswer.trim()) {
+        toast({
+          title: "Erreur",
+          description: "La réponse correcte est requise pour un QCM",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Vérifier que la réponse correcte correspond à une des options
+      const correctAnswerKey = correctAnswer.toUpperCase();
+      if (!filledOptions.some(([key, _]) => key === correctAnswerKey)) {
+        toast({
+          title: "Erreur",
+          description: `La réponse correcte (${correctAnswerKey}) doit correspondre à une option remplie`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Validation spécifique aux questions texte
+    if (questionType === 'text') {
+      if (!correctAnswer.trim()) {
+        toast({
+          title: "Erreur",
+          description: "La réponse correcte est requise",
+          variant: "destructive"
         });
         return;
       }
