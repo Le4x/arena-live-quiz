@@ -58,7 +58,7 @@ export function useClientSessions() {
 
   // Fetch all client sessions
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['client-sessions'],
+    queryKey: ['client-sessions-v2'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('game_sessions')
@@ -148,7 +148,8 @@ export function useClientSessions() {
       return data as ClientSessionData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions-v2'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions'] }); // Old key
       toast.success('Session créée avec succès !');
     },
     onError: (error) => {
@@ -171,7 +172,8 @@ export function useClientSessions() {
       return data as ClientSessionData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions-v2'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions'] }); // Old key
       toast.success('Session mise à jour avec succès !');
     },
     onError: (error) => {
@@ -191,7 +193,8 @@ export function useClientSessions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions-v2'] });
+      queryClient.invalidateQueries({ queryKey: ['client-sessions'] }); // Old key
       toast.success('Session supprimée avec succès !');
     },
     onError: (error) => {
