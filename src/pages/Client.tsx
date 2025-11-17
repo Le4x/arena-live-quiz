@@ -33,6 +33,7 @@ const Client = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerResult, setAnswerResult] = useState<'correct' | 'incorrect' | null>(null);
   const [showReveal, setShowReveal] = useState(false);
+  const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [isBlockedForQuestion, setIsBlockedForQuestion] = useState(false);
   const [currentQuestionInstanceId, setCurrentQuestionInstanceId] = useState<string | null>(null);
@@ -285,48 +286,56 @@ const Client = () => {
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
       console.log('🎯 Nouvelle question', event);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
-      
+
       // Charger immédiatement la nouvelle question
       loadGameState();
-      
+
       // Réinitialiser tous les états pour la nouvelle question
       setHasBuzzed(false);
       setAnswer("");
       setHasAnswered(false);
       setAnswerResult(null);
       setShowReveal(false);
+      setCorrectAnswer(null); // Réinitialiser la réponse correcte
       setIsBlockedForQuestion(false);
       setEliminatedOptions([]);
       setFirstBuzzerTeam(null); // Réinitialiser le premier buzzer
       hasShownTimeoutToast.current = false;
-      
+
       // Vérifier immédiatement après 100ms si l'équipe a déjà buzzé (au cas où)
       setTimeout(() => checkIfTeamBuzzed(), 100);
     });
 
     const unsubReveal = gameEvents.on('REVEAL_ANSWER', (event: any) => {
       console.log('🎭 Client: Reveal reçu', event);
-      
+
       // Vérifier si ce reveal est pour cette équipe
       if (event.data?.teamId === teamId) {
         // Annuler tout timeout précédent
         if (revealTimeoutRef.current) {
           clearTimeout(revealTimeoutRef.current);
         }
-        
+
         setShowReveal(true);
         const isCorrect = event.data?.isCorrect;
         setAnswerResult(isCorrect ? 'correct' : 'incorrect');
+
+        // Stocker la réponse correcte pour l'afficher
+        if (event.data?.correctAnswer) {
+          setCorrectAnswer(event.data.correctAnswer);
+        }
+
         playSound(isCorrect ? 'correct' : 'incorrect');
-        
+
         // Durée plus longue pour les bonnes réponses
         const revealDuration = isCorrect ? 8000 : 5000;
         console.log(`🎭 Client: Animation reveal démarrée, durée ${revealDuration}ms`);
-        
+
         // Cacher le reveal après la durée appropriée
         revealTimeoutRef.current = setTimeout(() => {
           console.log('🎭 Client: Animation reveal terminée');
           setShowReveal(false);
+          setCorrectAnswer(null); // Nettoyer la réponse correcte
           revealTimeoutRef.current = null;
         }, revealDuration);
       }
@@ -543,8 +552,47 @@ const Client = () => {
   };
 
   const checkAnswerResult = async () => {
-    // Ne rien faire ici - le reveal se fera via l'événement REVEAL_ANSWER
-    return;
+    // Fallback: Vérifier si la réponse a été validée dans la DB
+    // (au cas où l'événement REVEAL_ANSWER serait manqué)
+    if (!team || !currentQuestion?.id || !currentQuestionInstanceId) return;
+
+    try {
+      const { data: answer } = await supabase
+        .from('team_answers')
+        .select('*')
+        .eq('team_id', team.id)
+        .eq('question_instance_id', currentQuestionInstanceId)
+        .eq('game_session_id', gameState.game_session_id)
+        .maybeSingle();
+
+      // Si une réponse validée existe et qu'on n'affiche pas déjà le reveal
+      if (answer && answer.is_correct !== null && !showReveal) {
+        console.log('🔄 Fallback: Affichage du résultat depuis la DB', answer);
+
+        setAnswerResult(answer.is_correct ? 'correct' : 'incorrect');
+
+        // Charger aussi la réponse correcte depuis la question
+        if (currentQuestion?.correct_answer) {
+          setCorrectAnswer(currentQuestion.correct_answer);
+        }
+
+        setShowReveal(true);
+        playSound(answer.is_correct ? 'correct' : 'incorrect');
+
+        // Auto-masquer après le délai approprié
+        const revealDuration = answer.is_correct ? 8000 : 5000;
+        if (revealTimeoutRef.current) {
+          clearTimeout(revealTimeoutRef.current);
+        }
+        revealTimeoutRef.current = setTimeout(() => {
+          setShowReveal(false);
+          setCorrectAnswer(null);
+          revealTimeoutRef.current = null;
+        }, revealDuration);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification du résultat:', error);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -1182,6 +1230,7 @@ const Client = () => {
     } else {
       console.log('✅ Client - Réponse enregistrée:', data);
       setHasAnswered(true);
+      playSound('buzz'); // Son de confirmation
       toast({
         title: "Réponse enregistrée !",
         description: "En attente de la révélation...",
@@ -1582,13 +1631,24 @@ const Client = () => {
                       <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
                         🎉 Félicitations ! 🎉
                       </p>
+                      {correctAnswer && (
+                        <p className="text-base sm:text-xl text-white/90 font-semibold mt-3 sm:mt-6 px-4 py-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                          ✓ {correctAnswer}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>
                       <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
                         MAUVAISE RÉPONSE
                       </p>
-                      <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
+                      {correctAnswer && (
+                        <p className="text-lg sm:text-2xl text-white/95 font-bold mt-3 sm:mt-6 px-4 py-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                          La bonne réponse était : <br/>
+                          <span className="text-xl sm:text-3xl mt-2 inline-block">✓ {correctAnswer}</span>
+                        </p>
+                      )}
+                      <p className="text-lg sm:text-2xl text-white/95 font-bold mt-3 sm:mt-4 animate-fade-in">
                         💪 Continuez à jouer !
                       </p>
                     </>
@@ -1695,9 +1755,19 @@ const Client = () => {
                   }
                 })()}
                 {hasAnswered && !showReveal && (
-                  <div className="text-center text-green-500 font-bold text-sm sm:text-base">
-                    ✓ Réponse enregistrée
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center bg-green-500/20 border-2 border-green-500 rounded-lg p-3 sm:p-4 mt-4"
+                  >
+                    <p className="text-green-500 font-bold text-base sm:text-lg flex items-center justify-center gap-2">
+                      <Check className="w-5 h-5" />
+                      Réponse enregistrée !
+                    </p>
+                    <p className="text-green-600/80 text-xs sm:text-sm mt-1">
+                      En attente de la révélation...
+                    </p>
+                  </motion.div>
                 )}
                 {!isTimerActive && !hasAnswered && (
                   <div className="text-center text-destructive font-bold text-sm sm:text-base">
@@ -1744,14 +1814,19 @@ const Client = () => {
                      'Cliquez pour valider votre réponse'}
                   </TooltipContent>
                 </Tooltip>
-                {hasAnswered && (
+                {hasAnswered && !showReveal && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-green-500 font-bold text-sm sm:text-base flex items-center justify-center gap-2"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center bg-green-500/20 border-2 border-green-500 rounded-lg p-3 sm:p-4"
                   >
-                    <Check className="h-5 w-5" />
-                    Réponse enregistrée
+                    <p className="text-green-500 font-bold text-base sm:text-lg flex items-center justify-center gap-2">
+                      <Check className="w-5 h-5" />
+                      Réponse enregistrée !
+                    </p>
+                    <p className="text-green-600/80 text-xs sm:text-sm mt-1">
+                      En attente de la révélation...
+                    </p>
                   </motion.div>
                 )}
                 {!isTimerActive && !hasAnswered && (
