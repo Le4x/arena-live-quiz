@@ -351,8 +351,8 @@ const Client = () => {
 
         playSound(isCorrect ? 'correct' : 'incorrect');
 
-        // Durée plus longue pour les bonnes réponses
-        const revealDuration = isCorrect ? 8000 : 5000;
+        // Durée fixe de 5 secondes pour toutes les révélations
+        const revealDuration = 5000;
         console.log(`🎭 Client: Animation reveal démarrée, durée ${revealDuration}ms`);
 
         // Cacher le reveal après la durée appropriée
@@ -616,8 +616,8 @@ const Client = () => {
         setShowReveal(true);
         playSound(answer.is_correct ? 'correct' : 'incorrect');
 
-        // Auto-masquer après le délai approprié
-        const revealDuration = answer.is_correct ? 8000 : 5000;
+        // Auto-masquer après 5 secondes
+        const revealDuration = 5000;
         if (revealTimeoutRef.current) {
           clearTimeout(revealTimeoutRef.current);
         }
@@ -1641,28 +1641,28 @@ const Client = () => {
             
             {showReveal && answerResult && (
               <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
-                answerResult === 'correct' 
-                  ? 'from-green-500/98 to-emerald-600/98' 
-                  : 'from-red-500/98 to-rose-600/98'
-              } rounded-lg animate-scale-in z-50 backdrop-blur-md shadow-2xl border-4 ${
-                answerResult === 'correct' ? 'border-green-300' : 'border-red-300'
+                answerResult === 'correct'
+                  ? 'from-emerald-500 via-green-500 to-teal-600'
+                  : 'from-red-600 via-rose-500 to-pink-600'
+              } rounded-lg z-50 shadow-2xl border-4 ${
+                answerResult === 'correct' ? 'border-emerald-300' : 'border-red-300'
               }`}
               style={{
-                animation: 'scale-in 0.5s ease-out, pulse 2s ease-in-out infinite'
+                animation: 'scale-in 0.5s ease-out'
               }}>
                 <div className="text-center p-6 sm:p-8">
-                  <div className="animate-bounce mb-4">
+                  <div className="mb-6">
                     {answerResult === 'correct' ? (
-                      <Check className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                             style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                      <Check className="w-28 h-28 sm:w-44 sm:h-44 mx-auto text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.9)]"
+                             style={{ filter: 'drop-shadow(0 0 40px white)' }} />
                     ) : (
-                      <X className="w-24 h-24 sm:w-40 sm:h-40 mx-auto text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]" 
-                         style={{ filter: 'drop-shadow(0 0 30px white)' }} />
+                      <X className="w-28 h-28 sm:w-44 sm:h-44 mx-auto text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.9)]"
+                         style={{ filter: 'drop-shadow(0 0 40px white)' }} />
                     )}
                   </div>
                   {answerResult === 'correct' ? (
                     <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                      <p className="text-5xl sm:text-7xl font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.6)] mb-4">
                         BONNE RÉPONSE !
                       </p>
                       <p className="text-xl sm:text-3xl text-white/95 font-bold mt-2 sm:mt-4 animate-fade-in">
@@ -1676,7 +1676,7 @@ const Client = () => {
                     </>
                   ) : (
                     <>
-                      <p className="text-4xl sm:text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-3 animate-pulse">
+                      <p className="text-5xl sm:text-7xl font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.6)] mb-4">
                         MAUVAISE RÉPONSE
                       </p>
                       {correctAnswer && (
