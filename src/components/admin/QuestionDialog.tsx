@@ -48,6 +48,9 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [showTemplateSave, setShowTemplateSave] = useState(false);
 
   useEffect(() => {
     // Charger les sons depuis localStorage
@@ -57,6 +60,16 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
         setAvailableSounds(JSON.parse(stored));
       } catch {
         setAvailableSounds([]);
+      }
+    }
+
+    // Charger les templates depuis localStorage
+    const storedTemplates = localStorage.getItem('arena_question_templates');
+    if (storedTemplates) {
+      try {
+        setTemplates(JSON.parse(storedTemplates));
+      } catch {
+        setTemplates([]);
       }
     }
   }, []);
@@ -120,6 +133,69 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
+  };
+
+  const saveAsTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer un nom pour le template",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const template = {
+      id: Date.now().toString(),
+      name: templateName,
+      questionType,
+      correctAnswer,
+      points,
+      penaltyPoints,
+      options: questionType === 'qcm' ? options : null,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedTemplates = [...templates, template];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('arena_question_templates', JSON.stringify(updatedTemplates));
+
+    toast({
+      title: "Template sauvegardé",
+      description: `Le template "${templateName}" a été créé`
+    });
+
+    setTemplateName("");
+    setShowTemplateSave(false);
+  };
+
+  const loadTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+
+    setQuestionType(template.questionType);
+    setCorrectAnswer(template.correctAnswer);
+    setPoints(template.points);
+    setPenaltyPoints(template.penaltyPoints);
+    if (template.options) {
+      setOptions(template.options);
+    }
+
+    toast({
+      title: "Template chargé",
+      description: `Le template "${template.name}" a été appliqué`
+    });
+  };
+
+  const deleteTemplate = (templateId: string) => {
+    const updatedTemplates = templates.filter(t => t.id !== templateId);
+    setTemplates(updatedTemplates);
+    localStorage.setItem('arena_question_templates', JSON.stringify(updatedTemplates));
+
+    toast({
+      title: "Template supprimé",
+      description: "Le template a été supprimé"
+    });
   };
 
   const uploadImage = async (): Promise<string | null> => {
@@ -322,6 +398,68 @@ export const QuestionDialog = ({ open, onOpenChange, question, rounds, onSave }:
             }
           </DialogDescription>
         </DialogHeader>
+
+        {/* Template Management */}
+        {!question && (
+          <div className="bg-muted/50 p-4 rounded-lg space-y-3 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold">📋 Templates de questions</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTemplateSave(!showTemplateSave)}
+              >
+                {showTemplateSave ? "Annuler" : "Sauvegarder comme template"}
+              </Button>
+            </div>
+
+            {showTemplateSave && (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nom du template (ex: QCM Musique, Blind Test Pop)..."
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()}
+                />
+                <Button type="button" onClick={saveAsTemplate} size="sm">
+                  Sauvegarder
+                </Button>
+              </div>
+            )}
+
+            {templates.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {templates.map(template => (
+                  <div key={template.id} className="flex items-center gap-2 bg-background p-2 rounded border">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => loadTemplate(template.id)}
+                      className="flex-1 justify-start truncate"
+                    >
+                      {template.name}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteTemplate(template.id)}
+                      className="h-8 w-8 p-0 text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Aucun template. Configurez votre question et cliquez sur "Sauvegarder comme template".
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">

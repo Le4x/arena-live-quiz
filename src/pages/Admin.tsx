@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Settings, Music, Users, PlaySquare, GamepadIcon, Image } from "lucide-react";
+import { Settings, Music, Users, PlaySquare, GamepadIcon, Image, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -18,10 +19,13 @@ const Admin = () => {
               Gérez toutes les paramètres du jeu
             </p>
           </div>
-          <Button onClick={() => navigate('/regie')} variant="outline" size="lg">
-            <PlaySquare className="mr-2 h-5 w-5" />
-            Aller à la régie
-          </Button>
+          <div className="flex items-center gap-3">
+            <ThemeToggle variant="outline" size="lg" />
+            <Button onClick={() => navigate('/regie')} variant="outline" size="lg">
+              <PlaySquare className="mr-2 h-5 w-5" />
+              Aller à la régie
+            </Button>
+          </div>
         </header>
 
         {/* Navigation rapide */}
@@ -97,6 +101,21 @@ const Admin = () => {
               <div>
                 <h3 className="text-xl font-bold">Équipes</h3>
                 <p className="text-sm text-muted-foreground">Gérer les participants</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            className="p-6 bg-card/80 backdrop-blur-sm border-blue-500/20 cursor-pointer hover:bg-card/90 transition-all"
+            onClick={() => navigate('/admin/analytics')}
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-full bg-blue-500/10">
+                <BarChart3 className="h-8 w-8 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Statistiques</h3>
+                <p className="text-sm text-muted-foreground">Analytics et export de données</p>
               </div>
             </div>
           </Card>

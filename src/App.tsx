@@ -11,6 +11,7 @@ import AdminSessions from "./pages/AdminSessions";
 import AdminTeams from "./pages/AdminTeams";
 import AdminSponsors from "./pages/AdminSponsors";
 import AdminMedia from "./pages/AdminMedia";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Monitoring } from "./pages/Monitoring";
@@ -36,6 +37,7 @@ const App = () => (
         <Route path="/admin/teams" element={<ProtectedRoute><AdminTeams /></ProtectedRoute>} />
         <Route path="/admin/sponsors/:sessionId" element={<ProtectedRoute><AdminSponsors /></ProtectedRoute>} />
         <Route path="/admin/media" element={<ProtectedRoute><AdminMedia /></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
         <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
         {/* Session Management Routes */}
         <Route path="/sessions" element={<ProtectedRoute><SessionsManager /></ProtectedRoute>} />
