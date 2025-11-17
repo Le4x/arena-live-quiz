@@ -285,7 +285,8 @@ const Client = () => {
     });
 
     const unsubStartQuestion = gameEvents.on<StartQuestionEvent>('START_QUESTION', (event) => {
-      console.log('🎯 Nouvelle question', event);
+      console.log('🎯 START_QUESTION reçu !', event);
+      console.log('📊 Données:', event.data);
       setCurrentQuestionInstanceId(event.data.questionInstanceId);
 
       // 🔥 NOUVEAU : Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
@@ -295,7 +296,10 @@ const Client = () => {
       setTimerDuration(duration);
       setIsTimerActive(true);
       setTimerRemaining(duration);
-      console.log('⏱️ Timer démarré côté client à:', new Date(now).toISOString(), 'durée:', duration, 'sec');
+      console.log('✅ Timer démarré côté client !');
+      console.log('   - Timestamp:', new Date(now).toISOString());
+      console.log('   - Durée:', duration, 'secondes');
+      console.log('   - isTimerActive:', true);
 
       // Charger immédiatement la nouvelle question
       loadGameState();
@@ -479,6 +483,14 @@ const Client = () => {
   // Synchronisation avec game_state.timer_active (si la régie arrête le timer)
   useEffect(() => {
     if (gameState?.timer_active === false && timerStartedAtClient) {
+      // Protection : ignorer les faux positifs si le timer vient d'être démarré (< 2 sec)
+      // Cela laisse le temps à game_state de se synchroniser après START_QUESTION
+      const timerAge = Date.now() - timerStartedAtClient;
+      if (timerAge < 2000) {
+        console.log('⏱️ Timer trop récent, ignorer game_state.timer_active=false (age:', timerAge, 'ms)');
+        return;
+      }
+
       console.log('⏱️ Timer arrêté par la régie via game_state');
       setIsTimerActive(false);
       setTimerStartedAtClient(null);
