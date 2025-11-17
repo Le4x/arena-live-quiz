@@ -15,6 +15,9 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Monitoring } from "./pages/Monitoring";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import SessionsManager from "./pages/SessionsManager";
+import ClientKit from "./pages/ClientKit";
+import JoinSession from "./pages/JoinSession";
 
 const App = () => (
   <AppProviders>
@@ -34,6 +37,12 @@ const App = () => (
         <Route path="/admin/sponsors/:sessionId" element={<ProtectedRoute><AdminSponsors /></ProtectedRoute>} />
         <Route path="/admin/media" element={<ProtectedRoute><AdminMedia /></ProtectedRoute>} />
         <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
+        {/* Session Management Routes */}
+        <Route path="/sessions" element={<ProtectedRoute><SessionsManager /></ProtectedRoute>} />
+        <Route path="/sessions/:sessionId/kit" element={<ProtectedRoute><ClientKit /></ProtectedRoute>} />
+        {/* Public Join Routes */}
+        <Route path="/join" element={<JoinSession />} />
+        <Route path="/join/:accessCode" element={<JoinSession />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

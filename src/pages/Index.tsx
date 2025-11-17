@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Settings, PlaySquare, Monitor, Users, Activity } from "lucide-react";
+import { Settings, PlaySquare, Monitor, Users, Activity, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -18,7 +18,7 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card 
             className="p-6 bg-card/80 backdrop-blur-sm border-primary/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105"
             onClick={() => navigate('/admin')}
@@ -70,7 +70,7 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card 
+          <Card
             className="p-6 bg-card/80 backdrop-blur-sm border-green-500/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105"
             onClick={() => navigate('/client')}
           >
@@ -88,22 +88,41 @@ const Index = () => {
           </Card>
         </div>
 
-        <Card 
-          className="p-6 bg-card/80 backdrop-blur-sm border-blue-500/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105 max-w-sm mx-auto"
-          onClick={() => navigate('/monitoring')}
-        >
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <Activity className="h-8 w-8 text-blue-500" />
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card
+            className="p-6 bg-card/80 backdrop-blur-sm border-purple-500/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105"
+            onClick={() => navigate('/sessions')}
+          >
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center">
+                <Calendar className="h-8 w-8 text-purple-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Sessions Clients</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Gérer vos événements clients
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold">Monitoring</h3>
-              <p className="text-sm text-muted-foreground mt-2">
-                Surveillance système en temps réel
-              </p>
+          </Card>
+
+          <Card
+            className="p-6 bg-card/80 backdrop-blur-sm border-blue-500/20 cursor-pointer hover:bg-card/90 transition-all hover:scale-105"
+            onClick={() => navigate('/monitoring')}
+          >
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Activity className="h-8 w-8 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Monitoring</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Surveillance système en temps réel
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
         <div className="text-center mt-8">
           <p className="text-sm text-muted-foreground">
