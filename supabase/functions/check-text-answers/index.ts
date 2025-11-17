@@ -69,6 +69,16 @@ serve(async (req) => {
     // Use service role key for database operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Récupérer les points de la question
+    const { data: question, error: questionError } = await supabase
+      .from('questions')
+      .select('points')
+      .eq('id', questionId)
+      .single();
+
+    if (questionError) throw questionError;
+    const basePoints = question?.points || 10;
+
     // Récupérer toutes les réponses pour cette question
     const { data: answers, error: answersError } = await supabase
       .from('team_answers')
@@ -142,19 +152,29 @@ Règles :
     // Mettre à jour les réponses dans la base de données
     for (const result of checkResults) {
       if (result.isCorrect !== null) {
+        // Récupérer le speed_bonus déjà calculé par le trigger
+        const { data: answerData } = await supabase
+          .from('team_answers')
+          .select('speed_bonus')
+          .eq('id', result.answerId)
+          .single();
+
+        const speedBonus = answerData?.speed_bonus || 0;
+        const totalPoints = result.isCorrect ? (basePoints + speedBonus) : 0;
+
         await supabase
           .from('team_answers')
-          .update({ 
+          .update({
             is_correct: result.isCorrect,
-            points_awarded: result.isCorrect ? 10 : 0
+            points_awarded: totalPoints
           })
           .eq('id', result.answerId);
 
-        // Mettre à jour le score de l'équipe
+        // Mettre à jour le score de l'équipe avec le bonus
         if (result.isCorrect) {
           await supabase
             .from('teams')
-            .update({ score: result.currentScore + 10 })
+            .update({ score: result.currentScore + totalPoints })
             .eq('id', result.teamId);
         }
       }
