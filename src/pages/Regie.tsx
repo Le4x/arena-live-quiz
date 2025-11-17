@@ -656,7 +656,7 @@ const Regie = () => {
       timer_remaining: timerDuration // Garder pour compatibilité
     }).eq('game_session_id', sessionId);
 
-    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId);
+    await gameEvents.startQuestion(currentQuestionId, currentQuestionInstanceId!, sessionId, timerDuration);
     
     // Lancer l'audio automatiquement pour les blind tests AU POINT DE CUE 1 (extrait)
     if (question.question_type === 'blind_test' && currentTrack && audioPreloaded) {

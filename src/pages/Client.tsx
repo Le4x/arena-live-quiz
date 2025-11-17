@@ -290,11 +290,12 @@ const Client = () => {
 
       // 🔥 NOUVEAU : Démarrer le timer IMMÉDIATEMENT côté client (évite le décalage de 5-6 sec)
       const now = Date.now();
+      const duration = event.data.timerDuration || 30; // Utiliser la durée de l'événement
       setTimerStartedAtClient(now);
-      setTimerDuration(30); // Durée par défaut
+      setTimerDuration(duration);
       setIsTimerActive(true);
-      setTimerRemaining(30);
-      console.log('⏱️ Timer démarré côté client à:', new Date(now).toISOString());
+      setTimerRemaining(duration);
+      console.log('⏱️ Timer démarré côté client à:', new Date(now).toISOString(), 'durée:', duration, 'sec');
 
       // Charger immédiatement la nouvelle question
       loadGameState();
