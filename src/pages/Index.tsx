@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Settings, PlaySquare, Monitor, Users, Activity, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -9,6 +10,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-glow p-6 flex items-center justify-center">
       <div className="max-w-4xl w-full space-y-8">
+        <div className="absolute top-6 right-6">
+          <ThemeToggle variant="outline" />
+        </div>
+
         <div className="text-center mb-12">
           <h1 className="text-7xl font-bold bg-gradient-arena bg-clip-text text-transparent mb-4">
             ARENA

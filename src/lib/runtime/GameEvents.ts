@@ -37,6 +37,7 @@ export interface StartQuestionEvent extends GameEvent {
     questionId: string;
     questionInstanceId: string;
     sessionId: string;
+    timerDuration: number;
   };
 }
 
@@ -163,10 +164,10 @@ export const gameEvents = {
     });
   },
 
-  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string) => {
+  startQuestion: async (questionId: string, questionInstanceId: string, sessionId: string, timerDuration: number = 30) => {
     await getGameEvents().emit<StartQuestionEvent>({
       type: 'START_QUESTION',
-      data: { questionId, questionInstanceId, sessionId },
+      data: { questionId, questionInstanceId, sessionId, timerDuration },
     });
   },
 

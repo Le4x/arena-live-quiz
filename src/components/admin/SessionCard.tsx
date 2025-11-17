@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, PlayCircle, CheckCircle2, XCircle, Image, Trophy } from "lucide-react";
+import { Edit, Trash2, PlayCircle, CheckCircle2, XCircle, Image, Trophy, Copy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
@@ -20,9 +20,10 @@ interface SessionCardProps {
   onEdit: (session: any) => void;
   onDelete: (sessionId: string) => void;
   onActivate: (sessionId: string) => void;
+  onDuplicate: (session: any) => void;
 }
 
-export const SessionCard = ({ session, onEdit, onDelete, onActivate }: SessionCardProps) => {
+export const SessionCard = ({ session, onEdit, onDelete, onActivate, onDuplicate }: SessionCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const navigate = useNavigate();
 
@@ -82,6 +83,14 @@ export const SessionCard = ({ session, onEdit, onDelete, onActivate }: SessionCa
                 Activer
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDuplicate(session)}
+              title="Dupliquer cette session"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
