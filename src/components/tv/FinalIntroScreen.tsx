@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { Trophy, Zap } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, Zap, Crown, Star, Flame } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Final } from "@/types/game.types";
@@ -76,17 +76,59 @@ const themeConfig = {
 
 export const FinalIntroScreen = ({ final }: FinalIntroScreenProps) => {
   const [teams, setTeams] = useState<any[]>([]);
+  const [introPhase, setIntroPhase] = useState<'title' | 'countdown' | 'reveal' | 'all'>('title');
+  const [currentRevealIndex, setCurrentRevealIndex] = useState(-1);
+  const [showSpotlight, setShowSpotlight] = useState(false);
 
   const theme = themeConfig[final.visual_theme || 'gold'];
   const finalistCount = final.finalist_count || final.finalist_teams?.length || 8;
   const finalName = final.name || 'LA FINALE';
 
   // Calculer le nombre de colonnes basé sur le nombre de finalistes
-  const gridCols = finalistCount <= 4 ? 2 : finalistCount <= 8 ? 4 : finalistCount <= 12 ? 4 : 6;
+  const gridCols = finalistCount <= 2 ? 2 : finalistCount <= 4 ? 2 : finalistCount <= 8 ? 4 : finalistCount <= 12 ? 4 : 6;
 
   useEffect(() => {
     loadFinalists();
   }, [final]);
+
+  // Animation séquentielle spectaculaire
+  useEffect(() => {
+    if (teams.length === 0) return;
+
+    const introDuration = final.intro_duration || 10;
+    const revealDelay = Math.max(800, (introDuration * 1000 - 4000) / teams.length);
+
+    // Phase 1: Titre (2s)
+    const timer1 = setTimeout(() => setIntroPhase('countdown'), 2000);
+
+    // Phase 2: Countdown (1s)
+    const timer2 = setTimeout(() => {
+      setIntroPhase('reveal');
+      setShowSpotlight(true);
+    }, 3000);
+
+    // Phase 3: Révélation séquentielle des équipes
+    const revealTimers: NodeJS.Timeout[] = [];
+    teams.forEach((_, index) => {
+      const timer = setTimeout(() => {
+        setCurrentRevealIndex(index);
+      }, 3500 + index * revealDelay);
+      revealTimers.push(timer);
+    });
+
+    // Phase 4: Afficher tout
+    const timer3 = setTimeout(() => {
+      setIntroPhase('all');
+      setShowSpotlight(false);
+    }, 3500 + teams.length * revealDelay + 1000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      revealTimers.forEach(t => clearTimeout(t));
+    };
+  }, [teams, final.intro_duration]);
 
   const loadFinalists = async () => {
     if (!final?.finalist_teams || final.finalist_teams.length === 0) return;
@@ -124,16 +166,102 @@ export const FinalIntroScreen = ({ final }: FinalIntroScreenProps) => {
     return team.total_jokers || 0;
   };
 
+  // Rendu pour le mode duel (2 équipes)
+  const renderDuelMode = () => {
+    if (teams.length !== 2) return null;
+
+    return (
+      <div className="flex items-center justify-center gap-8 w-full max-w-6xl">
+        {teams.map((team, index) => (
+          <motion.div
+            key={team.id}
+            className="flex-1 max-w-lg"
+            initial={{ x: index === 0 ? -200 : 200, opacity: 0 }}
+            animate={{
+              x: 0,
+              opacity: currentRevealIndex >= index || introPhase === 'all' ? 1 : 0.2
+            }}
+            transition={{ delay: 0.5, type: "spring", damping: 20 }}
+          >
+            <motion.div
+              className={`relative p-8 rounded-3xl border-4 ${
+                currentRevealIndex === index && showSpotlight
+                  ? 'scale-110 z-10'
+                  : ''
+              }`}
+              style={{
+                borderColor: team.color,
+                backgroundColor: `${team.color}20`,
+                boxShadow: currentRevealIndex === index && showSpotlight
+                  ? `0 0 60px ${team.color}, 0 0 120px ${team.color}50`
+                  : `0 0 30px ${team.color}40`
+              }}
+              animate={currentRevealIndex === index && showSpotlight ? {
+                scale: [1, 1.05, 1],
+              } : {}}
+              transition={{ duration: 0.5, repeat: currentRevealIndex === index ? Infinity : 0 }}
+            >
+              {/* Couronne pour le 1er */}
+              {index === 0 && (
+                <motion.div
+                  className="absolute -top-8 left-1/2 -translate-x-1/2"
+                  animate={{ y: [0, -5, 0], rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Crown className="w-16 h-16 text-yellow-400" />
+                </motion.div>
+              )}
+
+              {/* VS au milieu */}
+              {index === 0 && (
+                <motion.div
+                  className="absolute -right-16 top-1/2 -translate-y-1/2 z-20"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 1, type: "spring" }}
+                >
+                  <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center">
+                    <span className="text-3xl font-black text-white">VS</span>
+                  </div>
+                </motion.div>
+              )}
+
+              <div className="text-center">
+                <div
+                  className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white"
+                  style={{ backgroundColor: team.color }}
+                />
+                <h2 className="text-4xl font-black text-white mb-2">{team.name}</h2>
+                <div className="text-6xl font-black" style={{ color: team.color }}>
+                  {team.score}
+                </div>
+                <div className="text-gray-400 text-lg">points</div>
+
+                {getTotalJokers(team) > 0 && (
+                  <div className="mt-4 flex justify-center gap-2">
+                    {[...Array(Math.min(getTotalJokers(team), 5))].map((_, i) => (
+                      <Zap key={i} className="w-6 h-6 text-yellow-400" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} relative overflow-hidden flex items-center justify-center p-8`}>
       {/* Particules animées */}
-      {[...Array(30)].map((_, i) => (
+      {[...Array(50)].map((_, i) => (
         <motion.div
           key={i}
           className={`absolute w-2 h-2 ${theme.particleColor} rounded-full`}
           initial={{
-            x: Math.random() * window.innerWidth,
-            y: window.innerHeight + 50,
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
+            y: (typeof window !== 'undefined' ? window.innerHeight : 1080) + 50,
             opacity: 0
           }}
           animate={{
@@ -148,155 +276,223 @@ export const FinalIntroScreen = ({ final }: FinalIntroScreenProps) => {
         />
       ))}
 
+      {/* Spotlight effect pendant la révélation */}
+      {showSpotlight && currentRevealIndex >= 0 && currentRevealIndex < teams.length && (
+        <motion.div
+          className="absolute inset-0 z-0"
+          style={{
+            background: `radial-gradient(circle at 50% 60%, ${teams[currentRevealIndex]?.color}40 0%, transparent 50%)`
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 0.5, repeat: Infinity }}
+        />
+      )}
+
       {/* Contenu principal */}
       <div className="relative z-10 max-w-7xl w-full">
-        {/* Titre animé */}
-        <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 1, type: "spring" }}
-          className="text-center mb-12"
-        >
-          <motion.div
-            animate={{
-              scale: [1, 1.1, 1],
-              rotate: [0, 5, -5, 0],
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="inline-block mb-6"
-          >
-            <Trophy className={`w-32 h-32 ${theme.iconColor} drop-shadow-[0_0_30px_${theme.shadowColor}]`} />
-          </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className={`text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r ${theme.titleGradient} mb-4`}
-            style={{
-              textShadow: `0 0 60px ${theme.shadowColor}`,
-            }}
-          >
-            {finalName.toUpperCase()}
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className={`text-3xl ${theme.textColor} font-bold mb-2`}
-          >
-            🔥 LES {finalistCount} MEILLEURS S'AFFRONTENT 🔥
-          </motion.p>
-
-          {final.point_multiplier && final.point_multiplier !== 1 && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.3 }}
-              className="text-2xl text-amber-400 font-bold mb-2"
+        {/* Phase 1: Titre */}
+        <AnimatePresence>
+          {(introPhase === 'title' || introPhase === 'countdown') && (
+            <motion.div
+              className="text-center"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: -100 }}
+              transition={{ duration: 0.5, type: "spring" }}
             >
-              ⚡ Points ×{final.point_multiplier} ⚡
-            </motion.p>
-          )}
-
-          {final.first_correct_bonus && final.first_correct_bonus > 0 && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.5 }}
-              className="text-xl text-green-400 font-semibold mb-2"
-            >
-              🎯 +{final.first_correct_bonus} pts bonus pour la 1ère bonne réponse
-            </motion.p>
-          )}
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.7 }}
-            className={`text-xl ${theme.textSecondary}`}
-          >
-            Que le meilleur gagne !
-          </motion.p>
-        </motion.div>
-
-        {/* Liste des finalistes - Grille dynamique */}
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 2 }}
-          className={`grid gap-4`}
-          style={{
-            gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`
-          }}
-        >
-          {teams.map((team, index) => {
-            const totalJokers = getTotalJokers(team);
-
-            return (
               <motion.div
-                key={team.id}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 2 + index * 0.1 }}
-                className="relative"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  rotate: [0, 10, -10, 0],
+                }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="inline-block mb-6"
               >
-                <div
-                  className="bg-gradient-to-br from-card/90 to-card/70 backdrop-blur-xl rounded-2xl p-4 border-2 transition-all hover:scale-105"
-                  style={{
-                    borderColor: team.color,
-                    boxShadow: `0 0 20px ${team.color}40`,
-                  }}
+                <Trophy className={`w-40 h-40 ${theme.iconColor}`} style={{ filter: `drop-shadow(0 0 40px ${theme.shadowColor})` }} />
+              </motion.div>
+
+              <motion.h1
+                className={`text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r ${theme.titleGradient} mb-4`}
+                style={{ textShadow: `0 0 80px ${theme.shadowColor}` }}
+              >
+                {finalName.toUpperCase()}
+              </motion.h1>
+
+              {introPhase === 'countdown' && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{ duration: 0.5 }}
+                  className={`text-8xl font-black ${theme.textColor}`}
                 >
-                  {/* Rang */}
-                  <div
-                    className="absolute -top-3 -left-3 w-10 h-10 rounded-full flex items-center justify-center font-black text-lg border-2 border-white"
-                    style={{ backgroundColor: team.color }}
-                  >
-                    #{index + 1}
-                  </div>
+                  🔥 C'EST PARTI ! 🔥
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-                  {/* Nom de l'équipe */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-6 h-6 rounded-full flex-shrink-0 ring-2 ring-white"
-                      style={{ backgroundColor: team.color }}
-                    />
-                    <h3 className="font-bold text-lg text-white truncate flex-1">
-                      {team.name}
-                    </h3>
-                  </div>
+        {/* Phase 2-3: Révélation des équipes */}
+        {(introPhase === 'reveal' || introPhase === 'all') && (
+          <>
+            {/* Titre compact */}
+            <motion.div
+              className="text-center mb-8"
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-center justify-center gap-4 mb-2">
+                <Flame className={`w-10 h-10 ${theme.iconColor}`} />
+                <h1 className={`text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r ${theme.titleGradient}`}>
+                  {finalName.toUpperCase()}
+                </h1>
+                <Flame className={`w-10 h-10 ${theme.iconColor}`} />
+              </div>
+              <p className={`text-2xl ${theme.textColor} font-bold`}>
+                {finalistCount === 2 ? '⚔️ DUEL FINAL ⚔️' : `🏆 LES ${finalistCount} FINALISTES 🏆`}
+              </p>
+              {final.point_multiplier && final.point_multiplier !== 1 && (
+                <p className="text-xl text-amber-400 font-bold mt-2">⚡ Points ×{final.point_multiplier}</p>
+              )}
+            </motion.div>
 
-                  {/* Score */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Score</span>
-                    <span className="text-2xl font-black text-white">
-                      {team.score}
-                    </span>
-                  </div>
+            {/* Mode duel spécial pour 2 équipes */}
+            {finalistCount === 2 ? renderDuelMode() : (
+              /* Grille standard pour plus de 2 équipes */
+              <motion.div
+                className="grid gap-4"
+                style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+              >
+                {teams.map((team, index) => {
+                  const totalJokers = getTotalJokers(team);
+                  const isRevealed = currentRevealIndex >= index || introPhase === 'all';
+                  const isCurrentSpotlight = currentRevealIndex === index && showSpotlight;
 
-                  {/* Jokers */}
-                  {totalJokers > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Zap className="w-3 h-3" /> Jokers
-                      </span>
-                      <div className="flex gap-1">
-                        {[...Array(Math.min(totalJokers, 10))].map((_, i) => (
-                          <Zap key={i} className={`w-3 h-3 ${theme.iconColor}`} />
-                        ))}
-                        {totalJokers > 10 && (
-                          <span className="text-xs text-muted-foreground ml-1">+{totalJokers - 10}</span>
+                  return (
+                    <motion.div
+                      key={team.id}
+                      initial={{ opacity: 0, scale: 0, rotateY: 180 }}
+                      animate={{
+                        opacity: isRevealed ? 1 : 0.1,
+                        scale: isCurrentSpotlight ? 1.1 : (isRevealed ? 1 : 0.8),
+                        rotateY: isRevealed ? 0 : 180
+                      }}
+                      transition={{
+                        duration: 0.5,
+                        type: "spring",
+                        damping: 15
+                      }}
+                      className={`relative ${isCurrentSpotlight ? 'z-10' : ''}`}
+                    >
+                      <div
+                        className="bg-gradient-to-br from-card/90 to-card/70 backdrop-blur-xl rounded-2xl p-4 border-2 transition-all"
+                        style={{
+                          borderColor: team.color,
+                          boxShadow: isCurrentSpotlight
+                            ? `0 0 40px ${team.color}, 0 0 80px ${team.color}50`
+                            : `0 0 20px ${team.color}40`,
+                        }}
+                      >
+                        {/* Badge rang animé */}
+                        <motion.div
+                          className="absolute -top-3 -left-3 w-12 h-12 rounded-full flex items-center justify-center font-black text-xl border-2 border-white"
+                          style={{ backgroundColor: team.color }}
+                          animate={isCurrentSpotlight ? {
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 10, -10, 0]
+                          } : {}}
+                          transition={{ duration: 0.5, repeat: isCurrentSpotlight ? Infinity : 0 }}
+                        >
+                          {index === 0 ? <Crown className="w-6 h-6" /> : `#${index + 1}`}
+                        </motion.div>
+
+                        {/* Étoiles pour le spotlight */}
+                        {isCurrentSpotlight && (
+                          <>
+                            <motion.div
+                              className="absolute -top-2 -right-2"
+                              animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            >
+                              <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                            </motion.div>
+                            <motion.div
+                              className="absolute -bottom-2 -right-2"
+                              animate={{ rotate: -360, scale: [1, 1.2, 1] }}
+                              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                            >
+                              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                            </motion.div>
+                          </>
+                        )}
+
+                        {/* Nom de l'équipe */}
+                        <div className="flex items-center gap-3 mb-3 mt-2">
+                          <div
+                            className="w-8 h-8 rounded-full flex-shrink-0 ring-2 ring-white"
+                            style={{ backgroundColor: team.color }}
+                          />
+                          <h3 className="font-bold text-xl text-white truncate flex-1">
+                            {team.name}
+                          </h3>
+                        </div>
+
+                        {/* Score avec animation */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-muted-foreground">Score</span>
+                          <motion.span
+                            className="text-3xl font-black text-white"
+                            animate={isCurrentSpotlight ? { scale: [1, 1.1, 1] } : {}}
+                            transition={{ duration: 0.5, repeat: isCurrentSpotlight ? Infinity : 0 }}
+                          >
+                            {team.score}
+                          </motion.span>
+                        </div>
+
+                        {/* Jokers */}
+                        {totalJokers > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Zap className="w-3 h-3" /> Jokers
+                            </span>
+                            <div className="flex gap-1">
+                              {[...Array(Math.min(totalJokers, 10))].map((_, i) => (
+                                <motion.div
+                                  key={i}
+                                  animate={isCurrentSpotlight ? { y: [0, -3, 0] } : {}}
+                                  transition={{ duration: 0.3, delay: i * 0.1, repeat: isCurrentSpotlight ? Infinity : 0 }}
+                                >
+                                  <Zap className={`w-4 h-4 ${theme.iconColor}`} />
+                                </motion.div>
+                              ))}
+                              {totalJokers > 10 && (
+                                <span className="text-xs text-muted-foreground ml-1">+{totalJokers - 10}</span>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
+                    </motion.div>
+                  );
+                })}
               </motion.div>
-            );
-          })}
-        </motion.div>
+            )}
+
+            {/* Message final */}
+            {introPhase === 'all' && (
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className={`text-center text-3xl ${theme.textColor} font-bold mt-8`}
+              >
+                🎯 Que le meilleur gagne ! 🎯
+              </motion.p>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -55,11 +55,14 @@ export interface KickTeamEvent extends GameEvent {
   };
 }
 
+// Type pour tous les jokers disponibles
+export type JokerType = 'fifty_fifty' | 'team_call' | 'public_vote' | 'double_points' | 'shield' | 'time_bonus' | 'second_chance';
+
 export interface JokerActivatedEvent extends GameEvent {
   type: 'JOKER_ACTIVATED';
   data: {
     teamId: string;
-    jokerType: 'fifty_fifty' | 'team_call' | 'public_vote';
+    jokerType: JokerType;
     finalId: string;
     questionOptions?: any; // Options de la question pour le 50-50
     correctAnswer?: string; // Bonne réponse pour le 50-50
@@ -229,7 +232,7 @@ export const gameEvents = {
     });
   },
 
-  activateJoker: async (teamId: string, jokerType: 'fifty_fifty' | 'team_call' | 'public_vote', finalId: string, questionOptions?: any, correctAnswer?: string) => {
+  activateJoker: async (teamId: string, jokerType: JokerType, finalId: string, questionOptions?: any, correctAnswer?: string) => {
     console.log('🎮 [gameEvents.activateJoker] Appelé avec:', { teamId, jokerType, finalId, questionOptions, correctAnswer });
     await getGameEvents().emit({
       type: 'JOKER_ACTIVATED',

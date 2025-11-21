@@ -415,6 +415,7 @@ export const FinalManager = ({ sessionId, gameState }: FinalManagerProps) => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="2">🔥 2 équipes (Duel Final)</SelectItem>
                     {[4, 6, 8, 10, 12, 16].map(n => (
                       <SelectItem key={n} value={n.toString()}>{n} équipes</SelectItem>
                     ))}

@@ -300,11 +300,73 @@ export interface KickTeamEventData {
 
 export interface JokerActivatedEventData {
   teamId: string;
-  jokerType: 'fifty_fifty' | 'team_call' | 'public_vote';
+  jokerType: 'fifty_fifty' | 'team_call' | 'public_vote' | 'double_points' | 'shield' | 'time_bonus' | 'second_chance';
   finalId: string;
   questionOptions?: string[];
   correctAnswer?: string;
 }
+
+// Types de jokers disponibles
+export type JokerTypeName = 'fifty_fifty' | 'team_call' | 'public_vote' | 'double_points' | 'shield' | 'time_bonus' | 'second_chance';
+
+// Configuration des jokers avec leurs effets
+export const JOKER_EFFECTS: Record<JokerTypeName, {
+  name: string;
+  icon: string;
+  description: string;
+  effect: string;
+  color: string;
+}> = {
+  fifty_fifty: {
+    name: '50/50',
+    icon: '🎯',
+    description: 'Élimine 2 mauvaises réponses',
+    effect: 'eliminate_options',
+    color: 'blue'
+  },
+  team_call: {
+    name: 'Appel Équipe',
+    icon: '📞',
+    description: 'Demander de l\'aide à votre équipe',
+    effect: 'team_help',
+    color: 'green'
+  },
+  public_vote: {
+    name: 'Vote Public',
+    icon: '👥',
+    description: 'Le public vote pour vous aider',
+    effect: 'public_help',
+    color: 'purple'
+  },
+  double_points: {
+    name: 'Double Points',
+    icon: '🔥',
+    description: 'Double les points de la prochaine bonne réponse',
+    effect: 'multiply_points',
+    color: 'orange'
+  },
+  shield: {
+    name: 'Bouclier',
+    icon: '🛡️',
+    description: 'Protège contre la pénalité',
+    effect: 'protect_penalty',
+    color: 'cyan'
+  },
+  time_bonus: {
+    name: 'Temps Bonus',
+    icon: '⏱️',
+    description: '+10 secondes pour répondre',
+    effect: 'add_time',
+    color: 'yellow'
+  },
+  second_chance: {
+    name: 'Seconde Chance',
+    icon: '🎲',
+    description: 'Re-répondre si erreur',
+    effect: 'retry_answer',
+    color: 'pink'
+  }
+};
 
 export interface RevealAnswerEventData {
   teamId: string;
